@@ -1,0 +1,992 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Cloud Daftar User Manual</title>
+  <style>
+    @page { size: A4; margin: 16mm 14mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #172033; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; background: white; }
+    .cover { min-height: 92vh; display: flex; flex-direction: column; justify-content: center; border-bottom: 5px solid #714b67; }
+    .brand { color: #714b67; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+    h1 { font-size: 42px; line-height: 1.08; margin: 14px 0 12px; color: #111827; }
+    .subtitle { font-size: 18px; max-width: 720px; color: #4b5563; }
+    .meta { margin-top: 42px; color: #4b5563; font-size: 13px; }
+    h2 { color: #111827; font-size: 24px; margin: 0 0 12px; page-break-after: avoid; }
+    h3 { color: #273244; font-size: 13px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+    p { margin: 0 0 9px; }
+    section { page-break-inside: avoid; margin: 0 0 18px; padding: 0 0 12px; border-bottom: 1px solid #e5e7eb; }
+    .module { padding-top: 10px; }
+    .triad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+    .triad > div, .grid2 > div, .note, table { border: 1px solid #d8dee9; border-radius: 8px; padding: 10px; background: #fbfcfe; }
+    .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    ul { margin: 0; padding-left: 18px; }
+    li { margin: 2px 0; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; padding: 0; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+    th { background: #eef2f7; color: #111827; }
+    tr:last-child td { border-bottom: 0; }
+    .muted { color: #6b7280; font-style: italic; }
+    .toc { columns: 2; column-gap: 30px; }
+    .toc li { break-inside: avoid; margin-bottom: 5px; }
+    .small { font-size: 12px; color: #4b5563; }
+    .screenshots { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    figure { margin: 0; page-break-inside: avoid; border: 1px solid #d8dee9; border-radius: 8px; overflow: hidden; background: #ffffff; }
+    figure img { display: block; width: 100%; height: auto; max-height: 165mm; object-fit: contain; object-position: top left; }
+    figcaption { padding: 7px 10px; border-top: 1px solid #e5e7eb; color: #374151; font-size: 12px; font-weight: 700; background: #f8fafc; }
+    .pagebreak { page-break-before: always; }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="brand">Cloud Daftar</div>
+    <h1>User Manual</h1>
+    <p class="subtitle">A layman-language guide for every major screen, module, tab, button type, toast message, dashboard, setting, and administration area.</p>
+    <div class="meta">
+      <p><strong>Generated:</strong> 23/05/2026</p>
+      <p><strong>Audience:</strong> Business owners, cashiers, accountants, managers, staff users, and platform admins.</p>
+      <p><strong>Note:</strong> Some screens appear only when the user's role, permissions, plan, or tenant route allows them.</p>
+    </div>
+  </div>
+
+  <section>
+    <h2>How To Read This Manual</h2>
+    <p>This manual explains Cloud Daftar in simple business language. Each module includes purpose, scope, and impact.</p>
+    <table>
+      <tr><th>Term</th><th>Meaning</th></tr>
+      <tr><td>Purpose</td><td>Why this screen exists.</td></tr>
+      <tr><td>Scope</td><td>What this screen or module can handle.</td></tr>
+      <tr><td>Impact</td><td>What changes in the business when a user works here.</td></tr>
+      <tr><td>Toast</td><td>A small message that appears after an action, such as saved successfully or failed.</td></tr>
+      <tr><td>Permission</td><td>A rule that decides whether a user can view, create, edit, delete, approve, export, or manage something.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Navigation Map</h2>
+    <p>The sidebar groups the system into business areas. The top bar also provides search, notifications, theme, profile, settings, billing, and sign out shortcuts.</p>
+    <table>
+      <tr><th>Sidebar Group</th><th>Screens</th></tr>
+      <tr><td>Dashboard</td><td>Dashboard, Apps, Activity</td></tr><tr><td>POS</td><td>POS Register</td></tr><tr><td>Sales</td><td>Sales Invoices, Customer Payments, Returns, Quotations, Customer Statements</td></tr><tr><td>Purchases</td><td>Purchases, Purchase Orders, Supplier Payments, Purchase Returns, Supplier Statements</td></tr><tr><td>Inventory</td><td>Products, Categories, Units, Branches &amp; Warehouses, Barcode Management, Stock Adjustment, Inventory Ledger, Low Stock Alerts</td></tr><tr><td>Contacts</td><td>Customers, Suppliers</td></tr><tr><td>Accounting</td><td>Dashboard, Expenses, Customer Invoices, Vendor Bills, Income / Expense, Cash Flow, Chart of Accounts, Journal Entries, Financial Reports, Reports</td></tr><tr><td>Reports</td><td>Sales Reports, Purchase Reports, Inventory Reports, Tax / VAT Reports, Receivable Aging, Payable Aging</td></tr><tr><td>Expenses</td><td>My Expenses</td></tr><tr><td>Employees</td><td>Employees, Payroll</td></tr><tr><td>Administration</td><td>Users, Roles &amp; Permissions, Workspace Settings, Invoice Templates, Theme &amp; Branding</td></tr><tr><td>Bottom Menu</td><td>Billing &amp; Subscription, Help / Support, Logout</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Common Buttons And Controls</h2>
+    <table>
+      <tr><th>Control</th><th>Layman Explanation</th></tr>
+      <tr><td>Search box</td><td>Type part of a name, number, SKU, barcode, invoice, customer, supplier, or setting to narrow the list.</td></tr><tr><td>Add/New button</td><td>Opens a form to create a record. The record is not saved until Save/Create/Submit is clicked.</td></tr><tr><td>Edit button</td><td>Opens an existing record so allowed fields can be changed.</td></tr><tr><td>Delete/Remove button</td><td>Removes or deactivates a record. Use carefully because some records affect reports and history.</td></tr><tr><td>Save/Create/Submit button</td><td>Checks the form and stores the information.</td></tr><tr><td>Cancel/Close button</td><td>Leaves the dialog without saving current unsaved changes.</td></tr><tr><td>Export CSV/Excel</td><td>Downloads table data so it can be opened in Excel or shared with an accountant.</td></tr><tr><td>Print/PDF</td><td>Creates a printable document for customers, suppliers, or internal records.</td></tr><tr><td>Filter button</td><td>Applies selected dates, status, product, customer, supplier, or type filters.</td></tr><tr><td>Previous/Next page</td><td>Moves through long lists without loading everything at once.</td></tr><tr><td>Switch/toggle</td><td>Turns a setting on or off.</td></tr><tr><td>Select/dropdown</td><td>Lets the user choose one value from a list.</td></tr><tr><td>Tabs</td><td>Divide one module into related sub-sections without leaving the screen.</td></tr><tr><td>Dialog/modal</td><td>A smaller window for quick create, edit, confirmation, or detail work.</td></tr><tr><td>Toast message</td><td>A temporary popup showing success, warning, or error after an action.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Common Toast Types</h2>
+    <table>
+      <tr><th>Toast Type</th><th>Meaning</th><th>What To Do</th></tr>
+      <tr><td>Success</td><td>The action worked.</td><td>Continue with the next task.</td></tr>
+      <tr><td>Error</td><td>The action failed or required information is missing.</td><td>Read the message, correct the form, check permissions, or try again.</td></tr>
+      <tr><td>Warning/Disabled button</td><td>The action is not available yet.</td><td>Complete required fields, select records, or ask an admin for permission.</td></tr>
+      <tr><td>Loading/Saving</td><td>The system is working.</td><td>Wait until the button becomes active again.</td></tr>
+    </table>
+  </section>
+
+  <div class="pagebreak"></div>
+  <section>
+    <h2>Table Of Contents</h2>
+    <ol class="toc">
+      <li>Login</li><li>Dashboard</li><li>Apps</li><li>Activity / Audit Log</li><li>POS Register</li><li>Sales Invoices</li><li>Customer Payments</li><li>Sales Returns</li><li>Quotations</li><li>Customer Statements</li><li>Purchases</li><li>Purchase Orders</li><li>Supplier Payments</li><li>Purchase Returns</li><li>Supplier Statements</li><li>Inventory</li><li>Categories</li><li>Units</li><li>Branches &amp; Warehouses</li><li>Barcode Management</li><li>Stock Adjustments</li><li>Inventory Ledger</li><li>Low Stock Alerts</li><li>Customers</li><li>Suppliers</li><li>Accounting Dashboard</li><li>Accounting Expenses</li><li>Accounts Receivable</li><li>Accounts Payable</li><li>Income &amp; Expense</li><li>Cash Flow</li><li>Chart of Accounts</li><li>Journal Entries</li><li>Financial Reports</li><li>Accounting Reports</li><li>Reports</li><li>My Expenses</li><li>Employees</li><li>Payroll</li><li>Users</li><li>Roles &amp; Permissions</li><li>Settings</li><li>Settings - General</li><li>Settings - Business</li><li>Settings - Preferences</li><li>Settings - POS Printer</li><li>Invoice Templates</li><li>Theme &amp; Branding</li><li>Tax Compliance</li><li>Billing &amp; Subscription</li><li>Profile</li><li>Notifications</li><li>Payment Reminders &amp; Commitments</li><li>Help &amp; Support</li><li>Super Admin Console</li>
+    </ol>
+  </section>
+
+  <div class="pagebreak"></div>
+  
+    <section>
+      <h2>Screen Examples</h2>
+      <p>These screenshots show the actual Cloud Daftar interface from the demo workspace. They help users match this manual with what they see on screen.</p>
+      <div class="screenshots">
+        
+              <figure>
+                <img src="manual-screenshots/login.png" alt="Login screenshot" />
+                <figcaption>Login</figcaption>
+              </figure>
+              <figure>
+                <img src="manual-screenshots/apps.png" alt="Apps Launchpad screenshot" />
+                <figcaption>Apps Launchpad</figcaption>
+              </figure>
+              <figure>
+                <img src="manual-screenshots/dashboard.png" alt="Dashboard screenshot" />
+                <figcaption>Dashboard</figcaption>
+              </figure>
+              <figure>
+                <img src="manual-screenshots/pos-register.png" alt="POS Register screenshot" />
+                <figcaption>POS Register</figcaption>
+              </figure>
+              <figure>
+                <img src="manual-screenshots/sales.png" alt="Sales Invoices screenshot" />
+                <figcaption>Sales Invoices</figcaption>
+              </figure>
+              <figure>
+                <img src="manual-screenshots/inventory.png" alt="Inventory screenshot" />
+                <figcaption>Inventory</figcaption>
+              </figure>
+              <figure>
+                <img src="manual-screenshots/reports.png" alt="Reports screenshot" />
+                <figcaption>Reports</figcaption>
+              </figure>
+              <figure>
+                <img src="manual-screenshots/settings.png" alt="Settings screenshot" />
+                <figcaption>Settings</figcaption>
+              </figure>
+              <figure>
+                <img src="manual-screenshots/help.png" alt="Help &amp; Support With Manual screenshot" />
+                <figcaption>Help &amp; Support With Manual</figcaption>
+              </figure>
+      </div>
+    </section>
+
+  <div class="pagebreak"></div>
+  
+    <section class="module">
+      <h2>Login</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Lets a registered user enter Cloud Daftar.</p></div>
+        <div><h3>Scope</h3><p>Email/password login, Google sign-in where enabled, rememberable sessions, forgot-password link, and redirect to the correct workspace.</p></div>
+        <div><h3>Impact</h3><p>Controls who can access company data. A failed login keeps business information protected; a successful login opens the user's permitted screens.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Login</li><li>Forgot Password</li><li>Verify Reset Code</li><li>New Password</li><li>Register</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Sign in</li><li>Continue with Google</li><li>Forgot password</li><li>Create account</li><li>Send verification code</li><li>Resend code</li><li>Update password</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Welcome back</li><li>Sign in unsuccessful</li><li>Check your email</li><li>Code verified</li><li>Verification code sent</li><li>Password updated</li><li>Reset failed</li><li>Account created</li><li>Registration failed</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Dashboard</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Gives owners and managers a quick health check of the business.</p></div>
+        <div><h3>Scope</h3><p>Total sales, month-to-date sales, products, customers, daily sales chart, purchases this month, recent sales, low-stock products, and shortcut buttons.</p></div>
+        <div><h3>Impact</h3><p>Helps the user spot sales movement, stock risk, and recent transactions before opening detailed modules.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Dashboard</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Reports</li><li>Sales</li><li>Open purchases</li><li>View all</li><li>New sale</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Apps</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows the available business modules as app cards.</p></div>
+        <div><h3>Scope</h3><p>POS, Sales, Purchases, Inventory, Contacts, Accounting, Expenses, Employees, Payroll, Reports, Branches &amp; Warehouses, Templates, and Settings.</p></div>
+        <div><h3>Impact</h3><p>Acts as a simple launchpad for users who prefer choosing modules visually instead of using the sidebar.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Apps</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Open app/module cards</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Activity / Audit Log</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows important actions performed in the workspace.</p></div>
+        <div><h3>Scope</h3><p>User activity, admin actions, changed records, timestamps, and audit filtering where available.</p></div>
+        <div><h3>Impact</h3><p>Improves accountability and helps investigate who changed business records.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Activity</li><li>Audit Log</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Search</li><li>Previous page</li><li>Next page</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>POS Register</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Lets a cashier make quick counter sales.</p></div>
+        <div><h3>Scope</h3><p>Product search, barcode scan, category filter, cart, quantity/discount/price keypad, customer selection, payment method, paid amount, change, due amount, notes, draft sale, complete sale, receipt printing, fullscreen mode.</p></div>
+        <div><h3>Impact</h3><p>Creates invoices immediately, reduces manual entry at the counter, updates stock, records payment, and can print thermal receipts.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>POS Register</li><li>New Sale</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Home</li><li>Menu</li><li>Fullscreen</li><li>Exit fullscreen</li><li>Search</li><li>Category</li><li>Add product</li><li>Qty</li><li>Disc</li><li>Price</li><li>Backspace</li><li>Clear</li><li>Save Draft</li><li>Complete Sale</li><li>Print</li><li>New order</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Add at least one product</li><li>Draft saved</li><li>Sale completed</li><li>Fullscreen is not available in this browser</li><li>Could not switch fullscreen mode</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Sales Invoices</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Manages all customer invoices and sales history.</p></div>
+        <div><h3>Scope</h3><p>Invoice list, search by invoice/customer, invoice status, totals, paid and due amounts, due dates, detail drawer, edit invoice details, print, download PDF, refund, convert completed invoice back to draft where allowed, and export sales.</p></div>
+        <div><h3>Impact</h3><p>Keeps revenue records organized, supports payment tracking, and feeds receivables, reports, tax, and inventory movement.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Sales</li><li>Sale Detail</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Sale</li><li>Export Sales</li><li>Search</li><li>View</li><li>Edit</li><li>Save</li><li>Print</li><li>Download PDF</li><li>Refund</li><li>Convert to draft</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Sale updated</li><li>Sale refunded</li><li>Converted to draft</li><li>Error processing refund</li><li>Error converting to draft</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Customer Payments</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Records and reviews money received from customers.</p></div>
+        <div><h3>Scope</h3><p>Incoming payment list, filters, export, payment method, references, customer and invoice links.</p></div>
+        <div><h3>Impact</h3><p>Reduces outstanding receivables and keeps customer balances accurate.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Customer Payments</li><li>Receive Payment dialog</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Export CSV</li><li>Receive payment</li><li>Select invoices</li><li>Record payment</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Payment recorded successfully</li><li>Please select at least one invoice</li><li>Payment amount must be positive</li><li>Payment amount cannot exceed total due</li><li>Error recording payment</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Sales Returns</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows refunded or cancelled sales.</p></div>
+        <div><h3>Scope</h3><p>Return list, search, status, customer, amount, date, and CSV export.</p></div>
+        <div><h3>Impact</h3><p>Keeps revenue corrections visible and helps reconcile returned goods or cancelled invoices.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Sales Returns</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Search returns</li><li>CSV</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Quotations</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Creates price offers before they become invoices.</p></div>
+        <div><h3>Scope</h3><p>Quotation list, search, create quotation, line items, customer, status, validity, print, PDF download, update, export CSV/Excel.</p></div>
+        <div><h3>Impact</h3><p>Supports sales follow-up without affecting stock or revenue until the customer accepts and the sale is created.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Quotations</li><li>New Quotation</li><li>Quotation Detail</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Quotation</li><li>CSV</li><li>Excel</li><li>View</li><li>Edit</li><li>Print</li><li>Download</li><li>Save</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Quotation created</li><li>Quotation updated</li><li>Add at least one item</li><li>Failed to create quotation</li><li>Failed to update quotation</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Customer Statements</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows a customer's full transaction history.</p></div>
+        <div><h3>Scope</h3><p>Customer selection, date range, invoices, payments, opening/closing balance, CSV export, PDF download.</p></div>
+        <div><h3>Impact</h3><p>Helps answer customer balance questions and supports collections.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Customer Statement</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Select customer</li><li>Generate Statement</li><li>Export CSV</li><li>Download PDF</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Purchases</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Records supplier purchases and bills.</p></div>
+        <div><h3>Scope</h3><p>Purchase list, supplier, items, cost, status, taxes, payments, new purchase dialog, and supplier linkage.</p></div>
+        <div><h3>Impact</h3><p>Updates stock costs, payables, supplier history, and purchase reports.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Purchases</li><li>New Purchase</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Purchase</li><li>Save</li><li>Cancel</li><li>Search</li><li>View/Edit</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Purchase created</li><li>Purchase updated</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Purchase Orders</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Tracks purchase requests before final purchase billing.</p></div>
+        <div><h3>Scope</h3><p>Draft and approved purchase orders, suppliers, items, expected cost, and order status.</p></div>
+        <div><h3>Impact</h3><p>Improves purchasing control before inventory and payables are affected.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Purchase Orders</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Create order</li><li>Approve</li><li>View</li><li>Edit</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Supplier Payments</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Records outgoing payments to suppliers.</p></div>
+        <div><h3>Scope</h3><p>Payment list, supplier invoices, selected bills, amount paid, payment method, notes, and export.</p></div>
+        <div><h3>Impact</h3><p>Reduces payables and keeps supplier balances correct.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Supplier Payments</li><li>Supplier Payment dialog</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Export CSV</li><li>Pay supplier</li><li>Select invoices</li><li>Record payment</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Select at least one invoice</li><li>Supplier is missing for this payable</li><li>Enter a valid amount</li><li>Amount exceeds total due</li><li>Payment recorded successfully</li><li>Error processing payment</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Purchase Returns</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows returned or cancelled purchases.</p></div>
+        <div><h3>Scope</h3><p>Return list, supplier, purchase reference, status, amount, date, search, and export.</p></div>
+        <div><h3>Impact</h3><p>Keeps supplier corrections visible and helps inventory/accounting stay aligned.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Purchase Returns</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Search</li><li>CSV</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Supplier Statements</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows a supplier's full transaction history.</p></div>
+        <div><h3>Scope</h3><p>Supplier selection, date range, bills, payments, balances, CSV export, PDF download.</p></div>
+        <div><h3>Impact</h3><p>Helps verify vendor balances and payment disputes.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Supplier Statement</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Select supplier</li><li>Generate Statement</li><li>Export CSV</li><li>Download PDF</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Inventory</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Manages products, stock levels, warehouses, traceability, and valuation.</p></div>
+        <div><h3>Scope</h3><p>Products, operations, replenishment, warehouses, traceability, reporting, product images, SKU/barcode, categories, units, price, stock, stock transfer, import, export, add lot/serial, stock ledger, and stock adjustment.</p></div>
+        <div><h3>Impact</h3><p>Controls what can be sold, where stock is stored, when to reorder, and how product movement is audited.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Inventory</li><li>Product dialog</li><li>Transfer Stock</li><li>Adjust Stock</li><li>Stock Ledger</li><li>Add Lot / Serial</li></ul></div>
+        <div><h3>Tabs</h3><ul><li>Operations</li><li>Products</li><li>Replenishment</li><li>Warehouses</li><li>Traceability</li><li>Reporting</li></ul></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Add Product</li><li>Transfer Stock</li><li>Import Products</li><li>Export Products</li><li>Search products</li><li>Edit</li><li>Delete</li><li>Adjust</li><li>Ledger</li><li>Add Lot / Serial</li><li>Save</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Product created</li><li>Product updated</li><li>Product deleted</li><li>Stock adjusted</li><li>Stock transferred</li><li>Traceability record created</li><li>Could not save lot or serial</li><li>Transfer failed</li><li>Error deleting product</li><li>Error adjusting stock</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Categories</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Groups products into simple product families.</p></div>
+        <div><h3>Scope</h3><p>Category name, description, color, create, edit, and save.</p></div>
+        <div><h3>Impact</h3><p>Makes product search, filtering, reporting, and POS category browsing easier.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Categories</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Category</li><li>Edit</li><li>Save</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Name is required</li><li>Category created</li><li>Category updated</li><li>Failed to save category</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Units</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Defines product measuring units.</p></div>
+        <div><h3>Scope</h3><p>Unit name and symbol such as Kilogram/kg, Meter/m, Box/box.</p></div>
+        <div><h3>Impact</h3><p>Keeps sales, purchases, and inventory quantities clear and consistent.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Settings &gt; Units</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Add Unit</li><li>Edit unit</li><li>Delete unit</li><li>Save</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Unit name is required</li><li>Unit created</li><li>Unit updated</li><li>Unit deleted</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Branches &amp; Warehouses</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Sets up where stock is physically held.</p></div>
+        <div><h3>Scope</h3><p>Branches, warehouses, locations such as receiving, quality, shelves, packing, output, scrap, stock by warehouse, and replenishment guidance.</p></div>
+        <div><h3>Impact</h3><p>Enables location-wise stock control and cleaner transfers between shops, depots, and counters.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Warehouse Management</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Open Barcode Operations</li><li>Open Stock Adjustments</li><li>Create branches</li><li>Add warehouses</li><li>Define locations</li><li>Monitor stock</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Barcode Management</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Supports barcode scanning, printing, and warehouse operations.</p></div>
+        <div><h3>Scope</h3><p>Scan barcode/SKU/location/operation, search products, assign barcode, print labels, export barcode product list.</p></div>
+        <div><h3>Impact</h3><p>Speeds up counter sales, receiving, picking, and stock lookup while reducing typing mistakes.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Barcode Operations</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Export</li><li>Print labels</li><li>Scan</li><li>Search</li><li>Assign barcode</li><li>Save barcode</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Barcode saved</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Stock Adjustments</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Corrects product stock manually.</p></div>
+        <div><h3>Scope</h3><p>Product search, current stock, positive or negative adjustment quantity, reason/notes.</p></div>
+        <div><h3>Impact</h3><p>Fixes stock after damage, counting differences, samples, or missing items. It changes inventory numbers, so it should be used carefully.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Stock Adjustments</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Search products</li><li>Adjust</li><li>Save</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Stock adjusted</li><li>Error adjusting stock</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Inventory Ledger</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows every stock movement.</p></div>
+        <div><h3>Scope</h3><p>Product filter, movement type filter, date filters, sales/purchase/adjustment/transfer movements, CSV/Excel export.</p></div>
+        <div><h3>Impact</h3><p>Provides audit history for why stock increased or decreased.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Inventory Ledger</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Filter</li><li>CSV</li><li>Excel</li><li>Previous page</li><li>Next page</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Low Stock Alerts</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows products below the minimum stock level.</p></div>
+        <div><h3>Scope</h3><p>Product search, low stock list, threshold comparison, and CSV export.</p></div>
+        <div><h3>Impact</h3><p>Helps prevent missed sales by warning the team before items run out.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Low Stock Alerts</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Search products</li><li>CSV</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Customers</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Stores customer contact and business details.</p></div>
+        <div><h3>Scope</h3><p>Customer list, add customer, import customers, view customer profile, contact fields, tax/payment details where present.</p></div>
+        <div><h3>Impact</h3><p>Improves invoicing, payment collection, statements, and reporting by keeping customer records consistent.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Customers</li><li>Add Customer</li><li>Customer Detail</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Add Customer</li><li>Import Customers</li><li>Save</li><li>Cancel</li><li>View</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Customer created</li><li>Customer updated</li><li>Import failed</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Suppliers</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Stores supplier and vendor details.</p></div>
+        <div><h3>Scope</h3><p>Supplier list, add supplier, import suppliers, view supplier profile and related purchase/payment data.</p></div>
+        <div><h3>Impact</h3><p>Improves purchase entry, supplier statements, and payable tracking.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Suppliers</li><li>Add Supplier</li><li>Supplier Detail</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Add Supplier</li><li>Import Suppliers</li><li>Save</li><li>Cancel</li><li>View</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Supplier created</li><li>Error</li><li>Import failed</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Accounting Dashboard</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Brings accounting work into one place.</p></div>
+        <div><h3>Scope</h3><p>Invoices, vendor bills, cash, reports, approvals, receivables, payables, expenses, and accounting shortcuts.</p></div>
+        <div><h3>Impact</h3><p>Helps finance users move quickly between money owed, money due, reports, and approvals.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Accounting</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Create invoice</li><li>Record bill</li><li>Open receivables</li><li>Open payables</li><li>Open reports</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Accounting Expenses</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Lets accounting review employee-submitted expenses.</p></div>
+        <div><h3>Scope</h3><p>Submitted expenses, receipt URL, categories, approval, rejection, reimbursement status.</p></div>
+        <div><h3>Impact</h3><p>Controls which expenses become company costs and which reimbursements are owed.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Accounting Expenses</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Approve</li><li>Reject</li><li>Mark reimbursed</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Expense approved</li><li>Expense rejected</li><li>Expense reimbursed</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Accounts Receivable</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Tracks money customers still owe.</p></div>
+        <div><h3>Scope</h3><p>Outstanding invoices, due dates, overdue amounts, reminders, invoice detail, receive payment, aging.</p></div>
+        <div><h3>Impact</h3><p>Improves collections and cash visibility.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Accounts Receivable</li><li>Receivables</li><li>Customer Aging</li><li>Customer Ledger</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Export CSV</li><li>Export Excel</li><li>View invoice</li><li>Send reminder</li><li>Receive payment</li><li>Previous page</li><li>Next page</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Payment reminder sent</li><li>Reminder sent</li><li>Error loading receivables</li><li>Error sending reminder</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Accounts Payable</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Tracks money owed to suppliers.</p></div>
+        <div><h3>Scope</h3><p>Vendor bills, due dates, overdue payables, supplier detail, supplier payment, payable aging.</p></div>
+        <div><h3>Impact</h3><p>Helps schedule payments and avoid missed vendor obligations.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Accounts Payable</li><li>Vendor Bills</li><li>Supplier Aging</li><li>Supplier Ledger</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>View bill</li><li>Pay supplier</li><li>Send reminder</li><li>Previous page</li><li>Next page</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Reminder sent</li><li>Payment recorded successfully</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Income &amp; Expense</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Compares income, costs, and profit.</p></div>
+        <div><h3>Scope</h3><p>Date filters, income, expense, profit/loss values, charts or tables, export where available.</p></div>
+        <div><h3>Impact</h3><p>Shows whether the business is making or losing money over a selected period.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Income &amp; Expense</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Filter</li><li>CSV</li><li>Excel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Cash Flow</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows money coming in and going out.</p></div>
+        <div><h3>Scope</h3><p>Cash inflows, outflows, date range filters, exports, transaction drilldown.</p></div>
+        <div><h3>Impact</h3><p>Helps plan cash needs and identify tight periods.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Cash Flow</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Filter</li><li>CSV</li><li>Excel</li><li>Previous page</li><li>Next page</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Chart of Accounts</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Defines the account structure used by accounting.</p></div>
+        <div><h3>Scope</h3><p>Account code, name, type, parent account, description, create/edit/deactivate.</p></div>
+        <div><h3>Impact</h3><p>Controls how transactions are classified. Bad account setup can make reports confusing, so changes should be deliberate.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Chart of Accounts</li><li>New Account</li><li>Edit Account</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Account</li><li>Create</li><li>Update</li><li>Cancel</li><li>Deactivate</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Account created</li><li>Account updated</li><li>Account deactivated</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Journal Entries</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Records manual accounting entries.</p></div>
+        <div><h3>Scope</h3><p>Date, description, journal type, reference, debit lines, credit lines, add/remove lines, post entry.</p></div>
+        <div><h3>Impact</h3><p>Directly affects financial accounts and reports. Entries must balance before posting.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Journal Entries</li><li>New Journal Entry</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Entry</li><li>Add line</li><li>Remove line</li><li>Post</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Unbalanced entry</li><li>Journal entry posted</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Financial Reports</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Produces core accounting reports.</p></div>
+        <div><h3>Scope</h3><p>General ledger, trial balance, financial statements, date filters, and CSV export.</p></div>
+        <div><h3>Impact</h3><p>Supports owner review, accountant checks, and period-end reporting.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Financial Reports</li></ul></div>
+        <div><h3>Tabs</h3><ul><li>General Ledger</li><li>Trial Balance</li><li>Financial Statements</li></ul></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Run report</li><li>Export CSV</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Accounting Reports</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Generates operational accounting reports.</p></div>
+        <div><h3>Scope</h3><p>Aging report, collections, outstanding balances, payment history, and export.</p></div>
+        <div><h3>Impact</h3><p>Helps finance teams chase payments and understand collection/payment patterns.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Accounting Reports</li></ul></div>
+        <div><h3>Tabs</h3><ul><li>Aging Report</li><li>Collections</li><li>Outstanding</li><li>Payment History</li></ul></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Export</li><li>Filter</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Exported</li><li>Failed to load aging report</li><li>Failed to load collections</li><li>Failed to load outstanding report</li><li>Failed to load payment history</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Reports</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Provides cross-module summaries and report shortcuts.</p></div>
+        <div><h3>Scope</h3><p>Revenue, month-to-date, purchases, products, customers, and links to sales, purchase, inventory, tax, customer statement, and supplier statement reports.</p></div>
+        <div><h3>Impact</h3><p>Turns daily business data into management-level information.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Reports</li><li>Sales Reports</li><li>Purchase Reports</li><li>Inventory Reports</li><li>Tax / VAT Reports</li><li>Receivable Aging</li><li>Payable Aging</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Export Summary</li><li>Open report</li><li>CSV</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>My Expenses</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Lets staff submit expenses for approval.</p></div>
+        <div><h3>Scope</h3><p>Description, category, amount, date, receipt URL, status, and personal expense history.</p></div>
+        <div><h3>Impact</h3><p>Creates a clear reimbursement trail and gives accounting a review queue.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>My Expenses</li><li>New Expense</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Expense</li><li>Submit</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Description is required</li><li>Enter a valid amount</li><li>Expense submitted for approval</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Employees</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Manages staff records and HR readiness.</p></div>
+        <div><h3>Scope</h3><p>Employee directory, departments, contracts, onboarding, reporting, retention, add employee, employee detail, equipment, certifications, role and branch assignment.</p></div>
+        <div><h3>Impact</h3><p>Keeps team information, responsibility, equipment, and HR status organized.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Employees</li><li>Employee Detail</li><li>Add Employee</li><li>Edit Employee</li><li>Assign Equipment</li><li>Add Certification</li></ul></div>
+        <div><h3>Tabs</h3><ul><li>Directory</li><li>Departments</li><li>Contracts</li><li>Onboarding</li><li>Reporting</li><li>Retention</li></ul></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Add Employee</li><li>Back</li><li>Edit</li><li>Assign Equipment</li><li>Return</li><li>Add Certification</li><li>Remove</li><li>Save</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Employee added</li><li>Profile updated</li><li>Role updated</li><li>Branch updated</li><li>Equipment assigned</li><li>Equipment returned</li><li>Certification added</li><li>Certification removed</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Payroll</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Manages salary contracts, payroll calculation, and payslip workflow.</p></div>
+        <div><h3>Scope</h3><p>Dashboard metrics, contracts, salary rules, work entries, adjustments, payslips, batches, compute payslips, verify/approve/pay/cancel, and exports.</p></div>
+        <div><h3>Impact</h3><p>Turns attendance, contracts, and adjustments into payroll records. It affects employee pay and accounting costs.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Payroll</li><li>Contract dialog</li><li>Salary Rule dialog</li><li>Payslip dialog</li><li>Batch dialog</li><li>Work Entry dialog</li><li>Adjustment dialog</li></ul></div>
+        <div><h3>Tabs</h3><ul><li>Dashboard</li><li>Contracts</li><li>Work Entries</li><li>Payslips</li><li>Batches</li><li>Salary Rules</li><li>Adjustments</li><li>Reports</li></ul></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Contract</li><li>New Rule</li><li>New Payslip</li><li>New Batch</li><li>Add Work Entry</li><li>Add Adjustment</li><li>Compute</li><li>Verify</li><li>Approve</li><li>Mark Paid</li><li>Cancel</li><li>Delete</li><li>Export</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Contract created</li><li>Salary rule created</li><li>Rule deleted</li><li>Payslip drafted</li><li>Payslip verified</li><li>Payslip approved</li><li>Payslip paid</li><li>Payslip deleted</li><li>Batch created</li><li>Computed payslips</li><li>Batch approved</li><li>Batch paid</li><li>Batch deleted</li><li>Work entry added</li><li>Work entry deleted</li><li>Adjustment created</li><li>Adjustment deleted</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Users</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Controls who can use the workspace.</p></div>
+        <div><h3>Scope</h3><p>Team member list, create user, role assignment, branch assignment, activate/deactivate, reset password, custom permissions, remove member.</p></div>
+        <div><h3>Impact</h3><p>Protects data and controls what each person can see or change.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Team</li><li>Create Team Member</li><li>Reset Password</li><li>Permissions</li><li>Remove Team Member</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Add Member</li><li>Create</li><li>Reset Password</li><li>Save Permissions</li><li>Use role permissions</li><li>Custom permissions</li><li>Deactivate</li><li>Activate</li><li>Remove</li><li>Cancel</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>User created</li><li>Role updated</li><li>User deactivated</li><li>User activated</li><li>Password reset successful</li><li>Member removed</li><li>User permissions updated</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Roles &amp; Permissions</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Builds reusable access presets.</p></div>
+        <div><h3>Scope</h3><p>Role presets, custom groups, module-level access, tab-level control, action permissions, reset role, save permissions.</p></div>
+        <div><h3>Impact</h3><p>Makes access management consistent and reduces accidental over-permissioning.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Roles &amp; Permissions</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Add custom group</li><li>Reset role</li><li>Save permissions</li><li>Expand/collapse permission groups</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Permissions saved</li><li>Error saving permissions</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Settings</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Configures the workspace's business identity and operating rules.</p></div>
+        <div><h3>Scope</h3><p>Company profile, business tax/locality, preferences, POS printer, units, templates, theme, and tax compliance.</p></div>
+        <div><h3>Impact</h3><p>Changes how documents look, how numbers are generated, how tax is calculated, how stock behaves, and how users experience the app.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Settings</li></ul></div>
+        <div><h3>Tabs</h3><ul><li>General</li><li>Business</li><li>Preferences</li><li>POS Printer</li><li>Units</li><li>Templates</li><li>Theme</li><li>Tax Compliance</li></ul></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Upload logo</li><li>Save Settings</li><li>Save Preferences</li><li>Save Theme</li><li>Save Printer Settings</li><li>Save Tax Compliance Settings</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Settings saved</li><li>Preferences saved</li><li>Theme saved</li><li>Logo updated</li><li>Error saving settings</li><li>Error saving preferences</li><li>Error saving theme</li><li>Error uploading logo</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Settings - General</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Stores public company identity.</p></div>
+        <div><h3>Scope</h3><p>Company name, phone, email, website, address, city, state, zip, country, and logo.</p></div>
+        <div><h3>Impact</h3><p>Appears on invoices, quotations, receipts, and business documents.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Settings &gt; General</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Upload logo</li><li>Save Settings</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Logo updated</li><li>Settings saved</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Settings - Business</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Stores tax, currency, timezone, and fiscal rules.</p></div>
+        <div><h3>Scope</h3><p>Tax ID, tax name, tax rate, currency, currency symbol, timezone, date format, fiscal year start.</p></div>
+        <div><h3>Impact</h3><p>Affects invoice tax, report periods, currency display, and accounting dates.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Settings &gt; Business</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Save Settings</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Settings saved</li><li>Error saving settings</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Settings - Preferences</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Controls document numbers, stock behavior, and display format.</p></div>
+        <div><h3>Scope</h3><p>Invoice, sales order, quotation, purchase order prefixes/suffixes, number length, default templates, low stock threshold, payment method, default tax, SKU prefix, auto SKU, barcode scanning, negative stock, expiry tracking, separators, decimals, and language.</p></div>
+        <div><h3>Impact</h3><p>Shapes daily workflows. For example, enabling negative stock allows selling below zero; changing prefixes affects future document numbers.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Settings &gt; Preferences</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Save Preferences</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Preferences saved</li><li>Error saving preferences</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Settings - POS Printer</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Connects Cloud Daftar to a local receipt printer bridge.</p></div>
+        <div><h3>Scope</h3><p>Enable bridge, bridge URL, HTTP or raw TCP mode, printer name, paper width, code page, copies, timeout, auto-print receipts, cash drawer, cut paper, auth token.</p></div>
+        <div><h3>Impact</h3><p>Controls whether receipts print automatically and how the physical printer behaves at checkout.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Settings &gt; POS Printer</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Save Printer Settings</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Preferences saved</li><li>Error saving preferences</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Invoice Templates</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Controls invoice, quotation, receipt, and label appearance.</p></div>
+        <div><h3>Scope</h3><p>Template list, create/edit template, duplicate, delete, set default invoice/thermal/quotation templates, preview and layout settings.</p></div>
+        <div><h3>Impact</h3><p>Changes customer-facing documents and printed output.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Invoice Templates</li><li>Create/Edit Template</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>New Template</li><li>Edit</li><li>Duplicate</li><li>Delete</li><li>Set Default</li><li>Save</li><li>Close</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Template created</li><li>Template updated</li><li>Template deleted</li><li>Template duplicated</li><li>Default template updated</li><li>Error saving template</li><li>Error deleting template</li><li>Error duplicating template</li><li>Error setting default</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Theme &amp; Branding</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Changes the app's visual style.</p></div>
+        <div><h3>Scope</h3><p>Sidebar color, sidebar style, primary color, accent color, font, border radius, layout density, and dark mode.</p></div>
+        <div><h3>Impact</h3><p>Improves brand fit and comfort for users without changing business data.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Settings &gt; Theme</li><li>Admin Branding</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Save Theme</li><li>Save Branding</li><li>Clear logo</li><li>Clear favicon</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Theme saved</li><li>Branding saved</li><li>File too large</li><li>Error saving theme</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Tax Compliance</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Configures tax invoice integrations.</p></div>
+        <div><h3>Scope</h3><p>Compliance mode None/FBR/ZATCA, FBR username/password/POS ID, ZATCA enable switch, mode local/simulation/production, seller VAT, seller name, branch, CR number, address, device name, OTP, CSR generation, device onboarding, test connection.</p></div>
+        <div><h3>Impact</h3><p>Affects tax invoice data and compliance output. Production tax settings should be changed only by authorized finance/admin users.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Settings &gt; Tax Compliance</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Generate CSR</li><li>Onboard Device</li><li>Test Connection</li><li>Save Tax Compliance Settings</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Tax compliance settings saved</li><li>Settings could not be saved</li><li>ZATCA updated</li><li>ZATCA action failed</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Billing &amp; Subscription</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows plan, invoices, payments, and auto-renew status.</p></div>
+        <div><h3>Scope</h3><p>Current plan, subscription dates, invoice history, payment history, auto-renew settings, upgrade/renew flow where enabled.</p></div>
+        <div><h3>Impact</h3><p>Controls whether the workspace remains active and which plan features are available.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Billing</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Renew</li><li>Upgrade</li><li>Pay invoice</li><li>Toggle auto-renew</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Profile</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Lets the current user manage personal details and password.</p></div>
+        <div><h3>Scope</h3><p>Name, email display, profile save, current password, new password, confirm password.</p></div>
+        <div><h3>Impact</h3><p>Keeps user identity current and protects access through password changes.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Profile</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Save profile</li><li>Change password</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Profile updated</li><li>Passwords do not match</li><li>Password must be at least 8 characters</li><li>Password changed successfully</li><li>Error saving profile</li><li>Error changing password</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Notifications</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Shows system messages and reminders.</p></div>
+        <div><h3>Scope</h3><p>Unread/read notifications, mark all as read, notification links, overdue checks.</p></div>
+        <div><h3>Impact</h3><p>Keeps users aware of overdue payments, stock issues, subscription notices, and system events.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Notifications</li><li>Topbar notification menu</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Open notifications</li><li>Mark all as read</li><li>View notification</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>All marked as read</li><li>Failed to mark as read</li><li>Could not mark notifications as read</li></ul></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Payment Reminders &amp; Commitments</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Tracks follow-ups and promised payment dates.</p></div>
+        <div><h3>Scope</h3><p>Payment reminder list, commitments, follow-up status, linked customers/suppliers/invoices where available.</p></div>
+        <div><h3>Impact</h3><p>Improves collection discipline and reduces forgotten follow-ups.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Payment Reminders &amp; Commitments</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>View</li><li>Follow up</li><li>Mark complete</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Help &amp; Support</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Gives users support entry points.</p></div>
+        <div><h3>Scope</h3><p>Documentation link, chat/support link, support email.</p></div>
+        <div><h3>Impact</h3><p>Reduces training friction and gives users a place to ask for help.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Help &amp; Support</li></ul></div>
+        <div><h3>Tabs</h3><p class="muted">None on this screen.</p></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>View Docs</li><li>Start Chat</li><li>support@clouddaftar.com</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><p class="muted">None on this screen.</p></div>
+      </div>
+    </section>
+
+    <section class="module">
+      <h2>Super Admin Console</h2>
+      <div class="triad">
+        <div><h3>Purpose</h3><p>Lets platform administrators manage the SaaS system.</p></div>
+        <div><h3>Scope</h3><p>Admin dashboard, plans, payments, tenants, tenant details, admins, audit log, branding, AI settings, subscription actions, payment approval/rejection.</p></div>
+        <div><h3>Impact</h3><p>Affects all tenant companies, subscription access, app branding, and platform-level administration.</p></div>
+      </div>
+      <div class="grid2">
+        <div><h3>Screens Covered</h3><ul><li>Admin Login</li><li>Admin Dashboard</li><li>Plans</li><li>Payments</li><li>Tenants</li><li>Tenant Detail</li><li>Admins</li><li>Admin Audit</li><li>Admin Settings</li></ul></div>
+        <div><h3>Tabs</h3><ul><li>Payments: Pending, All Payments</li></ul></div>
+        <div><h3>Main Buttons / Actions</h3><ul><li>Add Plan</li><li>Edit plan</li><li>Confirm payment</li><li>Reject payment</li><li>View payment</li><li>Delete payment</li><li>Search tenant</li><li>Suspend</li><li>Reactivate</li><li>Extend Subscription</li><li>Change Plan</li><li>Add Admin</li><li>Activate/Deactivate Admin</li><li>Save Branding</li><li>Save AI settings</li></ul></div>
+        <div><h3>Toast Messages / Alerts</h3><ul><li>Plan created</li><li>Plan updated</li><li>Payment confirmed</li><li>Payment rejected</li><li>Invoice deleted</li><li>Admin created</li><li>Admin updated</li><li>Admin activated</li><li>Admin deactivated</li><li>Branding saved</li><li>AI settings saved</li><li>Success</li><li>Error</li></ul></div>
+      </div>
+    </section>
+
+  <section>
+    <h2>Permission Impact Summary</h2>
+    <p>Cloud Daftar uses permissions so every user sees only what they need. Owners normally have full access. Admins and managers may have broad access. Staff and cashiers usually have limited access for daily operations.</p>
+    <table>
+      <tr><th>Permission Area</th><th>What It Controls</th><th>Business Impact</th></tr>
+      <tr><td>Dashboard</td><td>Viewing summary metrics.</td><td>Lets users monitor the business without changing data.</td></tr>
+      <tr><td>Inventory</td><td>Products, stock, categories, adjustments, deletes.</td><td>Affects what can be sold and reported as available.</td></tr>
+      <tr><td>Sales</td><td>Invoices, POS, returns, edits, deletes.</td><td>Affects revenue, customer balances, stock, and tax records.</td></tr>
+      <tr><td>Purchases</td><td>Supplier bills, purchase orders, approvals, drafts.</td><td>Affects inventory cost and supplier balances.</td></tr>
+      <tr><td>Customers/Suppliers</td><td>Contact creation, editing, and deletion.</td><td>Affects invoices, purchases, payments, and statements.</td></tr>
+      <tr><td>Reports</td><td>Viewing and exporting reports.</td><td>Controls who can see sensitive business performance data.</td></tr>
+      <tr><td>Accounting</td><td>Receivables, payables, reconciliation, reports, journals.</td><td>Affects financial records and accountant review.</td></tr>
+      <tr><td>Expenses</td><td>Submitting and approving expenses.</td><td>Affects reimbursements and company costs.</td></tr>
+      <tr><td>Employees/Payroll</td><td>HR records, contracts, payslips, batches.</td><td>Affects employee data and salary workflows.</td></tr>
+      <tr><td>Users/Settings/Billing</td><td>Team access, workspace setup, subscription.</td><td>Affects security, document behavior, branding, and plan access.</td></tr>
+    </table>
+  </section>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{
+  "baseUrl": "http://localhost:3001",
+  "generatedAt": "2026-05-23T02:55:27.485Z",
+  "screenshots": [
+    {
+      "name": "login",
+      "title": "Login",
+      "file": "manual-screenshots/login.png"
+    },
+    {
+      "name": "apps",
+      "title": "Apps Launchpad",
+      "file": "manual-screenshots/apps.png"
+    },
+    {
+      "name": "dashboard",
+      "title": "Dashboard",
+      "file": "manual-screenshots/dashboard.png"
+    },
+    {
+      "name": "pos-register",
+      "title": "POS Register",
+      "file": "manual-screenshots/pos-register.png"
+    },
+    {
+      "name": "sales",
+      "title": "Sales Invoices",
+      "file": "manual-screenshots/sales.png"
+    },
+    {
+      "name": "inventory",
+      "title": "Inventory",
+      "file": "manual-screenshots/inventory.png"
+    },
+    {
+      "name": "reports",
+      "title": "Reports",
+      "file": "manual-screenshots/reports.png"
+    },
+    {
+      "name": "settings",
+      "title": "Settings",
+      "file": "manual-screenshots/settings.png"
+    },
+    {
+      "name": "help",
+      "title": "Help & Support With Manual",
+      "file": "manual-screenshots/help.png"
+    }
+  ]
+}

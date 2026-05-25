@@ -1,0 +1,44 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+.next-dev*.log
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+.env.hash
+dev-log.txt
+CONTINUATION_NOTES.md
+test-pw.ts
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# generated/runtime assets
+/.npm-cache/
+/storage/
+/tools/zatca-sdk/
