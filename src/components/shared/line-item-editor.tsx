@@ -484,21 +484,8 @@ export function LineItemEditor({
                       }}
                       className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                     />
-                    {showDropdown && dropdownRect && dropdownPortalTarget && typeof document !== "undefined" && createPortal(
-                      <div
-                        data-product-dropdown="true"
-                        className="z-[9999] mt-0 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg"
-                        style={{
-                          position: dropdownRect.position,
-                          top: dropdownRect.top,
-                          left: dropdownRect.left,
-                          width: dropdownRect.width,
-                          pointerEvents: "auto",
-                        }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onWheel={(e) => e.stopPropagation()}
-                      >
+                    {showDropdown && (
+                      <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg">
                         {activeResults.length === 0 ? (
                           <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                             <p>{searchTerm ? "No products found" : "Type to search..."}</p>
@@ -514,10 +501,7 @@ export function LineItemEditor({
                             <button
                               key={p.id}
                               type="button"
-                              data-product-dropdown="true"
-                              onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); selectProduct(item.id, p); }}
-                              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                              onClick={(e) => { if (e.detail === 0) selectProduct(item.id, p); }}
+                              onClick={() => selectProduct(item.id, p)}
                               className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
                             >
                               <div className="h-8 w-8 shrink-0 overflow-hidden rounded-md border bg-muted">
@@ -548,8 +532,7 @@ export function LineItemEditor({
                             </button>
                           ))
                         )}
-                      </div>,
-                      dropdownPortalTarget,
+                      </div>
                     )}
                   </div>
                 )}
