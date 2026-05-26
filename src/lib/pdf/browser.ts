@@ -1,27 +1,26 @@
-import chromium from "@sparticuz/chromium";
 import puppeteerCore from "puppeteer-core";
+import chromium from "@sparticuz/chromium-min";
 
 export async function launchPdfBrowser() {
-  const isVercel =
-    !!process.env.VERCEL || process.env.NODE_ENV === "production";
+  const isProduction = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
 
-  if (isVercel) {
+  if (isProduction) {
     return puppeteerCore.launch({
       args: [
         ...chromium.args,
-        "--hide-scrollbars",
-        "--disable-web-security",
         "--no-sandbox",
         "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--single-process",
       ],
       executablePath: await chromium.executablePath(),
       headless: true,
     });
   }
 
-  const puppeteer = await import("puppeteer-core");
+  const puppeteer = await import("puppeteer");
   return puppeteer.default.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   });
 }

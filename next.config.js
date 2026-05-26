@@ -15,6 +15,10 @@ const nextConfig = {
       bodySizeLimit: "5mb",
     },
   },
+  serverExternalPackages: [
+    "@sparticuz/chromium-min",
+    "puppeteer-core",
+  ],
 };
 
 module.exports = nextConfig;
