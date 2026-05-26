@@ -279,6 +279,14 @@ export function BillingClient() {
   const sub = data?.subscription;
   const invoices = data?.invoices || [];
   const currentPlanId = sub?.plan?.id;
+  const currentPlanCode = String((sub?.plan as any)?.code || "").toLowerCase();
+  const planLockedUntil =
+    sub &&
+    currentPlanCode !== "starter" &&
+    sub.endDate &&
+    new Date(sub.endDate).getTime() > Date.now()
+      ? new Date(sub.endDate)
+      : null;
   const money = (amount: number | string | null | undefined, currency?: string, symbol?: string) =>
     formatCurrency(amount, currency, symbol);
 
@@ -289,6 +297,7 @@ export function BillingClient() {
       const price =
         selectedCycle === "MONTHLY" ? Number(plan.monthlyPrice) : Number(plan.yearlyPrice);
       const isCurrent = currentPlanId === plan.id && sub?.billingCycle === selectedCycle;
+      const planChangeLocked = Boolean(planLockedUntil && !isCurrent);
       return (
         <Card
           key={plan.id}
@@ -333,17 +342,19 @@ export function BillingClient() {
             <Button
               className="mt-auto w-full"
               onClick={() => handleSubscribe(plan.id)}
-              disabled={subscribing || isCurrent}
+              disabled={subscribing || isCurrent || planChangeLocked}
               variant={plan.code === "free" || isCurrent ? "outline" : "default"}
             >
               {subscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isCurrent
                 ? "Current Plan"
-                : sub
-                  ? `Switch to ${money(price, plan.currency, plan.currencySymbol)}/${selectedCycle === "MONTHLY" ? "mo" : "yr"}`
-                  : plan.code === "free"
-                    ? "Start Free"
-                    : `Subscribe ${money(price, plan.currency, plan.currencySymbol)}/${selectedCycle === "MONTHLY" ? "mo" : "yr"}`}
+                : planChangeLocked
+                  ? `Available ${planLockedUntil?.toLocaleDateString()}`
+                  : sub
+                    ? `Switch to ${money(price, plan.currency, plan.currencySymbol)}/${selectedCycle === "MONTHLY" ? "mo" : "yr"}`
+                    : plan.code === "free"
+                      ? "Start Free"
+                      : `Subscribe ${money(price, plan.currency, plan.currencySymbol)}/${selectedCycle === "MONTHLY" ? "mo" : "yr"}`}
             </Button>
           </CardContent>
         </Card>
@@ -475,6 +486,13 @@ export function BillingClient() {
             <CardTitle>Available Plans</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
+            {planLockedUntil && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
+                Your current paid plan is locked until{" "}
+                <span className="font-semibold">{planLockedUntil.toLocaleDateString()}</span>. Plan
+                changes will unlock after this billing period ends.
+              </div>
+            )}
             <div className="flex items-center justify-center gap-2">
               <button
                 type="button"

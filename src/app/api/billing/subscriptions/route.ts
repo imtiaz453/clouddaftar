@@ -1,8 +1,12 @@
-import { NextRequest } from "next/server";
 import { requireCompanyAuth } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api";
-import { createBillingAmountSnapshot, getBillingCurrency, pricePlanForCurrency } from "@/lib/billing-currency";
+import {
+  createBillingAmountSnapshot,
+  getBillingCurrency,
+  pricePlanForCurrency,
+} from "@/lib/billing-currency";
+import { reserveNextBillingInvoiceNumber } from "@/lib/billing-invoice-number";
 import {
   addDays,
   isStarterPlan,
@@ -47,6 +51,7 @@ export async function POST(req: Request) {
 
     const existing = await prisma.tenantSubscription.findUnique({
       where: { companyId: user.companyId },
+      include: { plan: true },
     });
 
     const now = new Date();
@@ -59,14 +64,25 @@ export async function POST(req: Request) {
     if (existing && starterPlan) {
       throw new Error("Starter is a one-time 30-day trial. Please upgrade to a paid plan.");
     }
+    if (
+      existing &&
+      !isStarterPlan(existing.plan) &&
+      existing.endDate &&
+      existing.endDate > now &&
+      (existing.planId !== planId || existing.billingCycle !== billingCycle)
+    ) {
+      throw new Error(
+        `Your current ${existing.plan.name} plan is active until ${existing.endDate.toLocaleDateString()}. Plan changes are available after the current period ends.`,
+      );
+    }
 
-    const baseAmount = billingCycle === "MONTHLY" ? Number(plan.monthlyPrice) : Number(plan.yearlyPrice);
+    const baseAmount =
+      billingCycle === "MONTHLY" ? Number(plan.monthlyPrice) : Number(plan.yearlyPrice);
     const snapshot = await createBillingAmountSnapshot(baseAmount, company);
     const invoiceStatus = starterPlan || snapshot.amount <= 0 ? "CONFIRMED" : "PENDING";
-    const count = await prisma.billingInvoice.count();
-    const invoiceNumber = `SUB-${String(count + 1).padStart(5, "0")}`;
 
     const result = await prisma.$transaction(async (tx) => {
+      const invoiceNumber = await reserveNextBillingInvoiceNumber(tx, user.companyId);
       const subscription =
         existing ??
         (await tx.tenantSubscription.create({

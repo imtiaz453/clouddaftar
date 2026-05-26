@@ -12,7 +12,7 @@
     "dev:local": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "format": "prettier --write .",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

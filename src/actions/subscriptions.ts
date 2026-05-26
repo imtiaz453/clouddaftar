@@ -6,7 +6,13 @@ import { requireCompanyAuth } from "@/lib/auth-helper";
 import { requireAdmin } from "@/lib/admin-auth";
 import { createAuditLog } from "@/lib/audit";
 import { createBillingAmountSnapshot } from "@/lib/billing-currency";
-import { addDays, isStarterPlan, PAID_PLAN_TRIAL_DAYS, STARTER_TRIAL_DAYS } from "@/lib/subscription-policy";
+import {
+  addDays,
+  isStarterPlan,
+  PAID_PLAN_TRIAL_DAYS,
+  STARTER_TRIAL_DAYS,
+} from "@/lib/subscription-policy";
+import { reserveNextBillingInvoiceNumber } from "@/lib/billing-invoice-number";
 
 export async function getSubscriptionPlans() {
   return prisma.subscriptionPlan.findMany({
@@ -23,15 +29,21 @@ export async function getAllPlans() {
 }
 
 export async function createPlan(data: {
-  name: string; code: string; description?: string;
-  monthlyPrice: number; yearlyPrice: number;
-  userLimit: number; storageLimitMB: number;
-  features: string[]; sortOrder?: number;
+  name: string;
+  code: string;
+  description?: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  userLimit: number;
+  storageLimitMB: number;
+  features: string[];
+  sortOrder?: number;
 }) {
   await requireAdmin();
   const plan = await prisma.subscriptionPlan.create({
     data: {
-      name: data.name, code: data.code,
+      name: data.name,
+      code: data.code,
       description: data.description,
       monthlyPrice: data.monthlyPrice,
       yearlyPrice: data.yearlyPrice,
@@ -45,11 +57,20 @@ export async function createPlan(data: {
   return plan;
 }
 
-export async function updatePlan(id: string, data: Partial<{
-  name: string; description: string; monthlyPrice: number;
-  yearlyPrice: number; userLimit: number; storageLimitMB: number;
-  features: string[]; isActive: boolean; sortOrder: number;
-}>) {
+export async function updatePlan(
+  id: string,
+  data: Partial<{
+    name: string;
+    description: string;
+    monthlyPrice: number;
+    yearlyPrice: number;
+    userLimit: number;
+    storageLimitMB: number;
+    features: string[];
+    isActive: boolean;
+    sortOrder: number;
+  }>,
+) {
   await requireAdmin();
   const updateData: any = { ...data };
   if (data.features) updateData.features = JSON.stringify(data.features);
@@ -68,12 +89,16 @@ export async function getCompanySubscription(companyId?: string) {
 }
 
 export async function createSubscription(data: {
-  companyId: string; planId: string; billingCycle: "MONTHLY" | "YEARLY";
+  companyId: string;
+  planId: string;
+  billingCycle: "MONTHLY" | "YEARLY";
 }) {
   const plan = await prisma.subscriptionPlan.findUnique({ where: { id: data.planId } });
   if (!plan) throw new Error("Plan not found");
 
-  const existing = await prisma.tenantSubscription.findUnique({ where: { companyId: data.companyId } });
+  const existing = await prisma.tenantSubscription.findUnique({
+    where: { companyId: data.companyId },
+  });
   if (existing) throw new Error("Company already has a subscription");
 
   const now = new Date();
@@ -81,7 +106,9 @@ export async function createSubscription(data: {
   if (data.billingCycle === "MONTHLY") endDate.setMonth(endDate.getMonth() + 1);
   else endDate.setFullYear(endDate.getFullYear() + 1);
   const starterPlan = isStarterPlan(plan);
-  const trialEndDate = starterPlan ? addDays(now, STARTER_TRIAL_DAYS) : addDays(now, PAID_PLAN_TRIAL_DAYS);
+  const trialEndDate = starterPlan
+    ? addDays(now, STARTER_TRIAL_DAYS)
+    : addDays(now, PAID_PLAN_TRIAL_DAYS);
 
   const subscription = await prisma.tenantSubscription.create({
     data: {
@@ -99,23 +126,44 @@ export async function createSubscription(data: {
 
 export async function changeSubscriptionPlan(companyId: string, planId: string) {
   const user = await requireCompanyAuth();
-  const subscription = await prisma.tenantSubscription.findUnique({ where: { companyId } });
+  if (companyId !== user.companyId) throw new Error("Unauthorized");
+  const [subscription, nextPlan] = await Promise.all([
+    prisma.tenantSubscription.findUnique({ where: { companyId }, include: { plan: true } }),
+    prisma.subscriptionPlan.findUnique({ where: { id: planId } }),
+  ]);
   if (!subscription) throw new Error("No active subscription");
+  if (!nextPlan) throw new Error("Plan not found");
+
+  const now = new Date();
+  if (
+    !isStarterPlan(subscription.plan) &&
+    subscription.endDate &&
+    subscription.endDate > now &&
+    subscription.planId !== planId
+  ) {
+    throw new Error(
+      `Your current ${subscription.plan.name} plan is active until ${subscription.endDate.toLocaleDateString()}. Plan changes are available after the current period ends.`,
+    );
+  }
 
   const updated = await prisma.tenantSubscription.update({
     where: { companyId },
     data: { planId },
   });
   await createAuditLog({
-    userId: user.id, companyId, action: "UPDATE",
-    entity: "Subscription", entityId: subscription.id,
+    userId: user.id,
+    companyId,
+    action: "UPDATE",
+    entity: "Subscription",
+    entityId: subscription.id,
     metadata: { previousPlanId: subscription.planId, newPlanId: planId },
   });
   return updated;
 }
 
 export async function updateSubscriptionStatus(
-  companyId: string, status: "ACTIVE" | "EXPIRED" | "CANCELLED" | "SUSPENDED" | "TRIAL"
+  companyId: string,
+  status: "ACTIVE" | "EXPIRED" | "CANCELLED" | "SUSPENDED" | "TRIAL",
 ) {
   return prisma.tenantSubscription.update({
     where: { companyId },
@@ -125,14 +173,12 @@ export async function updateSubscriptionStatus(
 
 export async function generateInvoice(companyId: string) {
   const user = await requireCompanyAuth();
+  if (companyId !== user.companyId) throw new Error("Unauthorized");
   const subscription = await prisma.tenantSubscription.findUnique({
     where: { companyId },
     include: { plan: true, company: { include: { settings: true } } },
   });
   if (!subscription) throw new Error("No subscription found");
-
-  const count = await prisma.billingInvoice.count();
-  const invoiceNumber = `SUB-${String(count + 1).padStart(5, "0")}`;
 
   const now = new Date();
   const periodStart = new Date(now);
@@ -140,35 +186,49 @@ export async function generateInvoice(companyId: string) {
   if (subscription.billingCycle === "MONTHLY") periodEnd.setMonth(periodEnd.getMonth() + 1);
   else periodEnd.setFullYear(periodEnd.getFullYear() + 1);
 
-  const baseAmount = subscription.billingCycle === "MONTHLY"
-    ? Number(subscription.plan.monthlyPrice)
-    : Number(subscription.plan.yearlyPrice);
+  const baseAmount =
+    subscription.billingCycle === "MONTHLY"
+      ? Number(subscription.plan.monthlyPrice)
+      : Number(subscription.plan.yearlyPrice);
   const snapshot = await createBillingAmountSnapshot(baseAmount, subscription.company);
 
-  const invoice = await prisma.billingInvoice.create({
-    data: {
-      invoiceNumber,
-      companyId,
-      planId: subscription.planId,
-      subscriptionId: subscription.id,
-      billingCycle: subscription.billingCycle,
-      amount: snapshot.amount,
-      currency: snapshot.currency,
-      currencySymbol: snapshot.currencySymbol,
-      baseAmount: snapshot.baseAmount,
-      baseCurrency: snapshot.baseCurrency,
-      exchangeRate: snapshot.exchangeRate,
-      issueDate: now,
-      dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
-      periodStart,
-      periodEnd,
-    },
+  const invoice = await prisma.$transaction(async (tx) => {
+    const invoiceNumber = await reserveNextBillingInvoiceNumber(tx, companyId);
+    return tx.billingInvoice.create({
+      data: {
+        invoiceNumber,
+        companyId,
+        planId: subscription.planId,
+        subscriptionId: subscription.id,
+        billingCycle: subscription.billingCycle,
+        amount: snapshot.amount,
+        currency: snapshot.currency,
+        currencySymbol: snapshot.currencySymbol,
+        baseAmount: snapshot.baseAmount,
+        baseCurrency: snapshot.baseCurrency,
+        exchangeRate: snapshot.exchangeRate,
+        issueDate: now,
+        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        periodStart,
+        periodEnd,
+      },
+    });
   });
 
   await createAuditLog({
-    userId: user.id, companyId, action: "CREATE",
-    entity: "BillingInvoice", entityId: invoice.id,
-    metadata: { invoiceNumber, amount: snapshot.amount, currency: snapshot.currency, baseAmount: snapshot.baseAmount, baseCurrency: snapshot.baseCurrency, exchangeRate: snapshot.exchangeRate },
+    userId: user.id,
+    companyId,
+    action: "CREATE",
+    entity: "BillingInvoice",
+    entityId: invoice.id,
+    metadata: {
+      invoiceNumber: invoice.invoiceNumber,
+      amount: snapshot.amount,
+      currency: snapshot.currency,
+      baseAmount: snapshot.baseAmount,
+      baseCurrency: snapshot.baseCurrency,
+      exchangeRate: snapshot.exchangeRate,
+    },
   });
 
   return invoice;

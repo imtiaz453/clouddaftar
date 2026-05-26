@@ -207,13 +207,13 @@ export async function reserveNextDocumentNumber(
   const config = KIND_CONFIG[kind];
   const sequenceDelegate = (tx as any).documentNumberSequence;
   const periodKind = documentPeriodKey(kind, date);
+  const scannedMax =
+    config.scan != null
+      ? await scanMaxSequence(tx, companyId, kind, prefix, suffix, config.scan, date)
+      : 0;
 
   if (!sequenceDelegate?.findUnique || !sequenceDelegate?.create || !sequenceDelegate?.update) {
-    const next =
-      config.scan != null
-        ? (await scanMaxSequence(tx, companyId, kind, prefix, suffix, config.scan, date)) + 1
-        : 1;
-    return formatDocumentNumber(prefix, next, length, suffix, date);
+    return formatDocumentNumber(prefix, scannedMax + 1, length, suffix, date);
   }
 
   const existing = await sequenceDelegate.findUnique({
@@ -221,10 +221,7 @@ export async function reserveNextDocumentNumber(
   });
 
   if (!existing) {
-    const start =
-      config.scan != null
-        ? (await scanMaxSequence(tx, companyId, kind, prefix, suffix, config.scan, date)) + 1
-        : 1;
+    const start = scannedMax + 1;
 
     try {
       await sequenceDelegate.create({
@@ -234,6 +231,11 @@ export async function reserveNextDocumentNumber(
     } catch {
       // Race: another request created the row
     }
+  } else if (existing.nextValue <= scannedMax) {
+    await sequenceDelegate.updateMany({
+      where: { companyId, documentKind: periodKind, nextValue: { lte: scannedMax } },
+      data: { nextValue: scannedMax + 1 },
+    });
   }
 
   const updated = await sequenceDelegate.update({

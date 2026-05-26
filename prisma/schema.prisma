@@ -1724,6 +1724,7 @@ model JournalEntryMaster {
   createdBy User               @relation(fields: [createdById], references: [id])
   lines     JournalEntryLine[]
 
+  @@unique([number, companyId])
   @@index([companyId])
   @@index([date])
   @@index([journalType])

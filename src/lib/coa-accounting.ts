@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import type { AccountType, JournalType, Prisma } from "@prisma/client";
+import type { AccountType, JournalType } from "@prisma/client";
+import { reserveNextJournalNumber } from "@/lib/journal-numbers";
 
 export const DEFAULT_ACCOUNTS: {
   code: string;
@@ -167,28 +168,7 @@ export async function getNextJournalNumber(
   companyId: string,
   journalType: JournalType,
 ): Promise<string> {
-  const prefix =
-    journalType === "GENERAL"
-      ? "GL"
-      : journalType === "SALES"
-        ? "GL-INV"
-        : journalType === "PURCHASES"
-          ? "GL-BIL"
-          : journalType === "CASH"
-            ? "GL-CSH"
-            : journalType === "BANK"
-              ? "GL-BNK"
-              : journalType === "RECEIPT"
-                ? "GL-RCT"
-                : journalType === "SALARY"
-                  ? "GL-SAL"
-                  : "GL-PYT";
-  const last = await prisma.journalEntryMaster.findFirst({
-    where: { companyId, journalType },
-    orderBy: { number: "desc" },
-  });
-  const seq = last ? parseInt(last.number.split("-").at(-1) || "0", 10) + 1 : 1;
-  return `${prefix}-${String(seq).padStart(5, "0")}`;
+  return prisma.$transaction((tx) => reserveNextJournalNumber(tx, companyId, journalType));
 }
 
 export async function postJournalEntry(params: {
@@ -213,33 +193,35 @@ export async function postJournalEntry(params: {
   if (accountCount !== accountIds.length) {
     throw new Error("One or more journal accounts do not belong to this company");
   }
-  const number = await getNextJournalNumber(params.companyId, params.journalType);
   const totalDebit = Math.round(params.lines.reduce((s, l) => s + l.debit, 0) * 100) / 100;
   const totalCredit = Math.round(params.lines.reduce((s, l) => s + l.credit, 0) * 100) / 100;
   if (Math.abs(totalDebit - totalCredit) > 0.01) {
     throw new Error(`Journal entry not balanced. Debits: ${totalDebit}, Credits: ${totalCredit}`);
   }
-  return prisma.journalEntryMaster.create({
-    data: {
-      number,
-      date: params.date,
-      description: params.description,
-      reference: params.reference,
-      journalType: params.journalType,
-      companyId: params.companyId,
-      createdById: params.userId,
-      isPosted: true,
-      postedAt: new Date(),
-      lines: {
-        create: params.lines.map((l) => ({
-          accountId: l.accountId,
-          debit: l.debit,
-          credit: l.credit,
-          partnerId: l.partnerId,
-          description: l.description,
-        })),
+  return prisma.$transaction(async (tx) => {
+    const number = await reserveNextJournalNumber(tx, params.companyId, params.journalType);
+    return tx.journalEntryMaster.create({
+      data: {
+        number,
+        date: params.date,
+        description: params.description,
+        reference: params.reference,
+        journalType: params.journalType,
+        companyId: params.companyId,
+        createdById: params.userId,
+        isPosted: true,
+        postedAt: new Date(),
+        lines: {
+          create: params.lines.map((l) => ({
+            accountId: l.accountId,
+            debit: l.debit,
+            credit: l.credit,
+            partnerId: l.partnerId,
+            description: l.description,
+          })),
+        },
       },
-    },
-    include: { lines: { include: { account: true } } },
+      include: { lines: { include: { account: true } } },
+    });
   });
 }

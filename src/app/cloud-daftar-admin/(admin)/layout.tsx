@@ -27,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ];
 
   return (
-    <div className="app-workspace flex h-screen bg-background">
+    <div className="app-responsive-root app-workspace flex h-screen bg-background">
       <AdminSidebar
         navItems={navItems}
         logoUrl={logoUrl}
@@ -35,8 +35,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         admin={session.admin}
         pendingCount={pendingCount}
       />
-      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
-        <div className="p-4 md:p-6 lg:p-8">{children}</div>
+      <main className="min-w-0 flex-1 overflow-auto overflow-x-hidden pt-14 lg:pt-0">
+        <div className="min-w-0 max-w-full p-4 md:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   );

@@ -13,6 +13,8 @@ import {
   ArrowRight,
   Receipt,
   BarChart3,
+  CheckCircle2,
+  Settings2,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +76,7 @@ function monthlySalesTrendLabel(stats: DashboardStats): {
 export function DashboardClient({ stats }: DashboardClientProps) {
   const tenant = useTenantBasePath();
   const salesTrend = monthlySalesTrendLabel(stats);
+  const incompleteSetup = stats.setupChecklist.filter((item) => !item.completed);
 
   const kpis = [
     {
@@ -120,6 +123,51 @@ export function DashboardClient({ stats }: DashboardClientProps) {
         </Button>
       </PageHeader>
 
+      {incompleteSetup.length > 0 && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="border-b border-primary/10 pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Settings2 className="h-5 w-5 text-primary" />
+              Finish workspace setup
+            </CardTitle>
+            <CardDescription>
+              These steps disappear automatically as your company profile becomes ready.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 pt-4 md:grid-cols-2 xl:grid-cols-3">
+            {stats.setupChecklist.map((step) => (
+              <Link
+                key={step.id}
+                href={href(step.href, tenant)}
+                className={`group flex min-w-0 gap-3 rounded-lg border p-3 transition hover:border-primary/40 hover:bg-background ${
+                  step.completed ? "border-emerald-200 bg-emerald-50/60" : "border-border bg-card"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                    step.completed
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-primary/10 text-primary"
+                  }`}
+                >
+                  {step.completed ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold">{step.title}</span>
+                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
+                    {step.description}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <section aria-labelledby="kpi-heading">
         <h2 id="kpi-heading" className="sr-only">
           Key metrics
@@ -131,15 +179,19 @@ export function DashboardClient({ stats }: DashboardClientProps) {
               <Card key={kpi.title}>
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                   <div className="space-y-1">
-                    <CardTitle className="text-sm font-semibold text-muted-foreground">{kpi.title}</CardTitle>
-                    <CardDescription className="text-xs leading-snug">{kpi.description}</CardDescription>
+                    <CardTitle className="text-sm font-semibold text-muted-foreground">
+                      {kpi.title}
+                    </CardTitle>
+                    <CardDescription className="text-xs leading-snug">
+                      {kpi.description}
+                    </CardDescription>
                   </div>
                   <div className="rounded-xl bg-primary/10 p-2 text-primary">
                     <Icon className="h-4 w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold tracking-tight tabular-nums">{kpi.value}</p>
+                  <p className="text-2xl font-bold tabular-nums tracking-tight">{kpi.value}</p>
                   {kpi.trend && (
                     <div className="mt-2 flex items-center gap-1.5 text-xs">
                       {kpi.trend.variant === "neutral" ? (
@@ -201,7 +253,9 @@ export function DashboardClient({ stats }: DashboardClientProps) {
             <CardDescription>Spend recorded this calendar month</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-center pt-6">
-            <p className="text-3xl font-bold tabular-nums">{formatCurrency(stats.monthlyPurchases)}</p>
+            <p className="text-3xl font-bold tabular-nums">
+              {formatCurrency(stats.monthlyPurchases)}
+            </p>
             <p className="mt-2 text-sm text-muted-foreground">
               Lifetime purchases: {formatCurrency(stats.totalPurchases)}
             </p>
@@ -233,7 +287,9 @@ export function DashboardClient({ stats }: DashboardClientProps) {
             {stats.recentSales.length === 0 ? (
               <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/80 py-12 text-center">
                 <Receipt className="h-10 w-10 text-muted-foreground/60" />
-                <p className="text-sm text-muted-foreground">No sales yet. Create one from Sales → New invoice.</p>
+                <p className="text-sm text-muted-foreground">
+                  No sales yet. Create one from Sales &gt; New invoice.
+                </p>
                 <Button asChild size="sm">
                   <Link href={href("/sales/new", tenant)}>New sale</Link>
                 </Button>
@@ -253,7 +309,9 @@ export function DashboardClient({ stats }: DashboardClientProps) {
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="font-semibold tabular-nums">{formatCurrency(sale.total)}</span>
+                      <span className="font-semibold tabular-nums">
+                        {formatCurrency(sale.total)}
+                      </span>
                       <Badge
                         variant={sale.status === "COMPLETED" ? "success" : "secondary"}
                         className="text-[10px] uppercase"
@@ -275,7 +333,12 @@ export function DashboardClient({ stats }: DashboardClientProps) {
               <CardDescription>On-hand at or below minimum</CardDescription>
             </div>
             {stats.lowStockCount > 0 && (
-              <Button variant="ghost" size="sm" asChild className="text-amber-700 dark:text-amber-400">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="text-amber-700 dark:text-amber-400"
+              >
                 <Link href={href("/inventory/low-stock", tenant)} className="gap-1">
                   Manage
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -287,7 +350,9 @@ export function DashboardClient({ stats }: DashboardClientProps) {
             {stats.lowStockCount === 0 ? (
               <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/80 py-12 text-center">
                 <Package className="h-10 w-10 text-muted-foreground/60" />
-                <p className="text-sm text-muted-foreground">All tracked products are above their minimum levels.</p>
+                <p className="text-sm text-muted-foreground">
+                  All tracked products are above their minimum levels.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -295,7 +360,8 @@ export function DashboardClient({ stats }: DashboardClientProps) {
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
                   <div>
                     <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
-                      {stats.lowStockCount} product{stats.lowStockCount === 1 ? "" : "s"} need attention
+                      {stats.lowStockCount} product{stats.lowStockCount === 1 ? "" : "s"} need
+                      attention
                     </p>
                     <p className="text-xs text-amber-800/90 dark:text-amber-200/80">
                       Showing the lowest five by on-hand quantity.

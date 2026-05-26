@@ -361,7 +361,6 @@ export function NewSaleClient({
       setSearchQuery("");
       setActiveCategory(null);
       setBuyerTaxNumber("");
-      if (!keepFullscreen) router.refresh();
 
       if (status !== "DRAFT" && saleId && keepFullscreen) {
         const bridgeResult = await printThermalInvoiceViaBridge(saleId);
@@ -375,6 +374,11 @@ export function NewSaleClient({
         printThermalInvoice(saleId, printWindow);
       } else {
         printWindow?.close();
+      }
+
+      if (!keepFullscreen) {
+        router.refresh();
+        router.push(dashboardHref(pathname, "/sales"));
       }
     } catch (err) {
       printWindow?.close();

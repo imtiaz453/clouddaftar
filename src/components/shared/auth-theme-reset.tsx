@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { resetTenantThemeDom } from "@/lib/default-theme";
 
 export function AuthThemeReset() {
   useEffect(() => {
@@ -8,11 +9,8 @@ export function AuthThemeReset() {
     const previousAuthTheme = root.dataset.authFixedTheme;
 
     root.dataset.authFixedTheme = "true";
-    root.classList.remove("theme-glass", "dark");
-    if (root.dataset.themePreset === "glass") {
-      delete root.dataset.themePreset;
-    }
-    document.getElementById("theme-font-override")?.remove();
+    resetTenantThemeDom(root);
+    root.classList.remove("dark");
 
     return () => {
       if (previousAuthTheme) {

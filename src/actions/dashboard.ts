@@ -49,6 +49,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     monthlyPurchasesAgg,
     priorPeriodSalesAgg,
     recentSales,
+    company,
   ] = await Promise.all([
     prisma.sale.aggregate({
       _sum: { total: true },
@@ -110,6 +111,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       take: 5,
       include: { customer: { select: { name: true } } },
     }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      include: { settings: true, theme: true },
+    }),
   ]);
 
   const salesTrendRows = canViewAllSales
@@ -146,7 +151,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   let monthlySalesChangePct: number | null = null;
   if (monthlySalesPriorPeriod > 0) {
-    monthlySalesChangePct = ((monthlySales - monthlySalesPriorPeriod) / monthlySalesPriorPeriod) * 100;
+    monthlySalesChangePct =
+      ((monthlySales - monthlySalesPriorPeriod) / monthlySalesPriorPeriod) * 100;
   }
 
   const sparseTrend = salesTrendRows.map((row) => ({
@@ -155,6 +161,60 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }));
 
   const salesTrend = fillDailySalesGaps(sparseTrend, sixMonthsStart, now);
+  const settings = company?.settings;
+  const setupChecklist = [
+    {
+      id: "company-profile",
+      title: "Complete company profile",
+      description: "Add your contact details, address, logo, currency, and fiscal defaults.",
+      href: "/settings",
+      completed: Boolean(
+        company?.name &&
+        company?.email &&
+        company?.phone &&
+        company?.address &&
+        company?.currency &&
+        company?.currencySymbol,
+      ),
+    },
+    {
+      id: "tax-settings",
+      title: "Review tax settings",
+      description: "Set tax name/rate and enable FBR or ZATCA if your business requires it.",
+      href: "/settings?tab=tax",
+      completed: Boolean(
+        company?.taxName ||
+        Number(company?.taxRate || 0) > 0 ||
+        (settings?.taxComplianceMode && settings.taxComplianceMode !== "NONE"),
+      ),
+    },
+    {
+      id: "document-numbering",
+      title: "Confirm document numbering",
+      description: "Review invoice, quotation, sales order, proforma, and purchase order prefixes.",
+      href: "/settings",
+      completed: Boolean(
+        settings?.invoicePrefix &&
+        settings?.quotationPrefix &&
+        settings?.salesOrderPrefix &&
+        settings?.purchaseOrderPrefix,
+      ),
+    },
+    {
+      id: "inventory",
+      title: "Add inventory or services",
+      description: "Create products, services, categories, units, and stock levels.",
+      href: "/inventory",
+      completed: totalProducts > 0,
+    },
+    {
+      id: "customers",
+      title: "Add customers",
+      description: "Add saved customers for receivables, statements, and accurate reporting.",
+      href: "/customers",
+      completed: totalCustomers > 0,
+    },
+  ];
 
   return {
     totalSales: totalSales._sum.total?.toNumber() || 0,
@@ -176,5 +236,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       createdAt: s.createdAt,
       customerName: s.customer?.name || "Walk-in",
     })),
+    setupChecklist,
   };
 }

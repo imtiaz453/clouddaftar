@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createBillingAmountSnapshot } from "@/lib/billing-currency";
+import { reserveNextBillingInvoiceNumber } from "@/lib/billing-invoice-number";
 import { STARTER_PLAN_CODE } from "@/lib/subscription-policy";
 
 export async function GET(req: NextRequest) {
@@ -39,7 +40,9 @@ export async function GET(req: NextRequest) {
         ]);
         results.starterSuspended++;
       } catch (e) {
-        results.errors.push(`Starter suspend ${sub.id}: ${e instanceof Error ? e.message : "Unknown"}`);
+        results.errors.push(
+          `Starter suspend ${sub.id}: ${e instanceof Error ? e.message : "Unknown"}`,
+        );
       }
     }
 
@@ -61,15 +64,15 @@ export async function GET(req: NextRequest) {
         if (sub.billingCycle === "MONTHLY") periodEnd.setMonth(periodEnd.getMonth() + 1);
         else periodEnd.setFullYear(periodEnd.getFullYear() + 1);
 
-        const count = await prisma.billingInvoice.count();
-        const invoiceNumber = `SUB-${String(count + 1).padStart(5, "0")}`;
-        const baseAmount = sub.billingCycle === "MONTHLY"
-          ? Number(sub.plan.monthlyPrice)
-          : Number(sub.plan.yearlyPrice);
+        const baseAmount =
+          sub.billingCycle === "MONTHLY"
+            ? Number(sub.plan.monthlyPrice)
+            : Number(sub.plan.yearlyPrice);
         const snapshot = await createBillingAmountSnapshot(baseAmount, sub.company);
 
-        await prisma.$transaction([
-          prisma.billingInvoice.create({
+        await prisma.$transaction(async (tx) => {
+          const invoiceNumber = await reserveNextBillingInvoiceNumber(tx, sub.companyId);
+          await tx.billingInvoice.create({
             data: {
               invoiceNumber,
               companyId: sub.companyId,
@@ -87,20 +90,20 @@ export async function GET(req: NextRequest) {
               periodStart,
               periodEnd,
             },
-          }),
-          prisma.tenantSubscription.update({
+          });
+          await tx.tenantSubscription.update({
             where: { id: sub.id },
             data: { endDate: periodEnd },
-          }),
-          prisma.systemNotification.create({
+          });
+          await tx.systemNotification.create({
             data: {
               title: "Subscription Renewed",
               message: `Invoice ${invoiceNumber} generated for ${sub.company?.name || sub.companyId}`,
               type: "info",
               link: `/billing`,
             },
-          }),
-        ]);
+          });
+        });
 
         results.renewed++;
       } catch (e) {
@@ -132,7 +135,7 @@ export async function GET(req: NextRequest) {
             prisma.systemNotification.create({
               data: {
                 title: "Account Suspended",
-                message: `${inv.company?.name || inv.companyId} suspended – invoice ${inv.invoiceNumber} unpaid for over 7 days`,
+                message: `${inv.company?.name || inv.companyId} suspended - invoice ${inv.invoiceNumber} unpaid for over 7 days`,
                 type: "warning",
                 link: `/cloud-daftar-admin/tenants`,
               },
@@ -145,7 +148,10 @@ export async function GET(req: NextRequest) {
       }
     }
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Cron failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Cron failed" },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ success: true, ...results });

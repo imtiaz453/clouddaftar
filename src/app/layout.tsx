@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/providers";
@@ -39,9 +39,15 @@ export async function generateMetadata(): Promise<Metadata> {
       icon: "/favicon.ico",
       apple: "/icons/apple-touch-icon.png",
     },
-    themeColor: "#2563eb",
   };
 }
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#2563eb" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a1625" },
+  ],
+};
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { faviconUrl } = await getBranding();
@@ -59,8 +65,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </>
         )}
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#1a1625" media="(prefers-color-scheme: dark)" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Cloud Daftar" />
@@ -71,7 +75,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
       </head>
-      <body className="font-sans antialiased" suppressHydrationWarning style={{ fontFamily: "var(--font-sans)" }}>
+      <body
+        className="font-sans antialiased"
+        suppressHydrationWarning
+        style={{ fontFamily: "var(--font-sans)" }}
+      >
         <Providers>{children}</Providers>
       </body>
     </html>

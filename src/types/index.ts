@@ -56,6 +56,13 @@ export interface DashboardStats {
     createdAt: Date;
     customerName: string | null;
   }[];
+  setupChecklist: {
+    id: string;
+    title: string;
+    description: string;
+    href: string;
+    completed: boolean;
+  }[];
 }
 
 export interface ProductFormData {

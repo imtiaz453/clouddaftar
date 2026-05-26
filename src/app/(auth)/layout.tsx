@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { AuthThemeReset } from "@/components/shared/auth-theme-reset";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -11,39 +12,22 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-8 lg:flex-none lg:px-16 xl:px-20">
-        <div className="mx-auto w-full max-w-md">{children}</div>
-      </div>
-      <div className="relative hidden flex-1 lg:block">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/5 to-background" />
-        <div className="absolute inset-0 flex items-center justify-center p-12">
-          <div className="max-w-md space-y-8">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-wider text-primary">Cloud Daftar</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-tight">Modern business management</h2>
-              <p className="mt-3 text-muted-foreground">
-                Inventory, sales, purchases, accounting, and reporting — built for growing SMEs.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "Inventory", value: "Real-time stock" },
-                { label: "Sales", value: "POS & invoicing" },
-                { label: "Reports", value: "Live analytics" },
-                { label: "Multi-tenant", value: "Secure isolation" },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-xl border border-border/80 bg-card/60 p-4 backdrop-blur-sm"
-                >
-                  <div className="text-sm font-medium">{item.label}</div>
-                  <div className="text-xs text-muted-foreground">{item.value}</div>
-                </div>
-              ))}
-            </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef3f8] px-4 py-10 text-slate-950 sm:px-6">
+      <AuthThemeReset />
+      <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(37,99,235,0.14),rgba(255,255,255,0)_42%),linear-gradient(180deg,rgba(255,255,255,0.88),rgba(226,232,240,0.92))]" />
+      <div className="absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(15,23,42,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.08)_1px,transparent_1px)] [background-size:34px_34px]" />
+      <div className="pointer-events-none absolute left-0 top-0 h-24 w-full border-b border-white/70 bg-white/45" />
+
+      <div className="relative z-10 w-full max-w-[520px]">
+        <div className="mb-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-lg font-black text-white shadow-lg shadow-blue-600/25">
+            CD
           </div>
+          <p className="mt-3 text-sm font-bold uppercase tracking-[0.2em] text-blue-700">
+            Cloud Daftar
+          </p>
         </div>
+        {children}
       </div>
     </div>
   );

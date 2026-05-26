@@ -138,25 +138,34 @@ function LoginForm() {
   const hasGitHub = !!process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-5 py-12 text-slate-950">
-      <div className="w-full max-w-md">
-        <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/70 sm:p-10">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef3f8] px-5 py-10 text-slate-950">
+      <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(37,99,235,0.16),rgba(255,255,255,0)_44%),linear-gradient(180deg,rgba(255,255,255,0.9),rgba(226,232,240,0.94))]" />
+      <div className="absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(15,23,42,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.08)_1px,transparent_1px)] [background-size:34px_34px]" />
+      <div className="pointer-events-none absolute left-0 top-0 h-24 w-full border-b border-white/70 bg-white/45" />
+
+      <div className="relative z-10 w-full max-w-[520px]">
+        <div className="shadow-slate-950/16 rounded-[1.75rem] border border-white/80 bg-white/95 p-7 shadow-2xl ring-1 ring-slate-950/5 backdrop-blur sm:p-10">
           <div className="mb-8 text-center">
             {branding.logoUrl ? (
               <img
                 src={branding.logoUrl}
                 alt={branding.appName || "Cloud Daftar"}
-                className="mx-auto h-28 w-28 object-contain"
+                className="mx-auto h-24 w-24 object-contain"
               />
             ) : (
-              <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-md bg-blue-50">
-                <Building className="h-14 w-14 text-blue-600" />
+              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl border border-blue-100 bg-blue-50 shadow-inner">
+                <Building className="h-12 w-12 text-blue-600" />
               </div>
             )}
-            <h1 className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.22em] text-blue-700">
+              Secure workspace
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
               {branding.appName || "Cloud Daftar"}
             </h1>
-            <p className="mt-2 text-base text-slate-500">Sign in to your account to continue</p>
+            <p className="mt-2 text-base font-medium text-slate-500">
+              Sign in to continue managing your business.
+            </p>
           </div>
 
           {(hasGoogle || hasGitHub) && (
@@ -165,7 +174,7 @@ function LoginForm() {
                 {hasGoogle && (
                   <Button
                     variant="outline"
-                    className="h-12 w-full border-slate-200 bg-white text-base text-slate-800 hover:bg-slate-50"
+                    className="h-14 w-full border-slate-300 bg-white text-base font-bold text-slate-800 shadow-sm hover:bg-slate-50"
                     onClick={() => handleOAuthSignIn("google")}
                     disabled={loading}
                   >
@@ -193,7 +202,7 @@ function LoginForm() {
                 {hasGitHub && (
                   <Button
                     variant="outline"
-                    className="h-12 w-full border-slate-200 bg-white text-base text-slate-800 hover:bg-slate-50"
+                    className="h-14 w-full border-slate-300 bg-white text-base font-bold text-slate-800 shadow-sm hover:bg-slate-50"
                     onClick={() => handleOAuthSignIn("github")}
                     disabled={loading}
                   >
@@ -209,7 +218,7 @@ function LoginForm() {
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-slate-500">or continue with</span>
+                  <span className="bg-white px-3 font-bold text-slate-500">or continue with</span>
                 </div>
               </div>
             </>
@@ -232,7 +241,7 @@ function LoginForm() {
             )}
 
             <div>
-              <label htmlFor="email" className="mb-2 block text-base font-medium">
+              <label htmlFor="email" className="mb-2 block text-base font-bold">
                 Email
               </label>
               <Input
@@ -242,18 +251,18 @@ function LoginForm() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 required
-                className="h-14 border-slate-300 bg-white px-4 text-base text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-200"
+                className="h-14 rounded-xl border-slate-300 bg-white px-4 text-base font-semibold text-slate-950 shadow-sm placeholder:font-medium placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-200"
               />
             </div>
 
             <div>
               <div className="mb-2 flex items-center justify-between gap-4">
-                <label htmlFor="password" className="text-base font-medium">
+                <label htmlFor="password" className="text-base font-bold">
                   Password
                 </label>
                 <Link
                   href="/forgot-password"
-                  className="text-sm font-medium text-blue-700 hover:underline"
+                  className="text-sm font-bold text-blue-700 hover:underline"
                 >
                   Forgot password?
                 </Link>
@@ -266,12 +275,12 @@ function LoginForm() {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   required
-                  className="h-14 border-slate-300 bg-white px-4 pr-12 text-base text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-200"
+                  className="h-14 rounded-xl border-slate-300 bg-white px-4 pr-12 text-base font-semibold text-slate-950 shadow-sm placeholder:font-medium placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-200"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                   tabIndex={-1}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
@@ -282,7 +291,7 @@ function LoginForm() {
 
             <Button
               type="submit"
-              className="h-14 w-full bg-blue-600 text-base text-white hover:bg-blue-700"
+              className="h-14 w-full rounded-xl bg-blue-600 text-base font-black text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700"
               size="xl"
               disabled={loading}
             >
@@ -293,14 +302,14 @@ function LoginForm() {
 
           <p className="mt-8 text-center text-base text-slate-500">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="font-medium text-blue-700 hover:underline">
+            <Link href="/register" className="font-bold text-blue-700 hover:underline">
               Sign up
             </Link>
           </p>
         </div>
 
         <p className="mt-5 text-center text-sm text-slate-500">
-          &copy; {new Date().getFullYear()} {branding.appName || "Cloud Daftar"}. All rights
+          Copyright {new Date().getFullYear()} {branding.appName || "Cloud Daftar"}. All rights
           reserved.
         </p>
       </div>

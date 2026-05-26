@@ -6,22 +6,33 @@ import { ToastProvider } from "@/providers/toast-provider";
 import { IdleLogoutProvider } from "@/providers/idle-logout-provider";
 import { ThemeApplier } from "@/components/shared/theme-applier";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
+import { resetTenantThemeDom } from "@/lib/default-theme";
 
 const SETTINGS_CACHE_MS = 5 * 60 * 1000;
 const SETTINGS_FETCH_DELAY_MS = 3000;
 
 function ThemeSettingsFetcher({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
+  const pathname = usePathname() ?? "";
   const [theme, setTheme] = useState<Record<string, string> | null>(null);
   const [currency, setCurrency] = useState<Record<string, string | number> | null>(null);
   const companyId = (session?.user as { companyId?: string } | undefined)?.companyId || null;
+  const themeIsolatedRoute =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/cloud-daftar-admin");
 
   useEffect(() => {
-    if (!session || !companyId) {
+    if (!session || !companyId || themeIsolatedRoute) {
       setTheme(null);
       setCurrency(null);
+      resetTenantThemeDom(document.documentElement);
+      if (themeIsolatedRoute) document.documentElement.classList.remove("dark");
       return;
     }
     const cacheKey = `cloud-daftar-settings:${companyId}`;
@@ -106,14 +117,14 @@ function ThemeSettingsFetcher({ children }: { children: ReactNode }) {
       }
       controller?.abort();
     };
-  }, [session, companyId]);
+  }, [session, companyId, themeIsolatedRoute]);
 
   return (
     <>
       <ThemeApplier
-        theme={companyId ? (theme as any) : null}
-        currency={companyId ? (currency as any) : null}
-        scopeKey={companyId}
+        theme={companyId && !themeIsolatedRoute ? (theme as any) : null}
+        currency={companyId && !themeIsolatedRoute ? (currency as any) : null}
+        scopeKey={themeIsolatedRoute ? null : companyId}
       />
       {children}
     </>

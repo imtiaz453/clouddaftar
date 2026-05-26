@@ -1,8 +1,68 @@
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password", "/api/auth", "/cloud-daftar-admin"];
-const dashboardPaths = ["/", "/apps", "/inventory", "/inventory/categories", "/inventory/units", "/inventory/warehouses", "/inventory/adjustments", "/inventory/ledger", "/inventory/low-stock", "/inventory/barcodes", "/expenses", "/accounting", "/accounting/expenses", "/sales", "/sales/new", "/sales/returns", "/purchases", "/purchases/orders", "/purchases/returns", "/customers", "/suppliers", "/reports", "/reports/sales", "/reports/purchases", "/reports/inventory", "/reports/tax", "/reports/customer-statement", "/reports/supplier-statement", "/settings", "/settings/templates", "/users", "/users/roles", "/profile", "/accounts-receivable", "/accounts-receivable/aging", "/accounts-receivable/ledger", "/accounts-payable", "/accounts-payable/aging", "/accounts-payable/ledger", "/reconciliation", "/payment-reminders", "/accounting-reports", "/billing", "/audit-log", "/customer-payments", "/supplier-payments", "/quotations", "/income-expense", "/cash-flow", "/help", "/notifications", "/payment-reminders"];
+const publicPaths = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/api/auth",
+  "/cloud-daftar-admin",
+];
+const dashboardPaths = [
+  "/",
+  "/apps",
+  "/inventory",
+  "/inventory/categories",
+  "/inventory/units",
+  "/inventory/warehouses",
+  "/inventory/adjustments",
+  "/inventory/ledger",
+  "/inventory/low-stock",
+  "/inventory/barcodes",
+  "/expenses",
+  "/accounting",
+  "/accounting/expenses",
+  "/sales",
+  "/sales/new",
+  "/sales/returns",
+  "/purchases",
+  "/purchases/orders",
+  "/purchases/returns",
+  "/customers",
+  "/suppliers",
+  "/reports",
+  "/reports/sales",
+  "/reports/purchases",
+  "/reports/inventory",
+  "/reports/tax",
+  "/reports/customer-statement",
+  "/reports/supplier-statement",
+  "/settings",
+  "/settings/templates",
+  "/users",
+  "/users/roles",
+  "/profile",
+  "/accounts-receivable",
+  "/accounts-receivable/aging",
+  "/accounts-receivable/ledger",
+  "/accounts-payable",
+  "/accounts-payable/aging",
+  "/accounts-payable/ledger",
+  "/reconciliation",
+  "/payment-reminders",
+  "/accounting-reports",
+  "/billing",
+  "/audit-log",
+  "/customer-payments",
+  "/supplier-payments",
+  "/quotations",
+  "/income-expense",
+  "/cash-flow",
+  "/help",
+  "/notifications",
+  "/payment-reminders",
+];
 const PUBLIC_FILE = /\.(.*)$/;
 
 function isPublicPath(path: string) {
@@ -40,6 +100,9 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", path);
+
   // Rewrite /{tenant}/login → /login?tenant={tenant}
   // This keeps the pretty URL in the browser while serving the login page
   if (
@@ -54,17 +117,14 @@ export async function proxy(req: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  if (isPublicPath(path)) {
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
   });
-
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-pathname", path);
-
-  if (isPublicPath(path)) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
-  }
 
   if (!token) {
     const loginUrl = new URL("/login", req.url);

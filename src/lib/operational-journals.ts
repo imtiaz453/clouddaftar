@@ -1,4 +1,5 @@
 import type { AccountType, JournalType } from "@prisma/client";
+import { reserveNextJournalNumber } from "@/lib/journal-numbers";
 
 type Tx = any;
 
@@ -25,8 +26,8 @@ function positive(value: number) {
 
 function isBankPayment(method?: string | null) {
   const normalized = String(method || "").toUpperCase();
-  return ["BANK", "BANK_TRANSFER", "NET_BANKING", "CARD", "CHEQUE", "CHECK", "ONLINE"].some((token) =>
-    normalized.includes(token),
+  return ["BANK", "BANK_TRANSFER", "NET_BANKING", "CARD", "CHEQUE", "CHECK", "ONLINE"].some(
+    (token) => normalized.includes(token),
   );
 }
 
@@ -57,7 +58,13 @@ async function postAutoJournal(
     date?: Date;
     description: string;
     journalType: JournalType;
-    lines: { accountId: string; debit?: number; credit?: number; partnerId?: string | null; description?: string }[];
+    lines: {
+      accountId: string;
+      debit?: number;
+      credit?: number;
+      partnerId?: string | null;
+      description?: string;
+    }[];
   },
 ) {
   const lines = params.lines
@@ -76,31 +83,11 @@ async function postAutoJournal(
     where: { companyId: params.companyId, reference: params.reference },
   });
 
-  const last = await tx.journalEntryMaster.findFirst({
-    where: { companyId: params.companyId, journalType: params.journalType },
-    orderBy: { number: "desc" },
-  });
-  const prefix =
-    params.journalType === "SALES"
-      ? "GL-INV"
-      : params.journalType === "PURCHASES"
-        ? "GL-BIL"
-        : params.journalType === "RECEIPT"
-          ? "GL-RCT"
-          : params.journalType === "PAYMENT"
-            ? "GL-PYT"
-            : params.journalType === "CASH"
-              ? "GL-CSH"
-              : params.journalType === "BANK"
-                ? "GL-BNK"
-                : params.journalType === "SALARY"
-                  ? "GL-SAL"
-                  : "GL";
-  const seq = last ? parseInt(last.number.split("-").at(-1) || "0", 10) + 1 : 1;
+  const number = await reserveNextJournalNumber(tx, params.companyId, params.journalType);
 
   return tx.journalEntryMaster.create({
     data: {
-      number: `${prefix}-${String(seq).padStart(5, "0")}`,
+      number,
       date: params.date || new Date(),
       reference: params.reference,
       description: params.description,
@@ -142,7 +129,11 @@ export async function postSaleJournal(
     date?: Date;
   },
 ) {
-  const cashAccount = await getAccount(tx, params.companyId, isBankPayment(params.paymentMethod) ? "bank" : "cash");
+  const cashAccount = await getAccount(
+    tx,
+    params.companyId,
+    isBankPayment(params.paymentMethod) ? "bank" : "cash",
+  );
   const ar = await getAccount(tx, params.companyId, "receivable");
   const sales = await getAccount(tx, params.companyId, "sales");
   const tax = await getAccount(tx, params.companyId, "taxPayable");
@@ -164,7 +155,12 @@ export async function postSaleJournal(
     journalType: "SALES",
     lines: [
       { accountId: cashAccount.id, debit: paid, description: "Payment received" },
-      { accountId: ar.id, debit: due, partnerId: params.customerId, description: "Invoice receivable" },
+      {
+        accountId: ar.id,
+        debit: due,
+        partnerId: params.customerId,
+        description: "Invoice receivable",
+      },
       { accountId: sales.id, credit: revenue, description: "Sales revenue" },
       { accountId: tax.id, credit: taxAmount, description: "Output tax" },
       { accountId: cogs.id, debit: cost, description: "Cost of goods sold" },
@@ -188,7 +184,11 @@ export async function postPurchaseJournal(
     date?: Date;
   },
 ) {
-  const cashAccount = await getAccount(tx, params.companyId, isBankPayment(params.paymentMethod) ? "bank" : "cash");
+  const cashAccount = await getAccount(
+    tx,
+    params.companyId,
+    isBankPayment(params.paymentMethod) ? "bank" : "cash",
+  );
   const inventory = await getAccount(tx, params.companyId, "inventory");
   const tax = await getAccount(tx, params.companyId, "taxPayable");
   const payable = await getAccount(tx, params.companyId, "payable");
@@ -209,7 +209,12 @@ export async function postPurchaseJournal(
       { accountId: inventory.id, debit: inventoryValue, description: "Inventory purchased" },
       { accountId: tax.id, debit: taxAmount, description: "Input tax" },
       { accountId: cashAccount.id, credit: paid, description: "Payment made" },
-      { accountId: payable.id, credit: due, partnerId: params.supplierId, description: "Purchase payable" },
+      {
+        accountId: payable.id,
+        credit: due,
+        partnerId: params.supplierId,
+        description: "Purchase payable",
+      },
     ],
   });
 }
@@ -227,7 +232,11 @@ export async function postCustomerPaymentJournal(
     date?: Date;
   },
 ) {
-  const cashAccount = await getAccount(tx, params.companyId, isBankPayment(params.paymentMethod) ? "bank" : "cash");
+  const cashAccount = await getAccount(
+    tx,
+    params.companyId,
+    isBankPayment(params.paymentMethod) ? "bank" : "cash",
+  );
   const ar = await getAccount(tx, params.companyId, "receivable");
   return postAutoJournal(tx, {
     companyId: params.companyId,
@@ -239,7 +248,12 @@ export async function postCustomerPaymentJournal(
     journalType: "RECEIPT",
     lines: [
       { accountId: cashAccount.id, debit: params.amount, description: "Cash/bank received" },
-      { accountId: ar.id, credit: params.amount, partnerId: params.customerId, description: "Receivable settled" },
+      {
+        accountId: ar.id,
+        credit: params.amount,
+        partnerId: params.customerId,
+        description: "Receivable settled",
+      },
     ],
   });
 }
@@ -257,7 +271,11 @@ export async function postSupplierPaymentJournal(
     date?: Date;
   },
 ) {
-  const cashAccount = await getAccount(tx, params.companyId, isBankPayment(params.paymentMethod) ? "bank" : "cash");
+  const cashAccount = await getAccount(
+    tx,
+    params.companyId,
+    isBankPayment(params.paymentMethod) ? "bank" : "cash",
+  );
   const payable = await getAccount(tx, params.companyId, "payable");
   return postAutoJournal(tx, {
     companyId: params.companyId,
@@ -268,7 +286,12 @@ export async function postSupplierPaymentJournal(
     description: `Supplier payment ${params.referenceNumber}`,
     journalType: "PAYMENT",
     lines: [
-      { accountId: payable.id, debit: params.amount, partnerId: params.supplierId, description: "Payable settled" },
+      {
+        accountId: payable.id,
+        debit: params.amount,
+        partnerId: params.supplierId,
+        description: "Payable settled",
+      },
       { accountId: cashAccount.id, credit: params.amount, description: "Cash/bank paid" },
     ],
   });
@@ -290,7 +313,15 @@ export async function postExpenseJournal(
   const expense = await getAccount(tx, params.companyId, "operatingExpense");
   const creditAccount =
     params.status === "PAID"
-      ? await getAccount(tx, params.companyId, String(params.paidBy || "").toUpperCase().includes("BANK") ? "bank" : "cash")
+      ? await getAccount(
+          tx,
+          params.companyId,
+          String(params.paidBy || "")
+            .toUpperCase()
+            .includes("BANK")
+            ? "bank"
+            : "cash",
+        )
       : await getAccount(tx, params.companyId, "accruedExpenses");
 
   return postAutoJournal(tx, {
@@ -303,7 +334,11 @@ export async function postExpenseJournal(
     journalType: params.status === "PAID" ? "PAYMENT" : "GENERAL",
     lines: [
       { accountId: expense.id, debit: params.amount, description: params.description },
-      { accountId: creditAccount.id, credit: params.amount, description: params.status === "PAID" ? "Expense paid" : "Expense accrued" },
+      {
+        accountId: creditAccount.id,
+        credit: params.amount,
+        description: params.status === "PAID" ? "Expense paid" : "Expense accrued",
+      },
     ],
   });
 }

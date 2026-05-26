@@ -98,17 +98,22 @@ function VerifyResetCodeForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-md bg-primary/10">
-          <ShieldCheck className="h-6 w-6 text-primary" />
+    <Card className="shadow-slate-950/16 overflow-hidden rounded-[1.75rem] border-white/80 bg-white/95 shadow-2xl ring-1 ring-slate-950/5 backdrop-blur">
+      <CardHeader className="items-center border-b border-slate-200/70 px-7 pb-6 pt-8 text-center sm:px-10">
+        <div className="flex h-[72px] w-[72px] items-center justify-center rounded-3xl border border-blue-100 bg-blue-50 shadow-inner">
+          <ShieldCheck className="h-9 w-9 text-blue-600" />
         </div>
-        <CardTitle>Enter verification code</CardTitle>
-        <CardDescription>
+        <p className="mt-4 text-xs font-bold uppercase tracking-[0.22em] text-blue-700">
+          Verify identity
+        </p>
+        <CardTitle className="text-3xl font-black tracking-tight text-slate-950">
+          Enter verification code
+        </CardTitle>
+        <CardDescription className="max-w-sm text-sm font-medium text-slate-500">
           Enter the 6-digit code sent to your email. It expires in {countdown}.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-7 py-7 sm:px-10">
         <form onSubmit={handleVerify} className="space-y-4">
           <Input
             label="Email"
@@ -116,6 +121,7 @@ function VerifyResetCodeForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
+            className="h-14 rounded-xl border-slate-300 text-base font-semibold shadow-sm"
             required
           />
           <Input
@@ -126,20 +132,29 @@ function VerifyResetCodeForm() {
             placeholder="000000"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            className="h-12 text-center text-xl font-semibold tracking-[0.35em]"
+            className="h-14 rounded-xl border-slate-300 text-center text-xl font-black tracking-[0.35em] shadow-sm"
             required
           />
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading || code.length !== 6}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {error && (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+              {error}
+            </p>
+          )}
+          <Button
+            type="submit"
+            className="h-14 w-full rounded-xl bg-blue-600 text-base font-black text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700"
+            disabled={loading || code.length !== 6}
+          >
+            {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
             Verify code
           </Button>
         </form>
 
-        <div className="mt-4 flex flex-col gap-3 text-center text-sm">
+        <div className="mt-5 flex flex-col gap-3 text-center text-sm font-bold">
           <Button
             type="button"
             variant="outline"
+            className="h-12 rounded-xl border-slate-300 bg-white font-bold shadow-sm"
             onClick={handleResend}
             disabled={resending || resendAfter > 0 || !email}
           >
@@ -150,7 +165,7 @@ function VerifyResetCodeForm() {
             )}
             {resendAfter > 0 ? `Resend in ${resendAfter}s` : "Resend code"}
           </Button>
-          <Link href="/forgot-password" className="text-muted-foreground hover:text-foreground">
+          <Link href="/forgot-password" className="text-slate-500 hover:text-blue-700">
             <ArrowLeft className="mr-1 inline h-4 w-4" />
             Use a different email
           </Link>
@@ -164,9 +179,9 @@ export default function VerifyResetCodePage() {
   return (
     <Suspense
       fallback={
-        <Card className="w-full max-w-md">
-          <CardContent className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Card className="shadow-slate-950/16 overflow-hidden rounded-[1.75rem] border-white/80 bg-white/95 shadow-2xl ring-1 ring-slate-950/5 backdrop-blur">
+          <CardContent className="flex items-center justify-center py-14">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
           </CardContent>
         </Card>
       }
