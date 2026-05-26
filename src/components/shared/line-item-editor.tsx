@@ -211,8 +211,14 @@ export function LineItemEditor({
   const [dropdownPortalTarget, setDropdownPortalTarget] = useState<HTMLElement | null>(null);
   const desktopSearchInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const mobileSearchInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const mobilePosRef = useRef<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
   const lastRowRef = useRef<HTMLDivElement | null>(null);
-  const mobilePosRef = useRef<{ top: number; left: number; width: number } | null>(null);
 
   const updateDropdownPosition = useCallback((itemId: string) => {
     if (typeof document === "undefined") return;
@@ -308,7 +314,6 @@ export function LineItemEditor({
       setOpenDropdownId(null);
       setDropdownRect(null);
       setDropdownPortalTarget(null);
-      mobilePosRef.current = null;
 
       // clear temporary search text
       setSearchTerms((prev) => ({
