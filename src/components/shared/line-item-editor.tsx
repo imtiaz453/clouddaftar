@@ -407,7 +407,235 @@ export function LineItemEditor({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border">
+      {/* Mobile card view */}
+      <div className="block sm:hidden space-y-3">
+        {items.length === 0 ? (
+          <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            No items added yet
+          </div>
+        ) : (
+          items.map((item, idx) => {
+            const isLast = idx === items.length - 1;
+            const showDropdown = openDropdownId === item.id;
+            const searchTerm = searchTerms[item.id] || "";
+            return (
+              <div
+                key={item.id}
+                className={`rounded-lg border p-3 space-y-2 ${!item.productId ? "bg-muted/20" : ""}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                  {!readOnly && (
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => duplicateRow(item.id)}
+                        className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        title="Duplicate"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeRow(item.id)}
+                        disabled={items.length <= 1}
+                        className="rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500 disabled:opacity-30"
+                        title="Remove"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Product search */}
+                {readOnly ? (
+                  <span className="text-sm font-medium">{item.productName || "-"}</span>
+                ) : (
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      data-product-search="true"
+                      ref={(el) => { searchInputRefs.current[item.id] = el; }}
+                      type="text"
+                      placeholder="Search or scan product..."
+                      value={item.productId ? item.productName : searchTerm}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (item.productId) {
+                          onChange(items.map((i) =>
+                            i.id === item.id ? { ...i, productId: "", productName: "", sku: "", barcode: "", unit: "", price: 0, tax: 0, stock: 0, discount: 0 } : i
+                          ));
+                        }
+                        setSearchTerms((prev) => ({ ...prev, [item.id]: val }));
+                        setOpenDropdownId(item.id);
+                        updateDropdownPosition(item.id);
+                      }}
+                      onFocus={() => {
+                        if (!item.productId) { setOpenDropdownId(item.id); updateDropdownPosition(item.id); }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && showDropdown && activeResults.length > 0 && !item.productId) {
+                          e.preventDefault();
+                          selectProduct(item.id, activeResults[0]);
+                          return;
+                        }
+                        handleKeyDown(e, item.id, isLast);
+                      }}
+                      className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                    {showDropdown && dropdownRect && dropdownPortalTarget && typeof document !== "undefined" && createPortal(
+                      <div
+                        data-product-dropdown="true"
+                        className="z-[9999] mt-0 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg"
+                        style={{
+                          position: dropdownRect.position,
+                          top: dropdownRect.top,
+                          left: dropdownRect.left,
+                          width: dropdownRect.width,
+                          pointerEvents: "auto",
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+                        {activeResults.length === 0 ? (
+                          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                            <p>{searchTerm ? "No products found" : "Type to search..."}</p>
+                            {searchTerm && (
+                              <a href={dashboardHref(pathname, "/inventory", { createProduct: searchTerm })}
+                                className="mt-3 inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-accent">
+                                <Plus className="h-3.5 w-3.5" /> Create product
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          activeResults.slice(0, 30).map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              data-product-dropdown="true"
+                              onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); selectProduct(item.id, p); }}
+                              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                              onClick={(e) => { if (e.detail === 0) selectProduct(item.id, p); }}
+                              className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+                            >
+                              <div className="h-8 w-8 shrink-0 overflow-hidden rounded-md border bg-muted">
+                                {p.image ? (
+                                  <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full items-center justify-center text-muted-foreground/30">
+                                    <ShoppingCart className="h-4 w-4" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-medium">{p.name}</div>
+                                <div className="flex gap-2 text-xs text-muted-foreground">
+                                  {p.sku && <span>SKU: {p.sku}</span>}
+                                  {p.barcode && <span>Code: {p.barcode}</span>}
+                                  {p.unit && <span>{p.unit}</span>}
+                                </div>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <div className="font-medium">{formatCurrency(toNumber(p.sellingPrice, 0))}</div>
+                                {showStock && (
+                                  <div className={`text-xs ${p.stock <= 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                    Stock: {p.stock}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>,
+                      dropdownPortalTarget,
+                    )}
+                  </div>
+                )}
+
+                {/* Info row */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>SKU: {item.sku || "-"}</span>
+                  {showStock && (
+                    <span className={item.stock <= 0 && item.productId ? "text-red-500" : ""}>
+                      Stock: {item.productId ? item.stock : "-"}
+                    </span>
+                  )}
+                  {item.unit && <span>Unit: {item.unit}</span>}
+                </div>
+
+                {/* Input fields grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-0.5 block text-xs text-muted-foreground">Qty</label>
+                    {readOnly ? (
+                      <span className="block text-sm">{item.quantity}</span>
+                    ) : (
+                      <input
+                        type="number" min={0} step={1}
+                        value={Number.isFinite(item.quantity) ? item.quantity : 1}
+                        onChange={(e) => updateRow(item.id, "quantity", Math.max(0, parseInt(e.target.value) || 0))}
+                        onKeyDown={(e) => handleKeyDown(e, item.id, isLast)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-xs text-muted-foreground">Unit Price</label>
+                    {readOnly ? (
+                      <span className="block text-sm">{formatCurrency(item.price)}</span>
+                    ) : (
+                      <input
+                        type="number" min={0} step={0.01}
+                        value={Number.isFinite(item.price) ? item.price : 0}
+                        onChange={(e) => updateRow(item.id, "price", Math.max(0, parseFloat(e.target.value) || 0))}
+                        onKeyDown={(e) => handleKeyDown(e, item.id, isLast)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-xs text-muted-foreground">Disc</label>
+                    {readOnly ? (
+                      <span className="block text-sm">{formatCurrency(item.discount)}</span>
+                    ) : (
+                      <input
+                        type="number" min={0} step={0.01}
+                        value={Number.isFinite(item.discount) ? item.discount : 0}
+                        onChange={(e) => updateRow(item.id, "discount", Math.max(0, parseFloat(e.target.value) || 0))}
+                        onKeyDown={(e) => handleKeyDown(e, item.id, isLast)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-xs text-muted-foreground">{taxLabel()} %</label>
+                    {readOnly ? (
+                      <span className="block text-sm">{item.tax}%</span>
+                    ) : (
+                      <input
+                        type="number" min={0} max={100} step={0.01}
+                        value={Number.isFinite(item.tax) ? item.tax : 0}
+                        onChange={(e) => updateRow(item.id, "tax", Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                        onKeyDown={(e) => handleKeyDown(e, item.id, isLast)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-between border-t pt-2 text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">{formatCurrency(calculateLineTotal(item))}</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+      {/* Desktop table */}
+      <div className="hidden sm:block overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[880px] border-collapse text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
