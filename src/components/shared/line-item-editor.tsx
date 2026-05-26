@@ -208,6 +208,7 @@ export function LineItemEditor({
   const [dropdownPortalTarget, setDropdownPortalTarget] = useState<HTMLElement | null>(null);
   const searchInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const lastRowRef = useRef<HTMLDivElement | null>(null);
+  const mobilePosRef = useRef<{ top: number; left: number; width: number } | null>(null);
 
   const updateDropdownPosition = useCallback((itemId: string) => {
     if (typeof document === "undefined") return;
@@ -303,6 +304,7 @@ export function LineItemEditor({
       setOpenDropdownId(null);
       setDropdownRect(null);
       setDropdownPortalTarget(null);
+      mobilePosRef.current = null;
 
       // clear temporary search text
       setSearchTerms((prev) => ({
@@ -371,6 +373,7 @@ export function LineItemEditor({
       setOpenDropdownId(null);
       setDropdownRect(null);
       setDropdownPortalTarget(null);
+      mobilePosRef.current = null;
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -469,10 +472,21 @@ export function LineItemEditor({
                         }
                         setSearchTerms((prev) => ({ ...prev, [item.id]: val }));
                         setOpenDropdownId(item.id);
-                        updateDropdownPosition(item.id);
+                        const el = searchInputRefs.current[item.id];
+                        if (el) {
+                          const r = el.getBoundingClientRect();
+                          mobilePosRef.current = { top: r.bottom + 4, left: r.left, width: Math.max(r.width, 300) };
+                        }
                       }}
                       onFocus={() => {
-                        if (!item.productId) { setOpenDropdownId(item.id); updateDropdownPosition(item.id); }
+                        if (!item.productId) {
+                          setOpenDropdownId(item.id);
+                          const el = searchInputRefs.current[item.id];
+                          if (el) {
+                            const r = el.getBoundingClientRect();
+                            mobilePosRef.current = { top: r.bottom + 4, left: r.left, width: Math.max(r.width, 300) };
+                          }
+                        }
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && showDropdown && activeResults.length > 0 && !item.productId) {
@@ -484,8 +498,17 @@ export function LineItemEditor({
                       }}
                       className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                     />
-                    {showDropdown && (
-                      <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg">
+                    {showDropdown && mobilePosRef.current && typeof document !== "undefined" && createPortal(
+                      <div
+                        data-product-dropdown="true"
+                        className="z-[9999] max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg"
+                        style={{
+                          position: "fixed",
+                          top: mobilePosRef.current.top,
+                          left: mobilePosRef.current.left,
+                          width: mobilePosRef.current.width,
+                        }}
+                      >
                         {activeResults.length === 0 ? (
                           <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                             <p>{searchTerm ? "No products found" : "Type to search..."}</p>
@@ -532,7 +555,8 @@ export function LineItemEditor({
                             </button>
                           ))
                         )}
-                      </div>
+                      </div>,
+                      document.body,
                     )}
                   </div>
                 )}
