@@ -63,3 +63,21 @@ export async function requirePermission(permission: string): Promise<void> {
   const hasPermission = await checkPermission(permission);
   if (!hasPermission) throw new Error("Insufficient permissions");
 }
+
+export async function requireTaxSetup(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user?.companyId) throw new Error("Company context required");
+
+  const company = await prisma.company.findUnique({
+    where: { id: user.companyId },
+    select: { taxId: true, taxName: true },
+  });
+
+  if (!company) throw new Error("Company not found");
+
+  if (!company.taxId || !company.taxId.trim()) {
+    throw new Error(
+      "Tax settings not configured. Please go to Settings → Company and set up your Tax Name and Tax ID / NTN before creating invoices or quotations."
+    );
+  }
+}

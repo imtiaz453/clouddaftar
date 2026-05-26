@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth, checkPermission } from "@/lib/auth-helper";
+import { requireCompanyAuth, checkPermission, requireTaxSetup } from "@/lib/auth-helper";
 import { PERMISSIONS } from "@/lib/constants";
 import {
   documentKindForSaleStatus,
@@ -420,6 +420,8 @@ export async function createSale(data: {
 }) {
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
+
+  await requireTaxSetup();
 
   const settings = await prisma.companySettings.findUnique({
     where: { companyId },

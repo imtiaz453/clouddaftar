@@ -412,14 +412,14 @@ export function NewSaleClient({
           {fullscreenNotice}
         </div>
       )}
-      <div className="flex h-16 items-center gap-4 border-b bg-white/95 px-4">
+      <div className="flex h-14 items-center gap-2 border-b bg-white/95 px-3 sm:h-16 sm:gap-4 sm:px-4">
         <div className="min-w-0">
-          <div className="text-lg font-semibold tracking-tight text-foreground">Point of Sale</div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-base font-semibold tracking-tight text-foreground sm:text-lg">Point of Sale</div>
+          <div className="hidden text-xs text-muted-foreground sm:block">
             Invoice checkout, customer, tax, notes, and terms
           </div>
         </div>
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="rounded-lg border bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700">
             Lines {validItems.length}
           </span>
@@ -608,12 +608,12 @@ export function NewSaleClient({
               </p>
               <p className="text-2xl font-bold">Total: {formatCurrency(totals.grandTotal)}</p>
             </div>
-            <div className="grid grid-cols-3 border-y bg-white text-xs font-medium text-muted-foreground">
+            <div className="grid grid-cols-6 border-y bg-white text-xs font-medium text-muted-foreground">
               <ToolbarButton icon={RotateCcw} label="Refund" />
-              <ToolbarButton icon={FileText} label="Order Note" />
+              <ToolbarButton icon={FileText} label="Note" />
               <ToolbarButton icon={Barcode} label="Barcode" />
               <ToolbarButton icon={Star} label="Loyalty" />
-              <ToolbarButton icon={FilePlus2} label="Sales Order" />
+              <ToolbarButton icon={FilePlus2} label="Order" />
               <ToolbarButton icon={CreditCard} label={paymentMethod.replace("_", " ")} />
             </div>
 
@@ -674,7 +674,7 @@ export function NewSaleClient({
               </div>
             </div>
 
-            <div className="grid gap-2 border-t bg-white p-3 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 border-t bg-white p-3 sm:grid-cols-3 lg:grid-cols-5">
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue />
@@ -797,7 +797,7 @@ export function NewSaleClient({
             </div>
           </div>
 
-          <div className="flex gap-1 overflow-x-auto border-b bg-white px-3 py-2">
+          <div className="flex gap-1 overflow-x-auto border-b bg-white px-1.5 py-2 sm:px-3">
             <CategoryButton
               active={activeCategory === null}
               label="All"

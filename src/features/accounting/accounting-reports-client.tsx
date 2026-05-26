@@ -274,7 +274,7 @@ export function AccountingReportsClient() {
       <PageHeader title="Accounting Reports" description="Generate and export accounting reports" />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="aging">Aging Report</TabsTrigger>
           <TabsTrigger value="collection">Collections</TabsTrigger>
           <TabsTrigger value="outstanding">Outstanding</TabsTrigger>

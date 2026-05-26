@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth, checkPermission } from "@/lib/auth-helper";
+import { requireCompanyAuth, checkPermission, requireTaxSetup } from "@/lib/auth-helper";
 import { PERMISSIONS } from "@/lib/constants";
 import { createAuditLog } from "@/lib/audit";
 import { createSale } from "@/actions/sales";
@@ -155,6 +155,8 @@ export async function createQuotation(data: {
 }) {
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
+
+  await requireTaxSetup();
 
   await assertQuotationProducts(companyId, data.items);
   const totals = calculateQuotationTotals(data.items, data.discount ?? 0);
