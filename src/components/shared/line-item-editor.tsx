@@ -206,14 +206,15 @@ export function LineItemEditor({
     position: "absolute" | "fixed";
   } | null>(null);
   const [dropdownPortalTarget, setDropdownPortalTarget] = useState<HTMLElement | null>(null);
-  const searchInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const desktopSearchInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const mobileSearchInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const lastRowRef = useRef<HTMLDivElement | null>(null);
   const mobilePosRef = useRef<{ top: number; left: number; width: number } | null>(null);
 
   const updateDropdownPosition = useCallback((itemId: string) => {
     if (typeof document === "undefined") return;
 
-    const el = searchInputRefs.current[itemId];
+    const el = desktopSearchInputRefs.current[itemId];
     if (!el) return;
 
     const inputRect = el.getBoundingClientRect();
@@ -314,7 +315,7 @@ export function LineItemEditor({
 
       // restore focus stability
       requestAnimationFrame(() => {
-        const input = searchInputRefs.current[itemId];
+        const input = desktopSearchInputRefs.current[itemId] ?? mobileSearchInputRefs.current[itemId];
         input?.blur();
       });
     },
@@ -355,7 +356,7 @@ export function LineItemEditor({
 
   useEffect(() => {
     if (focusId) {
-      const input = searchInputRefs.current[focusId];
+      const input = desktopSearchInputRefs.current[focusId] ?? mobileSearchInputRefs.current[focusId];
       if (input) {
         input.focus();
         input.select();
@@ -459,7 +460,7 @@ export function LineItemEditor({
                     <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <input
                       data-product-search="true"
-                      ref={(el) => { searchInputRefs.current[item.id] = el; }}
+                      ref={(el) => { mobileSearchInputRefs.current[item.id] = el; }}
                       type="text"
                       placeholder="Search or scan product..."
                       value={item.productId ? item.productName : searchTerm}
@@ -472,7 +473,9 @@ export function LineItemEditor({
                         }
                         setSearchTerms((prev) => ({ ...prev, [item.id]: val }));
                         setOpenDropdownId(item.id);
-                        const el = searchInputRefs.current[item.id];
+                        setDropdownRect(null);
+                        setDropdownPortalTarget(null);
+                        const el = mobileSearchInputRefs.current[item.id];
                         if (el) {
                           const r = el.getBoundingClientRect();
                           mobilePosRef.current = { top: r.bottom + 4, left: r.left, width: Math.max(r.width, 300) };
@@ -481,7 +484,9 @@ export function LineItemEditor({
                       onFocus={() => {
                         if (!item.productId) {
                           setOpenDropdownId(item.id);
-                          const el = searchInputRefs.current[item.id];
+                          setDropdownRect(null);
+                          setDropdownPortalTarget(null);
+                          const el = mobileSearchInputRefs.current[item.id];
                           if (el) {
                             const r = el.getBoundingClientRect();
                             mobilePosRef.current = { top: r.bottom + 4, left: r.left, width: Math.max(r.width, 300) };
@@ -703,7 +708,7 @@ export function LineItemEditor({
                         <input
                           data-product-search="true"
                           ref={(el) => {
-                            searchInputRefs.current[item.id] = el;
+                            desktopSearchInputRefs.current[item.id] = el;
                           }}
                           type="text"
                           placeholder="Search or scan product..."
@@ -732,11 +737,13 @@ export function LineItemEditor({
                             }
                             setSearchTerms((prev) => ({ ...prev, [item.id]: val }));
                             setOpenDropdownId(item.id);
+                            mobilePosRef.current = null;
                             updateDropdownPosition(item.id);
                           }}
                           onFocus={() => {
                             if (!item.productId) {
                               setOpenDropdownId(item.id);
+                              mobilePosRef.current = null;
                               updateDropdownPosition(item.id);
                             }
                           }}
@@ -795,19 +802,8 @@ export function LineItemEditor({
                                     key={p.id}
                                     type="button"
                                     data-product-dropdown="true"
-                                    onPointerDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
+                                    onClick={() => {
                                       selectProduct(item.id, p);
-                                    }}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                    }}
-                                    onClick={(e) => {
-                                      if (e.detail === 0) {
-                                        selectProduct(item.id, p);
-                                      }
                                     }}
                                     className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
                                   >

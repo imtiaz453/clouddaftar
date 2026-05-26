@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateBoth } from "@/lib/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth } from "@/lib/auth-helper";
 import { generateSku, slugify } from "@/lib/utils";
@@ -417,7 +417,7 @@ export async function createProduct(data: {
     metadata: { name: product.name, sku: product.sku },
   });
 
-  revalidatePath("/inventory");
+  revalidateBoth("/inventory", user.companySlug);
   return product;
 }
 
@@ -466,7 +466,7 @@ export async function updateProduct(id: string, data: Record<string, unknown>) {
     metadata: { changes: data },
   });
 
-  revalidatePath("/inventory");
+  revalidateBoth("/inventory", user.companySlug);
   return product;
 }
 
@@ -493,7 +493,7 @@ export async function deleteProduct(id: string) {
     metadata: { name: existing.name },
   });
 
-  revalidatePath("/inventory");
+  revalidateBoth("/inventory", user.companySlug);
 }
 
 export async function getCategories() {
@@ -615,7 +615,7 @@ export async function adjustStock(data: {
     },
   });
 
-  revalidatePath("/inventory");
+  revalidateBoth("/inventory", user.companySlug);
 }
 
 export async function transferStock(data: {
@@ -730,8 +730,8 @@ export async function transferStock(data: {
     },
   });
 
-  revalidatePath("/inventory");
-  revalidatePath("/inventory/warehouses");
+  revalidateBoth("/inventory", user.companySlug);
+  revalidateBoth("/inventory/warehouses", user.companySlug);
   return result;
 }
 
@@ -858,7 +858,7 @@ export async function createProductLot(data: {
     },
   });
 
-  revalidatePath("/inventory");
+  revalidateBoth("/inventory", user.companySlug);
   return result;
 }
 

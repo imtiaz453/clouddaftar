@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 import type { SessionUser } from "@/types";
 import { getEffectiveUserPermissions } from "@/lib/constants";
 
@@ -79,5 +80,12 @@ export async function requireTaxSetup(): Promise<void> {
     throw new Error(
       "Tax settings not configured. Please go to Settings → Company and set up your Tax Name and Tax ID / NTN before creating invoices or quotations."
     );
+  }
+}
+
+export function revalidateBoth(path: string, companySlug?: string) {
+  revalidatePath(path);
+  if (companySlug) {
+    revalidatePath(`/${companySlug}${path}`);
   }
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth } from "@/lib/auth-helper";
+import { requireCompanyAuth, revalidateBoth } from "@/lib/auth-helper";
 import { createAuditLog } from "@/lib/audit";
 import { ensureDefaultBranchAndWarehouse, ensureDefaultWarehouseLocations } from "@/lib/locations";
 
@@ -45,7 +45,8 @@ export async function createBranch(data: {
   city?: string;
   createDefaultWarehouse?: boolean;
 }) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  const user = await requireCompanyAuth();
+  const { companyId, id: userId } = user;
   const code = normalizeCode(data.code || data.name);
   if (!data.name.trim()) throw new Error("Branch name is required");
   if (!code) throw new Error("Branch code is required");
@@ -89,7 +90,7 @@ export async function createBranch(data: {
     entityId: branch.id,
     metadata: { name: branch.name, code: branch.code },
   });
-  revalidatePath("/settings");
+  revalidateBoth("/settings", user.companySlug);
   return branch;
 }
 
@@ -99,7 +100,8 @@ export async function createWarehouse(data: {
   branchId?: string;
   isDefault?: boolean;
 }) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  const user = await requireCompanyAuth();
+  const { companyId, id: userId } = user;
   const code = normalizeCode(data.code || data.name);
   if (!data.name.trim()) throw new Error("Warehouse name is required");
   if (!code) throw new Error("Warehouse code is required");
@@ -133,7 +135,7 @@ export async function createWarehouse(data: {
     entityId: warehouse.id,
     metadata: { name: warehouse.name, code: warehouse.code, branchId: warehouse.branchId },
   });
-  revalidatePath("/settings");
+  revalidateBoth("/settings", user.companySlug);
   return warehouse;
 }
 
@@ -148,7 +150,8 @@ export async function createWarehouseLocation(data: {
   isReplenishable?: boolean;
   isScrapLocation?: boolean;
 }) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  const user = await requireCompanyAuth();
+  const { companyId, id: userId } = user;
   if (!data.name.trim()) throw new Error("Location name is required");
   if (!data.warehouseId) throw new Error("Warehouse is required");
 
@@ -188,7 +191,7 @@ export async function createWarehouseLocation(data: {
     entityId: location.id,
     metadata: { name: location.name, code: location.code, warehouseId: location.warehouseId },
   });
-  revalidatePath("/inventory/warehouses");
+  revalidateBoth("/inventory/warehouses", user.companySlug);
   return location;
 }
 
