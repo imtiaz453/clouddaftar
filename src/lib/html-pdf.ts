@@ -1,33 +1,12 @@
-import { existsSync } from "fs";
-import puppeteer, { type Browser, type PDFOptions } from "puppeteer";
+import { launchPdfBrowser } from "@/lib/pdf/browser";
+import type { PDFOptions } from "puppeteer-core";
 import type { PaperSize } from "@/lib/template-registry";
 
-let browserInstance: Browser | null = null;
+let browserInstance: Awaited<ReturnType<typeof launchPdfBrowser>> | null = null;
 
-function findBrowserExecutable(): string | undefined {
-  const candidates = [
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    process.env.CHROME_PATH,
-    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-  ];
-
-  return candidates.find((candidate): candidate is string => Boolean(candidate && existsSync(candidate)));
-}
-
-async function getBrowser(): Promise<Browser> {
+async function getBrowser() {
   if (!browserInstance || !browserInstance.connected) {
-    browserInstance = await puppeteer.launch({
-      headless: true,
-      executablePath: findBrowserExecutable(),
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    });
+    browserInstance = await launchPdfBrowser();
   }
   return browserInstance;
 }

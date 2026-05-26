@@ -82,6 +82,7 @@ export function PurchaseDialog({
             quantity: item.quantity,
             discount: Number(item.discount),
             tax: Number(item.tax),
+            description: item.description || "",
           })),
         );
         setSupplierId(purchase.supplierId || "");
@@ -126,6 +127,7 @@ export function PurchaseDialog({
           quantity: 1,
           discount: 0,
           tax: 0,
+          description: "",
         },
       ];
     });

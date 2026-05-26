@@ -14,6 +14,10 @@ import { generatePdfFromHtml } from "@/lib/html-pdf";
 import { pdfFilename } from "@/lib/pdf-generator";
 import { resolveTaxLabel } from "@/lib/tax-label";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);

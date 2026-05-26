@@ -6,6 +6,10 @@ import { generatePdfFromHtml } from "@/lib/html-pdf";
 import { pdfFilename } from "@/lib/pdf-generator";
 import { generateStatementHtml } from "@/lib/statement-html";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   try {
     const user = await requireCompanyAuth();

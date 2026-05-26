@@ -54,6 +54,7 @@ function createEmptyRow(): LineItem {
     discount: 0,
     tax: 0,
     stock: 0,
+    description: "",
   };
 }
 
@@ -72,6 +73,7 @@ function saleItemsToLineItems(sale: any, products: ProductOption[]): LineItem[] 
       discount: Number(item.discount),
       tax: Number(item.tax),
       stock: product?.stock || 0,
+      description: item.description || "",
     };
   });
   return items.length > 0 ? items : [createEmptyRow()];

@@ -356,13 +356,14 @@ export async function convertQuotationToSale(id: string) {
 
   const sale = await createSale({
     customerId: quotation.customerId || undefined,
-    items: quotation.items.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      price: Number(item.price),
-      discount: Number(item.discount),
-      tax: Number(item.tax),
-    })),
+      items: quotation.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: Number(item.price),
+        discount: Number(item.discount),
+        tax: Number(item.tax),
+        description: item.description || undefined,
+      })),
     discount: headerDiscount,
     paid: 0,
     status: "CONFIRMED",

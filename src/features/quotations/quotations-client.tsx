@@ -792,6 +792,7 @@ function CreateQuotationDialog({
       discount: 0,
       tax: 0,
       stock: 0,
+      description: "",
     },
   ]);
   const [saving, setSaving] = useState(false);
@@ -868,6 +869,7 @@ function CreateQuotationDialog({
         discount: 0,
         tax: 0,
         stock: 0,
+        description: "",
       },
     ]);
   };

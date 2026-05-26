@@ -72,6 +72,7 @@ function createEmptyRow(): LineItem {
     discount: 0,
     tax: 0,
     stock: 0,
+    description: "",
   };
 }
 
@@ -195,6 +196,7 @@ export function NewSaleClient({
           discount: 0,
           tax: taxRate,
           stock: product.stock || 0,
+          description: "",
         },
       ];
     });
