@@ -20,6 +20,7 @@ export interface LineItem {
   discount: number;
   tax: number;
   stock: number;
+  description?: string;
 }
 
 export interface ProductOption {
@@ -63,6 +64,7 @@ function createEmptyRow(): LineItem {
     discount: 0,
     tax: 0,
     stock: 0,
+    description: "",
   };
 }
 
@@ -102,6 +104,7 @@ export function getProductLineDefaults(
     discount: 0,
     tax: selectedTaxRate(product, defaultTaxRate),
     stock: toNumber(product.stock, 0),
+    description: "",
   };
 }
 
@@ -565,6 +568,21 @@ export function LineItemEditor({
                     )}
                   </div>
                 )}
+                {!readOnly ? (
+                  <input
+                    type="text"
+                    placeholder="Description (optional)"
+                    value={item.description || ""}
+                    onChange={(e) => {
+                      onChange(items.map((i) =>
+                        i.id === item.id ? { ...i, description: e.target.value } : i
+                      ));
+                    }}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                ) : item.description ? (
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
+                ) : null}
 
                 {/* Info row */}
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -844,6 +862,21 @@ export function LineItemEditor({
                           )}
                       </div>
                     )}
+                    {!readOnly ? (
+                      <input
+                        type="text"
+                        placeholder="Description (optional)"
+                        value={item.description || ""}
+                        onChange={(e) => {
+                          onChange(items.map((i) =>
+                            i.id === item.id ? { ...i, description: e.target.value } : i
+                          ));
+                        }}
+                        className="mt-1 h-7 w-full rounded-md border border-input bg-background px-2 text-[11px] outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                    ) : item.description ? (
+                      <p className="mt-1 text-[11px] text-muted-foreground">{item.description}</p>
+                    ) : null}
                   </td>
                   <td className="px-2 py-1.5">
                     <span className="text-xs text-muted-foreground">{item.sku || "-"}</span>

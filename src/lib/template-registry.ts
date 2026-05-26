@@ -94,6 +94,7 @@ export interface RenderData {
     tax: number;
     subtotal: number;
     unit?: string | null;
+    description?: string | null;
   }[];
   type: TemplateType;
 }

@@ -40,6 +40,7 @@ interface CartItem {
   quantity: number;
   discount: number;
   tax: number;
+  description?: string;
 }
 
 function dateInputValue(value?: string | Date | null) {
@@ -168,6 +169,7 @@ export function PurchaseDialog({
             price: item.price,
             discount: item.discount,
             tax: item.tax,
+            description: item.description || undefined,
           })),
           discount: 0,
           paymentMethod,

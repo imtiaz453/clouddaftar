@@ -277,6 +277,7 @@ export function QuotationsClient({
             price: item.price,
             discount: item.discount,
             tax: item.tax,
+            description: item.description || undefined,
           })),
         }),
       });
@@ -824,6 +825,7 @@ function CreateQuotationDialog({
             price: c.price,
             discount: c.discount,
             tax: c.tax,
+            description: c.description || undefined,
           })),
           discount,
           notes,

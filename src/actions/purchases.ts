@@ -20,6 +20,7 @@ type PurchaseLineInput = {
   price: number;
   discount?: number;
   tax?: number;
+  description?: string;
 };
 
 function parseOptionalDate(value?: string | null) {
@@ -200,6 +201,7 @@ export async function createPurchase(data: {
             discount: item.discount ?? 0,
             tax: item.tax || 0,
             subtotal: item.price * item.quantity - (item.discount ?? 0),
+            description: item.description || null,
           })),
         },
       },
@@ -411,6 +413,7 @@ export async function updatePurchase(
               discount: item.discount ?? 0,
               tax: item.tax || 0,
               subtotal: item.price * item.quantity - (item.discount ?? 0),
+              description: item.description || null,
             })),
           },
         },

@@ -14,6 +14,7 @@ type QuotationLineInput = {
   price: number;
   discount?: number;
   tax?: number;
+  description?: string;
 };
 
 async function assertQuotationProducts(companyId: string, items: QuotationLineInput[]) {
@@ -188,6 +189,7 @@ export async function createQuotation(data: {
             discount: i.discount || 0,
             tax: i.tax || 0,
             subtotal: i.price * i.quantity - (i.discount || 0),
+            description: i.description || null,
           })),
         },
       },
@@ -255,6 +257,7 @@ export async function updateQuotation(
         discount: i.discount || 0,
         tax: i.tax || 0,
         subtotal: i.price * i.quantity - (i.discount || 0),
+        description: i.description || null,
       })),
     });
   } else if (data.discount !== undefined) {

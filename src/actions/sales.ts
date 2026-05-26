@@ -36,6 +36,7 @@ type SaleLineInput = {
   price: number;
   discount?: number;
   tax?: number;
+  description?: string;
 };
 
 function parseOptionalDate(value?: string | null) {
@@ -510,6 +511,7 @@ export async function createSale(data: {
             discount: item.discount ?? 0,
             tax: item.tax ?? 0,
             subtotal: item.price * item.quantity - (item.discount ?? 0),
+            description: item.description || null,
           })),
         },
       },
@@ -808,6 +810,7 @@ export async function updateSale(
       price: Number(item.price),
       discount: Number(item.discount),
       tax: Number(item.tax),
+      description: item.description || undefined,
     }));
   const existingLineDiscount = existing.items.reduce(
     (sum, item) => sum + Number(item.discount || 0),
@@ -956,6 +959,7 @@ export async function updateSale(
                   discount: item.discount ?? 0,
                   tax: item.tax ?? 0,
                   subtotal: item.price * item.quantity - (item.discount ?? 0),
+                  description: item.description || null,
                 })),
               },
             }

@@ -116,13 +116,13 @@ function renderCompact(
           ? items
               .map(
                 (item) =>
-                  `<tr><td colspan="4">${esc(item.name)}${item.sku ? " (" + esc(item.sku) + ")" : ""}</td></tr><tr><td></td><td class="right">${item.quantity}</td><td class="right">${fmt(item.price, symbol)}</td><td class="right">${fmt(item.subtotal, symbol)}</td></tr>`,
+                  `<tr><td colspan="4">${esc(item.name)}${item.sku ? " (" + esc(item.sku) + ")" : ""}${item.description ? `<br/><span style="font-size:9px;color:#666;">${esc(item.description)}</span>` : ""}</td></tr><tr><td></td><td class="right">${item.quantity}</td><td class="right">${fmt(item.price, symbol)}</td><td class="right">${fmt(item.subtotal, symbol)}</td></tr>`,
               )
               .join("")
           : items
               .map(
                 (item) =>
-                  `<tr><td>${esc(item.name)}</td><td class="right">${item.quantity}</td><td class="right">${fmt(item.price, symbol)}</td><td class="right">${fmt(item.subtotal, symbol)}</td></tr>`,
+                  `<tr><td>${esc(item.name)}${item.description ? `<br/><span style="font-size:9px;color:#666;">${esc(item.description)}</span>` : ""}</td><td class="right">${item.quantity}</td><td class="right">${fmt(item.price, symbol)}</td><td class="right">${fmt(item.subtotal, symbol)}</td></tr>`,
               )
               .join("")
       }
@@ -183,6 +183,7 @@ function renderPos(
           (item) => `
         <div class="item-row">
           <div class="item-name">${esc(item.name)}</div>
+          ${item.description ? `<div class="item-desc" style="font-size:10px;color:#666;">${esc(item.description)}</div>` : ""}
           <div class="item-detail">${item.quantity} x ${fmt(item.price, symbol)}${item.discount > 0 ? ` (-${fmt(item.discount, symbol)})` : ""}</div>
           <div class="item-total">${fmt(item.subtotal, symbol)}</div>
         </div>

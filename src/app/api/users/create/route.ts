@@ -111,34 +111,13 @@ export async function POST(req: Request) {
         where: { email: { equals: email, mode: "insensitive" } },
       });
       if (existingUser) {
-        const existingMembership = await prisma.companyMembership.findFirst({
-          where: { companyId, userId: existingUser.id },
-        });
-        if (existingMembership) {
-          return NextResponse.json(
-            { success: false, error: "User is already a member of this company" },
-            { status: 409 },
-          );
-        }
-        const membership = await prisma.companyMembership.create({
-          data: {
-            userId: existingUser.id,
-            companyId,
-            role,
-            ...(branchId ? { branchId } : {}),
-            ...(data.permissionOverrides ? { permissionOverrides: data.permissionOverrides } : {}),
+        return NextResponse.json(
+          {
+            success: false,
+            error: "A user with this email already exists in the system. Please use a different email.",
           },
-          select: {
-            id: true,
-            role: true,
-            user: { select: { id: true, name: true, email: true, image: true, isActive: true } },
-          },
-        });
-        return NextResponse.json({
-          success: true,
-          data: { ...membership.user, role: membership.role },
-          message: "User added to company",
-        });
+          { status: 409 },
+        );
       }
       const newUser = await prisma.user.create({
         data: {
@@ -213,42 +192,13 @@ export async function POST(req: Request) {
       where: { email: { equals: email, mode: "insensitive" } },
     });
     if (existingUser) {
-      const existingMembership = await prisma.companyMembership.findFirst({
-        where: { companyId, userId: existingUser.id },
-      });
-      if (existingMembership) {
-        return NextResponse.json(
-          { success: false, error: "User is already a member of this company" },
-          { status: 409 },
-        );
-      }
-      const membership = await prisma.companyMembership.create({
-        data: {
-          userId: existingUser.id,
-          companyId,
-          role,
-          ...(branchId ? { branchId } : {}),
-          ...(data.permissionOverrides ? { permissionOverrides: data.permissionOverrides } : {}),
+      return NextResponse.json(
+        {
+          success: false,
+          error: "A user with this email already exists in the system. Please use a different email.",
         },
-        select: {
-          id: true,
-          role: true,
-          user: { select: { id: true, name: true, email: true, image: true, isActive: true } },
-        },
-      });
-      await createAuditLog({
-        userId,
-        companyId,
-        action: "CREATE",
-        entity: "CompanyMembership",
-        entityId: membership.id,
-        metadata: { email, role, type: "added_existing_user" },
-      });
-      return NextResponse.json({
-        success: true,
-        data: { ...membership.user, role: membership.role },
-        message: "User added to company",
-      });
+        { status: 409 },
+      );
     }
 
     const newUser = await prisma.user.create({

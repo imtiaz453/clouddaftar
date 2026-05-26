@@ -308,7 +308,7 @@ export function renderAdvancedDocument(
         ${data.items
           .map((item) => {
             const cells: Record<string, string> = {
-              item: `<strong>${esc(item.name)}</strong>`,
+              item: `<strong>${esc(item.name)}</strong>${item.description ? `<br/><span style="font-size:11px;color:#666;">${esc(item.description)}</span>` : ""}`,
               sku: esc(item.sku || "-"),
               qty: esc(item.quantity),
               unit: esc(item.unit || "-"),

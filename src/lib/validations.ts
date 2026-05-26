@@ -235,6 +235,7 @@ export const saleSchema = z.object({
         price: z.number().min(0),
         discount: z.number().min(0).optional(),
         tax: z.number().min(0).optional(),
+        description: z.string().optional(),
       }),
     )
     .min(1, "At least one item is required"),
@@ -288,6 +289,7 @@ export const purchaseSchema = z.object({
         price: z.number().min(0),
         discount: z.number().min(0).optional(),
         tax: z.number().min(0).optional(),
+        description: z.string().optional(),
       }),
     )
     .min(1, "At least one item is required"),
@@ -468,6 +470,7 @@ const quotationItemSchema = z.object({
   price: z.number().min(0),
   discount: z.number().min(0).optional(),
   tax: z.number().min(0).optional(),
+  description: z.string().optional(),
 });
 
 export const quotationCreateSchema = z.object({

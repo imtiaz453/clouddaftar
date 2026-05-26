@@ -719,14 +719,15 @@ model Sale {
 }
 
 model SaleItem {
-  id        String  @id @default(cuid())
-  saleId    String
-  productId String
-  quantity  Int     @default(1)
-  price     Decimal @default(0)
-  discount  Decimal @default(0)
-  tax       Decimal @default(0)
-  subtotal  Decimal @default(0)
+  id          String  @id @default(cuid())
+  saleId      String
+  productId   String
+  quantity    Int     @default(1)
+  price       Decimal @default(0)
+  discount    Decimal @default(0)
+  tax         Decimal @default(0)
+  subtotal    Decimal @default(0)
+  description String?
 
   sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
@@ -781,14 +782,15 @@ model Purchase {
 }
 
 model PurchaseItem {
-  id         String  @id @default(cuid())
-  purchaseId String
-  productId  String
-  quantity   Int     @default(1)
-  price      Decimal @default(0)
-  discount   Decimal @default(0)
-  tax        Decimal @default(0)
-  subtotal   Decimal @default(0)
+  id          String  @id @default(cuid())
+  purchaseId  String
+  productId   String
+  quantity    Int     @default(1)
+  price       Decimal @default(0)
+  discount    Decimal @default(0)
+  tax         Decimal @default(0)
+  subtotal    Decimal @default(0)
+  description String?
 
   purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   product  Product  @relation(fields: [productId], references: [id])
@@ -914,6 +916,7 @@ model QuotationItem {
   discount    Decimal @default(0)
   tax         Decimal @default(0)
   subtotal    Decimal @default(0)
+  description String?
 
   quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   product   Product   @relation(fields: [productId], references: [id])

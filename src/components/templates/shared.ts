@@ -84,6 +84,7 @@ export function itemsTable(items: RenderData["items"], opts: RenderOptions): str
       <td>
         ${esc(item.name)}
         ${item.sku ? `<br/><span class="item-sku">SKU: ${esc(item.sku)}</span>` : ""}
+        ${item.description ? `<br/><span class="item-desc">${esc(item.description)}</span>` : ""}
         ${item.discount > 0 ? `<br/><span class="item-discount">${esc(docLabel("discount", undefined, opts))}: -${fmt(item.discount, symbol)}</span>` : ""}
       </td>
       <td class="right">${item.quantity}${item.unit ? " " + esc(item.unit) : ""}</td>
@@ -107,6 +108,7 @@ export function itemsTableCompact(items: RenderData["items"], opts?: RenderOptio
     <tr>
       <td colspan="4">
         <div class="item-name">${esc(item.name)}${item.sku ? ` (${esc(item.sku)})` : ""}</div>
+        ${item.description ? `<div class="item-desc">${esc(item.description)}</div>` : ""}
         <div class="item-detail">${item.quantity} x ${fmt(item.price, symbol)}${item.discount > 0 ? ` - disc ${fmt(item.discount, symbol)}` : ""}</div>
       </td>
       <td class="right">${fmt(item.subtotal, symbol)}</td>

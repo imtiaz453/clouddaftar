@@ -55,34 +55,7 @@ export async function createUserDirectly(data: {
   const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
 
   if (existingUser) {
-    const existingMembership = await prisma.companyMembership.findFirst({
-      where: { companyId, userId: existingUser.id },
-    });
-    if (existingMembership) {
-      throw new Error("User is already a member of this company");
-    }
-    const membership = await prisma.companyMembership.create({
-      data: {
-        userId: existingUser.id,
-        companyId,
-        role: data.role as any,
-      },
-      include: {
-        user: { select: { id: true, name: true, email: true, image: true, isActive: true } },
-      },
-    });
-
-    await createAuditLog({
-      userId,
-      companyId,
-      action: "CREATE",
-      entity: "CompanyMembership",
-      entityId: membership.id,
-      metadata: { email: data.email, role: data.role, type: "added_existing_user" },
-    });
-
-    revalidatePath("/users");
-    return { ...membership.user, role: membership.role, joinedAt: membership.joinedAt };
+    throw new Error("A user with this email already exists in the system. Please use a different email.");
   }
 
   const newUser = await prisma.user.create({

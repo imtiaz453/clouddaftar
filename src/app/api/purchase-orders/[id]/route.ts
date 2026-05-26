@@ -285,7 +285,7 @@ function generateA4Html(purchase: any, template?: any): string {
               const lineTax = (lineBase * Number(item.tax || 0)) / 100;
               return `
               <tr>
-                <td class="item-name">${esc(item.product?.name || "Item")}</td>
+                <td class="item-name">${esc(item.product?.name || "Item")}${item.description ? `<br/><span class="muted" style="font-size:11px;">${esc(item.description)}</span>` : ""}</td>
                 <td>${esc(item.product?.hsn || item.product?.sku || "")}</td>
                 <td>${esc(item.quantity)}</td>
                 <td class="right">${money(item.price, currencySymbol)}</td>

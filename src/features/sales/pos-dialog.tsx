@@ -195,6 +195,7 @@ export function POSDialog({
             price: item.price,
             discount: item.discount,
             tax: item.tax,
+            description: item.description || undefined,
           })),
           discount: globalDiscount,
           paymentMethod,

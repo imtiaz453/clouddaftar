@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     });
     if (existingUser) {
       return NextResponse.json(
-        { error: "Email already registered" },
+        { error: "A user with this email already exists. Please use a different email." },
         { status: 409 },
       );
     }

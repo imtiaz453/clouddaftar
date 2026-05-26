@@ -174,6 +174,7 @@ export function buildRenderDataFromSale(
     tax: Number(item.tax),
     subtotal: Number(item.subtotal),
     unit: item.product?.unit || null,
+    description: item.description || null,
   }));
 
   return {
