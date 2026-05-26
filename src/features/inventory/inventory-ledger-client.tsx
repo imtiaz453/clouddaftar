@@ -342,76 +342,60 @@ export function InventoryLedgerClient({ initialData }: InventoryLedgerClientProp
           </div>
         ) : (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date/Time</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Before</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">After</TableHead>
-                  <TableHead>Warehouse</TableHead>
-                  <TableHead>Lot / Serial</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Created By</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.data.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={12}
-                      className="py-8 text-center text-sm text-muted-foreground"
-                    >
-                      No inventory movements found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  data.data.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatDateTime(entry.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">{entry.product.name}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {entry.product.sku || "-"}
-                      </TableCell>
-                      <TableCell>
+            {/* Mobile card view */}
+            <div className="block sm:hidden">
+              {data.data.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No inventory movements found
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {data.data.map((entry) => (
+                    <div key={entry.id} className="space-y-1.5 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {formatDateTime(entry.createdAt)}
+                        </span>
                         <Badge
                           variant={typeVariants[entry.type] || "secondary"}
-                          className="text-xs"
+                          className="shrink-0 text-xs"
                         >
                           {typeLabels[entry.type] || entry.type}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-sm">{entry.beforeStock}</TableCell>
-                      <TableCell
-                        className={`text-right text-sm font-medium ${entry.quantity > 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {entry.quantity > 0 ? `+${entry.quantity}` : entry.quantity}
-                      </TableCell>
-                      <TableCell className="text-right text-sm">{entry.afterStock}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {entry.warehouse
-                          ? `${entry.warehouse.code} - ${entry.warehouse.name}`
-                          : entry.branch
-                            ? `${entry.branch.code} - ${entry.branch.name}`
-                            : "-"}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {entry.lot?.serialNumber ||
-                          entry.serialNumber ||
-                          entry.lot?.lotNumber ||
-                          "-"}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {(entry.type === "TRANSFER_OUT" || entry.type === "TRANSFER_IN") &&
-                        entry.reference ? (
-                          <div className="flex items-center gap-2">
-                            <span>{entry.reference}</span>
+                      </div>
+                      <p className="text-sm font-medium">{entry.product.name}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>SKU: {entry.product.sku || "-"}</span>
+                        <span>
+                          Stock: {entry.beforeStock} →{" "}
+                          <span
+                            className={
+                              entry.quantity > 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"
+                            }
+                          >
+                            {entry.quantity > 0 ? `+${entry.quantity}` : entry.quantity}
+                          </span>{" "}
+                          → {entry.afterStock}
+                        </span>
+                        <span>
+                          WH:{" "}
+                          {entry.warehouse
+                            ? `${entry.warehouse.code}`
+                            : entry.branch
+                              ? `${entry.branch.code}`
+                              : "-"}
+                        </span>
+                        <span>
+                          Lot/Serial:{" "}
+                          {entry.lot?.serialNumber ||
+                            entry.serialNumber ||
+                            entry.lot?.lotNumber ||
+                            "-"}
+                        </span>
+                        <span>
+                          Ref:{" "}
+                          {(entry.type === "TRANSFER_OUT" || entry.type === "TRANSFER_IN") &&
+                          entry.reference ? (
                             <button
                               onClick={() =>
                                 window.open(
@@ -420,27 +404,129 @@ export function InventoryLedgerClient({ initialData }: InventoryLedgerClientProp
                                   "width=800,height=700",
                                 )
                               }
-                              className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                              title="Print transfer"
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
                             >
-                              <Printer className="h-3.5 w-3.5" />
+                              {entry.reference}
+                              <Printer className="h-3 w-3" />
                             </button>
-                          </div>
-                        ) : (
-                          entry.reference || "-"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {entry.createdBy?.name || "-"}
-                      </TableCell>
-                      <TableCell className="max-w-[150px] truncate text-xs text-muted-foreground">
-                        {entry.notes || "-"}
+                          ) : (
+                            entry.reference || "-"
+                          )}
+                        </span>
+                        <span>By: {entry.createdBy?.name || "-"}</span>
+                      </div>
+                      {entry.notes && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          Notes: {entry.notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date/Time</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Before</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">After</TableHead>
+                    <TableHead>Warehouse</TableHead>
+                    <TableHead>Lot / Serial</TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Created By</TableHead>
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.data.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={12}
+                        className="py-8 text-center text-sm text-muted-foreground"
+                      >
+                        No inventory movements found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    data.data.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {formatDateTime(entry.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">{entry.product.name}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {entry.product.sku || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={typeVariants[entry.type] || "secondary"}
+                            className="text-xs"
+                          >
+                            {typeLabels[entry.type] || entry.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right text-sm">{entry.beforeStock}</TableCell>
+                        <TableCell
+                          className={`text-right text-sm font-medium ${entry.quantity > 0 ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {entry.quantity > 0 ? `+${entry.quantity}` : entry.quantity}
+                        </TableCell>
+                        <TableCell className="text-right text-sm">{entry.afterStock}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {entry.warehouse
+                            ? `${entry.warehouse.code} - ${entry.warehouse.name}`
+                            : entry.branch
+                              ? `${entry.branch.code} - ${entry.branch.name}`
+                              : "-"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {entry.lot?.serialNumber ||
+                            entry.serialNumber ||
+                            entry.lot?.lotNumber ||
+                            "-"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {(entry.type === "TRANSFER_OUT" || entry.type === "TRANSFER_IN") &&
+                          entry.reference ? (
+                            <div className="flex items-center gap-2">
+                              <span>{entry.reference}</span>
+                              <button
+                                onClick={() =>
+                                  window.open(
+                                    `/api/transfers/${entry.reference}?print=1`,
+                                    "_blank",
+                                    "width=800,height=700",
+                                  )
+                                }
+                                className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                title="Print transfer"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            entry.reference || "-"
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {entry.createdBy?.name || "-"}
+                        </TableCell>
+                        <TableCell className="max-w-[150px] truncate text-xs text-muted-foreground">
+                          {entry.notes || "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
             <div className="flex items-center justify-between border-t px-4 py-3">
               <p className="text-sm text-muted-foreground">{data.total} total movements</p>
               <div className="flex gap-1">

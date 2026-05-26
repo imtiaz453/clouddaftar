@@ -119,62 +119,103 @@ export function AdjustmentsClient({ products: initialProducts }: AdjustmentsClie
       </div>
 
       <Card className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead className="text-right">Current Stock</TableHead>
-              <TableHead className="text-right">Min Stock</TableHead>
-              <TableHead>Unit</TableHead>
-              <TableHead className="text-right">Value</TableHead>
-              <TableHead className="w-24"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                  No products found
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {p.name}
-                      {p.stock <= p.minStock && (
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{p.sku || "—"}</TableCell>
-                  <TableCell
-                    className={`text-right font-bold ${p.stock <= p.minStock ? "text-red-600" : ""}`}
+        {/* Mobile card view */}
+        <div className="block sm:hidden">
+          {filtered.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No products found
+            </div>
+          ) : (
+            <div className="divide-y">
+              {filtered.map((p) => (
+                <div key={p.id} className="space-y-1 p-3">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{p.name}</p>
+                    {p.stock <= p.minStock && (
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>SKU: {p.sku || "—"}</span>
+                    <span className={p.stock <= p.minStock ? "font-bold text-red-600" : ""}>
+                      Stock: {p.stock}
+                    </span>
+                    <span>Min: {p.minStock}</span>
+                    <span>Unit: {p.unit || "—"}</span>
+                    <span>Value: {formatCurrency(p.stock * p.purchasePrice)}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => openAdjust(p)}
                   >
-                    {p.stock}
-                  </TableCell>
-                  <TableCell className="text-right">{p.minStock}</TableCell>
-                  <TableCell className="text-sm">{p.unit || "—"}</TableCell>
-                  <TableCell className="text-right">
-                    {formatCurrency(p.stock * p.purchasePrice)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => openAdjust(p)}
-                    >
-                      Adjust
-                    </Button>
+                    Adjust
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Desktop table */}
+        <div className="hidden sm:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead className="text-right">Current Stock</TableHead>
+                <TableHead className="text-right">Min Stock</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead className="text-right">Value</TableHead>
+                <TableHead className="w-24"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    No products found
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filtered.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {p.name}
+                        {p.stock <= p.minStock && (
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{p.sku || "—"}</TableCell>
+                    <TableCell
+                      className={`text-right font-bold ${p.stock <= p.minStock ? "text-red-600" : ""}`}
+                    >
+                      {p.stock}
+                    </TableCell>
+                    <TableCell className="text-right">{p.minStock}</TableCell>
+                    <TableCell className="text-sm">{p.unit || "—"}</TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(p.stock * p.purchasePrice)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => openAdjust(p)}
+                      >
+                        Adjust
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -381,143 +381,208 @@ export function QuotationsClient({
           </div>
         ) : (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Quote #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Valid Until</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.data.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="py-8 text-center text-sm text-muted-foreground"
-                    >
-                      No quotations found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  data.data.map((q) => (
-                    <TableRow key={q.id}>
-                      <TableCell className="font-medium">{q.quoteNumber}</TableCell>
-                      <TableCell>{q.customer?.name || "Walk-in"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(q.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {q.validUntil ? formatDate(q.validUntil) : "-"}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(q.total)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={statusVariants[q.status] || "secondary"}
-                          className="text-xs"
-                        >
+            {/* Mobile card view */}
+            <div className="block sm:hidden">
+              {data.data.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No quotations found
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {data.data.map((q) => (
+                    <div key={q.id} className="space-y-1.5 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">{q.quoteNumber}</p>
+                          <p className="text-xs text-muted-foreground">{q.customer?.name || "Walk-in"}</p>
+                        </div>
+                        <Badge variant={statusVariants[q.status] || "secondary"} className="shrink-0 text-xs">
                           {statusLabels[q.status] || q.status}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => setDetailId(q.id)}
-                            title="View quotation details"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>{formatDate(q.createdAt)}</span>
+                        <span>Valid: {q.validUntil ? formatDate(q.validUntil) : "-"}</span>
+                        <span className="font-medium text-foreground">{formatCurrency(q.total)}</span>
+                      </div>
+                      <div className="flex gap-1 pt-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDetailId(q.id)} title="View details">
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => printQuotation(q.id)} title="Print">
+                          <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                        {q.status === "DRAFT" && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600" onClick={() => handleAction(q.id, "send")} title="Send">
+                            <Send className="h-3.5 w-3.5" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => printQuotation(q.id)}
-                            title="Print quotation"
-                          >
-                            <Printer className="h-3.5 w-3.5" />
+                        )}
+                        {q.status === "SENT" && (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" onClick={() => handleAction(q.id, "accept")} title="Accept">
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => handleAction(q.id, "reject")} title="Reject">
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                        {isConvertibleQuotation(q) && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-700" onClick={() => confirmConvertQuotation(q)} title="Convert">
+                            <ArrowRightFromLine className="h-3.5 w-3.5" />
                           </Button>
-                          {q.status === "DRAFT" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-blue-600"
-                              onClick={() => handleAction(q.id, "send")}
-                              title="Send quotation"
-                            >
-                              <Send className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {q.status === "SENT" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-green-600"
-                                onClick={() => handleAction(q.id, "accept")}
-                                title="Accept quotation"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-red-600"
-                                onClick={() => handleAction(q.id, "reject")}
-                                title="Reject quotation"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-                          {isConvertibleQuotation(q) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-green-700"
-                              onClick={() => confirmConvertQuotation(q)}
-                              title="Convert to sales order"
-                            >
-                              <ArrowRightFromLine className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {(q.status === "DRAFT" || q.status === "SENT") && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive"
-                              onClick={() => {
-                                setConfirmTitle("Delete Quotation");
-                                setConfirmDescription(
-                                  `Delete ${q.quoteNumber}? This cannot be undone.`,
-                                );
-                                setConfirmVariant("destructive");
-                                pendingConfirm.current = () => {
-                                  setConfirmOpen(false);
-                                  handleAction(q.id, "delete");
-                                };
-                                setConfirmOpen(true);
-                              }}
-                              title="Delete quotation"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
+                        )}
+                        {(q.status === "DRAFT" || q.status === "SENT") && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { setConfirmTitle("Delete Quotation"); setConfirmDescription(`Delete ${q.quoteNumber}? This cannot be undone.`); setConfirmVariant("destructive"); pendingConfirm.current = () => { setConfirmOpen(false); handleAction(q.id, "delete"); }; setConfirmOpen(true); }} title="Delete">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Quote #</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Valid Until</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.data.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="py-8 text-center text-sm text-muted-foreground"
+                      >
+                        No quotations found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    data.data.map((q) => (
+                      <TableRow key={q.id}>
+                        <TableCell className="font-medium">{q.quoteNumber}</TableCell>
+                        <TableCell>{q.customer?.name || "Walk-in"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(q.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {q.validUntil ? formatDate(q.validUntil) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(q.total)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={statusVariants[q.status] || "secondary"}
+                            className="text-xs"
+                          >
+                            {statusLabels[q.status] || q.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setDetailId(q.id)}
+                              title="View quotation details"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => printQuotation(q.id)}
+                              title="Print quotation"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                            {q.status === "DRAFT" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-blue-600"
+                                onClick={() => handleAction(q.id, "send")}
+                                title="Send quotation"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {q.status === "SENT" && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-green-600"
+                                  onClick={() => handleAction(q.id, "accept")}
+                                  title="Accept quotation"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-red-600"
+                                  onClick={() => handleAction(q.id, "reject")}
+                                  title="Reject quotation"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
+                            {isConvertibleQuotation(q) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-green-700"
+                                onClick={() => confirmConvertQuotation(q)}
+                                title="Convert to sales order"
+                              >
+                                <ArrowRightFromLine className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {(q.status === "DRAFT" || q.status === "SENT") && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => {
+                                  setConfirmTitle("Delete Quotation");
+                                  setConfirmDescription(
+                                    `Delete ${q.quoteNumber}? This cannot be undone.`,
+                                  );
+                                  setConfirmVariant("destructive");
+                                  pendingConfirm.current = () => {
+                                    setConfirmOpen(false);
+                                    handleAction(q.id, "delete");
+                                  };
+                                  setConfirmOpen(true);
+                                }}
+                                title="Delete quotation"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
             <div className="flex items-center justify-between border-t px-4 py-3">
               <p className="text-sm text-muted-foreground">{data.total} total</p>
               <div className="flex gap-1">

@@ -60,38 +60,66 @@ export function LowStockClient({ products }: LowStockClientProps) {
       </div>
 
       <Card className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Current Stock</TableHead>
-              <TableHead className="text-right">Min Stock</TableHead>
-              <TableHead className="text-right">Shortfall</TableHead>
-              <TableHead className="text-right">Purchase Price</TableHead>
-              <TableHead className="text-right">Selling Price</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
-                {search ? "No products match your search" : "No low stock products found"}
-              </TableCell></TableRow>
-            ) : filtered.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell className="font-mono text-xs">{p.sku || "—"}</TableCell>
-                <TableCell className="text-sm">{p.category?.name || "—"}</TableCell>
-                <TableCell className="text-right font-bold text-red-600">{p.stock}</TableCell>
-                <TableCell className="text-right">{p.minStock}</TableCell>
-                <TableCell className="text-right font-medium text-amber-600">{p.minStock - p.stock}</TableCell>
-                <TableCell className="text-right">{formatCurrency(p.purchasePrice)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(p.sellingPrice)}</TableCell>
+        {/* Mobile card view */}
+        <div className="block sm:hidden">
+          {filtered.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              {search ? "No products match your search" : "No low stock products found"}
+            </div>
+          ) : (
+            <div className="divide-y">
+              {filtered.map((p) => (
+                <div key={p.id} className="space-y-1 p-3">
+                  <p className="text-sm font-medium">{p.name}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>SKU: {p.sku || "—"}</span>
+                    <span>Category: {p.category?.name || "—"}</span>
+                    <span className="font-bold text-red-600">Stock: {p.stock}</span>
+                    <span>Min: {p.minStock}</span>
+                    <span className="font-medium text-amber-600">Shortfall: {p.minStock - p.stock}</span>
+                    <span>Buy: {formatCurrency(p.purchasePrice)}</span>
+                    <span>Sell: {formatCurrency(p.sellingPrice)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Desktop table */}
+        <div className="hidden sm:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Current Stock</TableHead>
+                <TableHead className="text-right">Min Stock</TableHead>
+                <TableHead className="text-right">Shortfall</TableHead>
+                <TableHead className="text-right">Purchase Price</TableHead>
+                <TableHead className="text-right">Selling Price</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                  {search ? "No products match your search" : "No low stock products found"}
+                </TableCell></TableRow>
+              ) : filtered.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-medium">{p.name}</TableCell>
+                  <TableCell className="font-mono text-xs">{p.sku || "—"}</TableCell>
+                  <TableCell className="text-sm">{p.category?.name || "—"}</TableCell>
+                  <TableCell className="text-right font-bold text-red-600">{p.stock}</TableCell>
+                  <TableCell className="text-right">{p.minStock}</TableCell>
+                  <TableCell className="text-right font-medium text-amber-600">{p.minStock - p.stock}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(p.purchasePrice)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(p.sellingPrice)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
     </div>
   );

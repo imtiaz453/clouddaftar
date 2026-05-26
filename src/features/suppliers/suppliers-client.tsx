@@ -127,35 +127,65 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
             ))}
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>City</TableHead>
-                <TableHead>Total Purchases</TableHead>
-                <TableHead className="w-20">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {suppliers.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell>{s.phone || "-"}</TableCell>
-                  <TableCell>{s.email || "-"}</TableCell>
-                  <TableCell>{s.city || "-"}</TableCell>
-                  <TableCell>{formatCurrency(Number(s.totalSales))}</TableCell>
-                  <TableCell>
-                    <ActionsMenu
-                      compact
-                      items={[{ label: "View supplier", icon: Eye, onSelect: () => openDetail(s) }]}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            {/* Mobile card view */}
+            <div className="block sm:hidden">
+              <div className="divide-y">
+                {suppliers.map((s) => (
+                  <div key={s.id} className="space-y-1 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium">{s.name}</p>
+                      <ActionsMenu
+                        compact
+                        items={[{ label: "View supplier", icon: Eye, onSelect: () => openDetail(s) }]}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {s.phone && <span>{s.phone}</span>}
+                      {s.email && <span>{s.email}</span>}
+                      {s.city && <span>{s.city}</span>}
+                    </div>
+                    <p className="text-xs">
+                      <span className="text-muted-foreground">Total Purchases: </span>
+                      <span className="font-medium">{formatCurrency(Number(s.totalSales))}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>City</TableHead>
+                    <TableHead>Total Purchases</TableHead>
+                    <TableHead className="w-20">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {suppliers.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium">{s.name}</TableCell>
+                      <TableCell>{s.phone || "-"}</TableCell>
+                      <TableCell>{s.email || "-"}</TableCell>
+                      <TableCell>{s.city || "-"}</TableCell>
+                      <TableCell>{formatCurrency(Number(s.totalSales))}</TableCell>
+                      <TableCell>
+                        <ActionsMenu
+                          compact
+                          items={[{ label: "View supplier", icon: Eye, onSelect: () => openDetail(s) }]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </Card>
 
