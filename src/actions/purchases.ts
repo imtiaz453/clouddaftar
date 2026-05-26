@@ -487,6 +487,11 @@ export async function updatePurchase(
 
       await deleteOperationalJournal(tx, companyId, `PURCHASE:${id}`);
       if (newStatus !== "DRAFT") {
+        const allocatedPaid = await tx.paymentAllocation.aggregate({
+          where: { purchaseId: id },
+          _sum: { allocatedAmount: true },
+        });
+        const journalPaid = Math.max(0, paid - Number(allocatedPaid._sum.allocatedAmount || 0));
         await postPurchaseJournal(tx, {
           companyId,
           userId,
@@ -495,7 +500,7 @@ export async function updatePurchase(
           supplierId: effectiveSupplierId,
           total,
           tax: totalTax,
-          paid,
+          paid: journalPaid,
           paymentMethod: data.paymentMethod || existing.paymentMethod,
           date: new Date(),
         });
@@ -649,6 +654,11 @@ export async function updatePurchase(
 
     await deleteOperationalJournal(tx, companyId, `PURCHASE:${id}`);
     if (newStatus !== "DRAFT") {
+      const allocatedPaid = await tx.paymentAllocation.aggregate({
+        where: { purchaseId: id },
+        _sum: { allocatedAmount: true },
+      });
+      const journalPaid = Math.max(0, paidVal - Number(allocatedPaid._sum.allocatedAmount || 0));
       await postPurchaseJournal(tx, {
         companyId,
         userId,
@@ -657,7 +667,7 @@ export async function updatePurchase(
         supplierId: effectiveSupplierId,
         total: totalVal,
         tax: Number(existing.tax),
-        paid: paidVal,
+        paid: journalPaid,
         paymentMethod: data.paymentMethod || existing.paymentMethod,
         date: new Date(),
       });

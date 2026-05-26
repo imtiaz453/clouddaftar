@@ -149,12 +149,19 @@ export function BillingClient() {
       });
       const d = await res.json();
       if (d.success) {
+        const invoice = d.data?.invoice;
         addToast({
           title: data?.subscription ? "Plan change invoice generated" : "Subscription created",
-          description: "Submit payment from the billing history when required.",
+          description:
+            invoice?.status === "PENDING"
+              ? "Pay this invoice and upload the transaction proof for Cloud Daftar admin verification."
+              : "Your subscription is ready.",
           variant: "success",
         });
-        fetchBilling();
+        await fetchBilling();
+        if (invoice?.status === "PENDING" || invoice?.status === "REJECTED") {
+          setPayDialog({ open: true, invoice });
+        }
       } else throw new Error(d.error);
     } catch (err) {
       addToast({
@@ -278,6 +285,9 @@ export function BillingClient() {
 
   const sub = data?.subscription;
   const invoices = data?.invoices || [];
+  const paymentActionInvoice = invoices.find(
+    (invoice: any) => invoice.status === "PENDING" || invoice.status === "REJECTED",
+  );
   const currentPlanId = sub?.plan?.id;
   const currentPlanCode = String((sub?.plan as any)?.code || "").toLowerCase();
   const planLockedUntil =
@@ -514,6 +524,28 @@ export function BillingClient() {
         </Card>
       )}
 
+      {paymentActionInvoice && (
+        <Card className="border-primary/25 bg-primary/5">
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="font-semibold">Payment verification required</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Invoice {paymentActionInvoice.invoiceNumber} is{" "}
+                {paymentActionInvoice.status.toLowerCase()}. Pay using the instructions below, then
+                upload the transaction proof so Cloud Daftar admin can verify and approve it.
+              </p>
+            </div>
+            <Button
+              className="shrink-0"
+              onClick={() => setPayDialog({ open: true, invoice: paymentActionInvoice })}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Upload proof
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Payment Instructions */}
       <Card>
         <CardHeader>
@@ -560,70 +592,74 @@ export function BillingClient() {
           {invoices.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">No invoices yet</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="w-28">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.map((inv: any) => (
-                  <TableRow key={inv.id}>
-                    <TableCell className="font-mono text-xs">{inv.invoiceNumber}</TableCell>
-                    <TableCell>{inv.plan?.name}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(inv.periodStart).toLocaleDateString()} -{" "}
-                      {new Date(inv.periodEnd).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {money(Number(inv.amount), inv.currency, inv.currencySymbol)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant[inv.status] || "secondary"}>{inv.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(inv.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          title="View invoice"
-                          onClick={() =>
-                            window.open(
-                              `/api/billing/invoices/${inv.id}`,
-                              "_blank",
-                              "width=800,height=600",
-                            )
-                          }
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        {(inv.status === "PENDING" || inv.status === "REJECTED") && (
+            <div className="max-w-full overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Period</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="w-28">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map((inv: any) => (
+                    <TableRow key={inv.id}>
+                      <TableCell className="font-mono text-xs">{inv.invoiceNumber}</TableCell>
+                      <TableCell>{inv.plan?.name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(inv.periodStart).toLocaleDateString()} -{" "}
+                        {new Date(inv.periodEnd).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {money(Number(inv.amount), inv.currency, inv.currencySymbol)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant[inv.status] || "secondary"}>
+                          {inv.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(inv.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-primary"
-                            title="Submit payment"
-                            onClick={() => setPayDialog({ open: true, invoice: inv })}
+                            className="h-7 w-7"
+                            title="View invoice"
+                            onClick={() =>
+                              window.open(
+                                `/api/billing/invoices/${inv.id}`,
+                                "_blank",
+                                "width=800,height=600",
+                              )
+                            }
                           >
-                            <Upload className="h-3.5 w-3.5" />
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          {(inv.status === "PENDING" || inv.status === "REJECTED") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-primary"
+                              title="Submit payment"
+                              onClick={() => setPayDialog({ open: true, invoice: inv })}
+                            >
+                              <Upload className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -79,11 +79,17 @@ async function postAutoJournal(
   const credit = round(lines.reduce((sum, line) => sum + line.credit, 0));
   if (lines.length < 2 || Math.abs(debit - credit) > 0.01) return null;
 
+  const existing = await tx.journalEntryMaster.findFirst({
+    where: { companyId: params.companyId, reference: params.reference },
+    select: { number: true },
+  });
+
   await tx.journalEntryMaster.deleteMany({
     where: { companyId: params.companyId, reference: params.reference },
   });
 
-  const number = await reserveNextJournalNumber(tx, params.companyId, params.journalType);
+  const number =
+    existing?.number || (await reserveNextJournalNumber(tx, params.companyId, params.journalType));
 
   return tx.journalEntryMaster.create({
     data: {
@@ -341,4 +347,171 @@ export async function postExpenseJournal(
       },
     ],
   });
+}
+
+function allocatedAmount(allocations?: { allocatedAmount: unknown }[]) {
+  return round(
+    (allocations || []).reduce(
+      (sum, allocation) => sum + Number(allocation.allocatedAmount || 0),
+      0,
+    ),
+  );
+}
+
+function initialPaid(totalPaid: unknown, allocations?: { allocatedAmount: unknown }[]) {
+  return positive(Number(totalPaid || 0) - allocatedAmount(allocations));
+}
+
+function saleCost(
+  items?: { quantity: number; product?: { purchasePrice: unknown; isService: boolean } | null }[],
+) {
+  return round(
+    (items || []).reduce((sum, item) => {
+      if (!item.product || item.product.isService) return sum;
+      return sum + Number(item.quantity || 0) * Number(item.product.purchasePrice || 0);
+    }, 0),
+  );
+}
+
+const POSTING_SALE_STATUSES = ["COMPLETED", "PARTIALLY_REFUNDED", "REFUNDED"];
+const POSTING_EXPENSE_STATUSES = ["APPROVED", "PAID"];
+
+export async function ensureOperationalJournalsForCompany(
+  tx: Tx,
+  params: { companyId: string; userId: string },
+) {
+  const existingReferences = new Set(
+    (
+      await tx.journalEntryMaster.findMany({
+        where: { companyId: params.companyId, reference: { not: null } },
+        select: { reference: true },
+      })
+    )
+      .map((entry: { reference: string | null }) => entry.reference)
+      .filter(Boolean),
+  );
+
+  const shouldPost = (reference: string) => !existingReferences.has(reference);
+
+  const sales = await tx.sale.findMany({
+    where: {
+      companyId: params.companyId,
+      deletedAt: null,
+      status: { in: POSTING_SALE_STATUSES },
+    },
+    include: {
+      items: {
+        select: {
+          quantity: true,
+          product: { select: { purchasePrice: true, isService: true } },
+        },
+      },
+      payments: { select: { allocatedAmount: true } },
+    },
+  });
+
+  for (const sale of sales) {
+    const reference = `SALE:${sale.id}`;
+    if (!shouldPost(reference)) continue;
+    await postSaleJournal(tx, {
+      companyId: params.companyId,
+      userId: sale.createdById || params.userId,
+      saleId: sale.id,
+      invoiceNumber: sale.invoiceNumber,
+      customerId: sale.customerId || null,
+      total: Number(sale.total || 0),
+      tax: Number(sale.tax || 0),
+      paid: initialPaid(sale.paid, sale.payments),
+      paymentMethod: sale.paymentMethod,
+      costOfGoods: saleCost(sale.items),
+      date: sale.createdAt,
+    });
+    existingReferences.add(reference);
+  }
+
+  const purchases = await tx.purchase.findMany({
+    where: {
+      companyId: params.companyId,
+      deletedAt: null,
+      status: { notIn: ["DRAFT", "CANCELLED"] },
+    },
+    include: { payments: { select: { allocatedAmount: true } } },
+  });
+
+  for (const purchase of purchases) {
+    const reference = `PURCHASE:${purchase.id}`;
+    if (!shouldPost(reference)) continue;
+    await postPurchaseJournal(tx, {
+      companyId: params.companyId,
+      userId: purchase.createdById || params.userId,
+      purchaseId: purchase.id,
+      referenceNumber: purchase.referenceNumber,
+      supplierId: purchase.supplierId || null,
+      total: Number(purchase.total || 0),
+      tax: Number(purchase.tax || 0),
+      paid: initialPaid(purchase.paid, purchase.payments),
+      paymentMethod: purchase.paymentMethod,
+      date: purchase.createdAt,
+    });
+    existingReferences.add(reference);
+  }
+
+  const payments = await tx.payment.findMany({
+    where: { companyId: params.companyId },
+  });
+
+  for (const payment of payments) {
+    const reference = `PAYMENT:${payment.id}`;
+    if (!shouldPost(reference)) continue;
+    if (payment.customerId) {
+      await postCustomerPaymentJournal(tx, {
+        companyId: params.companyId,
+        userId: payment.createdById || params.userId,
+        paymentId: payment.id,
+        referenceNumber: payment.reference || payment.id,
+        customerId: payment.customerId,
+        amount: Number(payment.amount || 0),
+        paymentMethod: payment.paymentMethod,
+        date: payment.paymentDate,
+      });
+      existingReferences.add(reference);
+      continue;
+    }
+    if (payment.supplierId) {
+      await postSupplierPaymentJournal(tx, {
+        companyId: params.companyId,
+        userId: payment.createdById || params.userId,
+        paymentId: payment.id,
+        referenceNumber: payment.reference || payment.id,
+        supplierId: payment.supplierId,
+        amount: Number(payment.amount || 0),
+        paymentMethod: payment.paymentMethod,
+        date: payment.paymentDate,
+      });
+      existingReferences.add(reference);
+    }
+  }
+
+  const expenses = await tx.expense.findMany({
+    where: {
+      companyId: params.companyId,
+      status: { in: POSTING_EXPENSE_STATUSES },
+    },
+  });
+
+  for (const expense of expenses) {
+    const reference = `EXPENSE:${expense.id}`;
+    if (!shouldPost(reference)) continue;
+    await postExpenseJournal(tx, {
+      companyId: params.companyId,
+      userId: expense.approvedById || expense.employeeId || params.userId,
+      expenseId: expense.id,
+      description: expense.description || expense.category || "Expense",
+      amount: Number(expense.amount || 0),
+      status: expense.status,
+      paidBy: expense.paidBy,
+      date: expense.expenseDate,
+    });
+    existingReferences.add(reference);
+  }
 }

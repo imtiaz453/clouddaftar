@@ -15,19 +15,14 @@ import {
   createLedgerEntry,
   recalculateLedgerBalances,
 } from "@/lib/accounting";
-import {
-  deleteOperationalJournal,
-  postSaleJournal,
-} from "@/lib/operational-journals";
+import { deleteOperationalJournal, postSaleJournal } from "@/lib/operational-journals";
 import { buildFbrQrPayload, formatFbrDate, formatFbrTime } from "@/lib/tax/fbr-qr";
 import {
   buildZatcaPhase1Payload,
   formatZatcaTimestamp,
   formatZatcaTotal,
 } from "@/lib/tax/zatca-qr";
-import {
-  writeZatcaInvoiceXml,
-} from "@/lib/tax/zatca-phase2";
+import { writeZatcaInvoiceXml } from "@/lib/tax/zatca-phase2";
 import { processZatcaInvoice } from "@/lib/zatca/zatca-service";
 import {
   adjustWarehouseStock,
@@ -686,8 +681,8 @@ export async function createSale(data: {
             result.status === "LOCAL_STORED"
               ? "VERIFIED"
               : result.status === "FAILED"
-              ? "FAILED"
-              : "SIGNED";
+                ? "FAILED"
+                : "SIGNED";
         }
       } catch (error) {
         zatcaSubmissionStatus = "FAILED";
@@ -865,7 +860,9 @@ export async function updateSale(
               beforeStock,
               afterStock,
               reference: invoiceNumber,
-              notes: data.items ? "Invoice items edited" : "Invoice converted to non-posting document",
+              notes: data.items
+                ? "Invoice items edited"
+                : "Invoice converted to non-posting document",
               createdById: userId,
             },
           });
@@ -879,11 +876,7 @@ export async function updateSale(
       : new Map<string, any>();
 
     if (stockNeedsIssue) {
-      assertSaleStockAvailable(
-        productsById,
-        itemsInput,
-        settings?.enableNegativeStock ?? false,
-      );
+      assertSaleStockAvailable(productsById, itemsInput, settings?.enableNegativeStock ?? false);
       for (const item of itemsInput) {
         const product = productsById.get(item.productId);
         if (!product || product.isService || !existing.warehouseId) continue;
@@ -1017,6 +1010,11 @@ export async function updateSale(
 
     await deleteOperationalJournal(tx, companyId, `SALE:${id}`);
     if (updatedAffectsStock) {
+      const allocatedPaid = await tx.paymentAllocation.aggregate({
+        where: { saleId: id },
+        _sum: { allocatedAmount: true },
+      });
+      const journalPaid = Math.max(0, paid - Number(allocatedPaid._sum.allocatedAmount || 0));
       const journalProducts =
         productsById.size > 0
           ? productsById
@@ -1035,7 +1033,7 @@ export async function updateSale(
         customerId: effectiveCustomerId,
         total,
         tax: totalTax,
-        paid,
+        paid: journalPaid,
         paymentMethod: data.paymentMethod || existing.paymentMethod,
         costOfGoods: calculateSaleCost(journalProducts, itemsInput),
         date: new Date(),

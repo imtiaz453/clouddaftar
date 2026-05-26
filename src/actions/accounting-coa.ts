@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth } from "@/lib/auth-helper";
 import { createAuditLog } from "@/lib/audit";
 import { seedDefaultAccounts, getAccountBalances } from "@/lib/coa-accounting";
+import { ensureOperationalJournalsForCompany } from "@/lib/operational-journals";
 import type { AccountType, JournalType } from "@prisma/client";
 
 function parseLocalDay(value: string, boundary: "start" | "end") {
@@ -28,6 +29,11 @@ async function assertCoaAccount(companyId: string, accountId: string | null | un
     select: { id: true },
   });
   if (!account) throw new Error("Account not found in this company");
+}
+
+async function prepareFinancialReportData(companyId: string, userId: string) {
+  await seedDefaultAccounts(companyId);
+  await prisma.$transaction((tx) => ensureOperationalJournalsForCompany(tx, { companyId, userId }));
 }
 
 // ── Chart of Accounts ──
@@ -119,6 +125,7 @@ export async function getJournalEntries(params?: {
   pageSize?: number;
 }) {
   const user = await requireCompanyAuth();
+  await prepareFinancialReportData(user.companyId, user.id);
   const page = params?.page || 1;
   const pageSize = params?.pageSize || 50;
   const where: any = { companyId: user.companyId };
@@ -251,6 +258,7 @@ export async function getGeneralLedger(params: {
 
 export async function getTrialBalance(dateFrom?: string, dateTo?: string) {
   const user = await requireCompanyAuth();
+  await prepareFinancialReportData(user.companyId, user.id);
   const balances = await getAccountBalances(
     user.companyId,
     dateFrom ? parseLocalDay(dateFrom, "start") : undefined,
@@ -280,6 +288,7 @@ export async function getTrialBalance(dateFrom?: string, dateTo?: string) {
 
 export async function getBalanceSheet(dateAsOf?: string) {
   const user = await requireCompanyAuth();
+  await prepareFinancialReportData(user.companyId, user.id);
   const asOf = dateAsOf ? parseLocalDay(dateAsOf, "end") : new Date();
   const balances = await getAccountBalances(user.companyId, undefined, asOf);
   const assets = balances
@@ -305,7 +314,7 @@ export async function getBalanceSheet(dateAsOf?: string) {
     expenses: balances.filter((a) => a.type === "EXPENSE" || a.type === "CONTRA_EXPENSE"),
     totalAssets: Math.round(assets * 100) / 100,
     totalLiabilities: Math.round(liabilities * 100) / 100,
-    totalEquity: Math.round(equity * 100) / 100,
+    totalEquity: Math.round(totalEquity * 100) / 100,
     netIncome: Math.round(netIncome * 100) / 100,
     totalLiabilitiesEquity: Math.round((liabilities + totalEquity) * 100) / 100,
   };
@@ -313,6 +322,7 @@ export async function getBalanceSheet(dateAsOf?: string) {
 
 export async function getProfitLoss(dateFrom?: string, dateTo?: string) {
   const user = await requireCompanyAuth();
+  await prepareFinancialReportData(user.companyId, user.id);
   const balances = await getAccountBalances(
     user.companyId,
     dateFrom ? parseLocalDay(dateFrom, "start") : undefined,
@@ -327,6 +337,7 @@ export async function getProfitLoss(dateFrom?: string, dateTo?: string) {
 
 export async function getDayBook(dateFrom?: string, dateTo?: string, journalType?: string) {
   const user = await requireCompanyAuth();
+  await prepareFinancialReportData(user.companyId, user.id);
   const where: any = { companyId: user.companyId, isPosted: true };
   if (dateFrom) where.date = { ...where.date, gte: parseLocalDay(dateFrom, "start") };
   if (dateTo) where.date = { ...where.date, lte: parseLocalDay(dateTo, "end") };

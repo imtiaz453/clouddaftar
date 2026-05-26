@@ -77,6 +77,11 @@ export function DashboardClient({ stats }: DashboardClientProps) {
   const tenant = useTenantBasePath();
   const salesTrend = monthlySalesTrendLabel(stats);
   const incompleteSetup = stats.setupChecklist.filter((item) => !item.completed);
+  const completedSetupCount = stats.setupChecklist.length - incompleteSetup.length;
+  const setupProgress = Math.round(
+    (completedSetupCount / Math.max(1, stats.setupChecklist.length)) * 100,
+  );
+  const nextSetupStep = incompleteSetup[0];
 
   const kpis = [
     {
@@ -126,16 +131,43 @@ export function DashboardClient({ stats }: DashboardClientProps) {
       {incompleteSetup.length > 0 && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="border-b border-primary/10 pb-4">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Settings2 className="h-5 w-5 text-primary" />
-              Finish workspace setup
-            </CardTitle>
-            <CardDescription>
-              These steps disappear automatically as your company profile becomes ready.
-            </CardDescription>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Settings2 className="h-5 w-5 text-primary" />
+                  Guided workspace setup
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Complete the essentials first: company profile, tax, users, products, and first
+                  transaction.
+                </CardDescription>
+              </div>
+              {nextSetupStep && (
+                <Button asChild className="shrink-0">
+                  <Link href={href(nextSetupStep.href, tenant)} className="gap-2">
+                    Continue setup
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
+            </div>
+            <div className="mt-4">
+              <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {completedSetupCount} of {stats.setupChecklist.length} steps complete
+                </span>
+                <span>{setupProgress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-background">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${setupProgress}%` }}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="grid gap-3 pt-4 md:grid-cols-2 xl:grid-cols-3">
-            {stats.setupChecklist.map((step) => (
+            {stats.setupChecklist.map((step, index) => (
               <Link
                 key={step.id}
                 href={href(step.href, tenant)}
@@ -153,7 +185,7 @@ export function DashboardClient({ stats }: DashboardClientProps) {
                   {step.completed ? (
                     <CheckCircle2 className="h-4 w-4" />
                   ) : (
-                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                    <span className="text-sm font-semibold">{index + 1}</span>
                   )}
                 </span>
                 <span className="min-w-0">
