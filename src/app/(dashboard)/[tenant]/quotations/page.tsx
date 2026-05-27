@@ -34,9 +34,9 @@ export default async function TenantQuotationsPage() {
   const defaultTaxRate = Number(company?.settings?.defaultTaxRate ?? company?.taxRate ?? 0);
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Quotations" description="Create and manage customer quotations" />
+    
+      
       <QuotationsClient initialData={data as any} customers={serializeWithNumbers(customers)} products={(serializeWithNumbers(products) || []) as any} defaultTaxRate={defaultTaxRate} />
-    </div>
+   
   );
 }
