@@ -376,7 +376,7 @@ export function Sidebar({
   userRole,
 }: SidebarProps) {
   const pathname = usePathname() ?? "";
-  const searchParams = useMemo(() => useSearchParams() ?? new URLSearchParams(), []);
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const permissions = useUserPermissions(rolePermissions, userPermissionOverrides, planCode, userRole);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [logo, setLogo] = useState(companyLogo);

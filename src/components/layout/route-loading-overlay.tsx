@@ -13,50 +13,20 @@ export function RouteLoadingOverlay() {
   const routeKey = `${pathname}?${searchParams?.toString() ?? ""}`;
   const [loading, setLoading] = useState(false);
   const loadingRef = useRef(false);
-  const routeChanged = useRef(false);
-  const startedAt = useRef(0);
-  const pendingRequests = useRef(0);
-  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRouteKey = useRef(routeKey);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hide loading when route key changes
+  useEffect(() => {
+    if (!loadingRef.current) return;
+    if (lastRouteKey.current === routeKey) return;
+    lastRouteKey.current = routeKey;
+    loadingRef.current = false;
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setLoading(false);
+  }, [routeKey]);
 
   useEffect(() => {
-    function clearTimers() {
-      if (stopTimer.current) clearTimeout(stopTimer.current);
-      if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
-      stopTimer.current = null;
-      fallbackTimer.current = null;
-    }
-
-    function finishLoading() {
-      clearTimers();
-      loadingRef.current = false;
-      routeChanged.current = false;
-      pendingRequests.current = 0;
-      setLoading(false);
-    }
-
-    function maybeFinishLoading() {
-      if (!loadingRef.current || !routeChanged.current || pendingRequests.current > 0) return;
-
-      const elapsed = Date.now() - startedAt.current;
-      const delay = Math.max(250, 900 - elapsed);
-      if (stopTimer.current) clearTimeout(stopTimer.current);
-      stopTimer.current = setTimeout(() => {
-        if (pendingRequests.current === 0) finishLoading();
-      }, delay);
-    }
-
-    function startLoading() {
-      clearTimers();
-      startedAt.current = Date.now();
-      routeChanged.current = false;
-      pendingRequests.current = 0;
-      loadingRef.current = true;
-      setLoading(true);
-      fallbackTimer.current = setTimeout(finishLoading, 20000);
-    }
-
     function handleClick(event: MouseEvent) {
       if (isModifiedClick(event) || event.defaultPrevented) return;
       const target = event.target as Element | null;
@@ -69,57 +39,33 @@ export function RouteLoadingOverlay() {
       const currentRoute = `${window.location.pathname}${window.location.search}`;
       if (nextRoute === currentRoute || url.hash) return;
 
-      startLoading();
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      loadingRef.current = true;
+      setLoading(true);
+      hideTimer.current = setTimeout(() => {
+        loadingRef.current = false;
+        setLoading(false);
+      }, 10000);
     }
 
     function handleProgrammaticNavigation() {
-      startLoading();
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      loadingRef.current = true;
+      setLoading(true);
+      hideTimer.current = setTimeout(() => {
+        loadingRef.current = false;
+        setLoading(false);
+      }, 10000);
     }
-
-    const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
-      if (loadingRef.current) pendingRequests.current += 1;
-      try {
-        return await originalFetch(...args);
-      } finally {
-        if (loadingRef.current) {
-          pendingRequests.current = Math.max(0, pendingRequests.current - 1);
-          maybeFinishLoading();
-        }
-      }
-    };
 
     document.addEventListener("click", handleClick, true);
     window.addEventListener("route-loading-start", handleProgrammaticNavigation);
     return () => {
-      clearTimers();
-      window.fetch = originalFetch;
+      if (hideTimer.current) clearTimeout(hideTimer.current);
       document.removeEventListener("click", handleClick, true);
       window.removeEventListener("route-loading-start", handleProgrammaticNavigation);
     };
   }, []);
-
-  useEffect(() => {
-    if (!loadingRef.current || lastRouteKey.current === routeKey) return;
-    lastRouteKey.current = routeKey;
-    routeChanged.current = true;
-
-    const waitForMountedFetches = setTimeout(() => {
-      if (!loadingRef.current || pendingRequests.current > 0) return;
-      const elapsed = Date.now() - startedAt.current;
-      const delay = Math.max(250, 900 - elapsed);
-      if (stopTimer.current) clearTimeout(stopTimer.current);
-      stopTimer.current = setTimeout(() => {
-        if (pendingRequests.current === 0) {
-          loadingRef.current = false;
-          routeChanged.current = false;
-          setLoading(false);
-        }
-      }, delay);
-    }, 350);
-
-    return () => clearTimeout(waitForMountedFetches);
-  }, [routeKey]);
 
   if (!loading) return null;
 
