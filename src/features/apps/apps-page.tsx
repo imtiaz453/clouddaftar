@@ -247,13 +247,6 @@ export function AppsPage({
     ...workflowOrder.filter((workflow) => visibleApps.some((app) => app.category === workflow)),
   ];
 
-  const orderedGroupedApps = workflowOrder
-    .filter((workflow) => groupedApps[workflow]?.length)
-    .map((workflow) => ({
-      workflow,
-      items: groupedApps[workflow],
-    }));
-
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
@@ -300,6 +293,7 @@ export function AppsPage({
           <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(280px,420px)_1fr] lg:items-center">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -341,23 +335,6 @@ export function AppsPage({
           title="No matches found"
           description="Try another workflow or search term."
         />
-      ) : activeWorkflow === "All" ? (
-        <div className="space-y-7">
-          {orderedGroupedApps.map(({ workflow, items }) => (
-            <section key={workflow} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-foreground">{workflow}</h2>
-                  <p className="text-xs text-muted-foreground">
-                    {items.length} module{items.length === 1 ? "" : "s"} available
-                  </p>
-                </div>
-              </div>
-
-              <ModuleGrid modules={items} launcherPathname={launcherPathname} />
-            </section>
-          ))}
-        </div>
       ) : (
         <ModuleGrid modules={filteredApps} launcherPathname={launcherPathname} />
       )}
