@@ -375,7 +375,7 @@ export function QuotationsClient({
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Quotations" description="Create and manage customer quotations">
+      <PageHeader title="Quotations" description="Create and manager customer quotations">
         <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus className="mr-2 h-4 w-4" /> New Quotation
         </Button>
