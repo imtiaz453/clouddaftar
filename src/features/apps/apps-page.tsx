@@ -159,7 +159,18 @@ const apps = [
   },
 ];
 
-const workflowOrder = ["Sell", "Buy", "Stock", "Finance", "People", "Team", "Insight", "Admin"];
+type AppModule = (typeof apps)[number];
+
+const workflowOrder = [
+  "Sell",
+  "Buy",
+  "Stock",
+  "Finance",
+  "People",
+  "Team",
+  "Insight",
+  "Admin",
+];
 
 interface AppsPageProps {
   companySlug?: string | null;
@@ -184,7 +195,13 @@ export function AppsPage({
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  const sessionUser = session?.user as { companySlug?: string; role?: string } | undefined;
+  const sessionUser = session?.user as
+    | {
+        companySlug?: string;
+        role?: string;
+      }
+    | undefined;
+
   const role = sessionUser?.role || "STAFF";
   const tenantSlug = companySlug || sessionUser?.companySlug;
 
@@ -209,6 +226,7 @@ export function AppsPage({
 
     return visibleApps.filter((app) => {
       const matchesWorkflow = activeWorkflow === "All" || app.category === activeWorkflow;
+
       const matchesQuery =
         !q ||
         app.title.toLowerCase().includes(q) ||
@@ -219,7 +237,7 @@ export function AppsPage({
     });
   }, [visibleApps, query, activeWorkflow]);
 
-  const groupedApps = filteredApps.reduce<Record<string, typeof apps>>((groups, app) => {
+  const groupedApps = filteredApps.reduce<Record<string, AppModule[]>>((groups, app) => {
     groups[app.category] = groups[app.category] ? [...groups[app.category], app] : [app];
     return groups;
   }, {});
@@ -336,39 +354,34 @@ export function AppsPage({
                 </div>
               </div>
 
-              <ModuleGrid
-                apps={items}
-                launcherPathname={launcherPathname}
-              />
+              <ModuleGrid modules={items} launcherPathname={launcherPathname} />
             </section>
           ))}
         </div>
       ) : (
-        <ModuleGrid
-          apps={filteredApps}
-          launcherPathname={launcherPathname}
-        />
+        <ModuleGrid modules={filteredApps} launcherPathname={launcherPathname} />
       )}
     </div>
   );
 }
 
 function ModuleGrid({
-  apps,
+  modules,
   launcherPathname,
 }: {
-  apps: typeof apps;
+  modules: AppModule[];
   launcherPathname: string;
 }) {
   return (
     <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {apps.map((app) => {
+      {modules.map((app) => {
         const Icon = app.icon;
 
         return (
           <Link
             key={app.title}
             href={dashboardHref(launcherPathname, app.href)}
+            title={app.description}
             className="group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <div className="flex items-start gap-4">
@@ -388,6 +401,7 @@ function ModuleGrid({
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {app.category}
                     </p>
+
                     <h3 className="mt-1 truncate text-base font-semibold text-foreground">
                       {app.title}
                     </h3>
