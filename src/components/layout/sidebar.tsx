@@ -112,7 +112,12 @@ interface SidebarProps {
   userRole?: string;
 }
 
-function isActiveRoute(pathname: string, href: string, searchParams?: URLSearchParams): boolean {
+function isActiveRoute(
+  pathname: string,
+  href: string,
+  searchParams?: URLSearchParams,
+  allHrefs?: Set<string>,
+): boolean {
   if (href === "/") return pathname === "/" || pathname.split("/").filter(Boolean).length === 1;
   if (href.includes("?")) {
     const [base, query] = href.split("?");
@@ -123,7 +128,13 @@ function isActiveRoute(pathname: string, href: string, searchParams?: URLSearchP
     );
   }
   if (href.endsWith("/settings") && pathname === href && searchParams?.has("tab")) return false;
-  return pathname === href || pathname.startsWith(href + "/");
+  if (pathname === href) return true;
+  if (pathname.startsWith(href + "/")) {
+    const nextSegment = pathname.slice(href.length + 1).split("/")[0];
+    if (allHrefs && nextSegment && allHrefs.has(href + "/" + nextSegment)) return false;
+    return true;
+  }
+  return false;
 }
 
 const ALL_PERMISSION_VALUES = new Set(Object.values(PERMISSIONS));
@@ -187,6 +198,7 @@ function NavItemLink({
   searchParams,
   onClose,
   onLogoutClick,
+  allHrefs,
 }: {
   item: NavItem;
   collapsed: boolean;
@@ -195,6 +207,7 @@ function NavItemLink({
   searchParams: URLSearchParams;
   onClose?: () => void;
   onLogoutClick: () => void;
+  allHrefs?: Set<string>;
 }) {
   const Icon = iconMap[item.icon] as LucideIcon | undefined;
   const href =
@@ -203,7 +216,7 @@ function NavItemLink({
       : tenant
         ? `/${tenant}${item.href === "/" ? "" : item.href}`
         : item.href;
-  const active = item.href !== "#logout" && isActiveRoute(pathname, href, searchParams);
+  const active = item.href !== "#logout" && isActiveRoute(pathname, href, searchParams, allHrefs);
 
   if (item.href === "#logout") {
     return (
@@ -256,6 +269,7 @@ function NavGroupSection({
   onClose,
   defaultOpen,
   onLogoutClick,
+  allHrefs,
 }: {
   group: NavGroup;
   collapsed: boolean;
@@ -265,6 +279,7 @@ function NavGroupSection({
   onClose?: () => void;
   defaultOpen: boolean;
   onLogoutClick: () => void;
+  allHrefs?: Set<string>;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const GroupIcon = iconMap[group.icon] as LucideIcon | undefined;
@@ -286,6 +301,7 @@ function NavGroupSection({
             searchParams={searchParams}
             onClose={onClose}
             onLogoutClick={onLogoutClick}
+            allHrefs={allHrefs}
           />
         ))}
       </div>
@@ -321,6 +337,7 @@ function NavGroupSection({
               searchParams={searchParams}
               onClose={onClose}
               onLogoutClick={onLogoutClick}
+              allHrefs={allHrefs}
             />
           ))}
         </div>
@@ -390,28 +407,35 @@ export function Sidebar({
     [permissions],
   );
 
+  const prefixedRoutes = useMemo(() => {
+    if (!tenant) return allRoutes;
+    const prefixed = new Set<string>();
+    allRoutes.forEach((href) => prefixed.add(tenant ? `/${tenant}${href === "/" ? "" : href}` : href));
+    return prefixed;
+  }, [tenant, allRoutes]);
+
   const activeModuleGroup = useMemo(() => {
     if (pathname === tenantHref("/") || pathname === tenantHref("/apps")) return null;
     return (
       filteredGroups.find(
         (group) =>
           MODULE_SCOPED_GROUPS.has(group.label) &&
-          group.items.some((item) => isActiveRoute(pathname, tenantHref(item.href), searchParams)),
+          group.items.some((item) => isActiveRoute(pathname, tenantHref(item.href), searchParams, prefixedRoutes)),
       ) ?? null
     );
-  }, [filteredGroups, pathname, searchParams, tenantHref]);
+  }, [filteredGroups, pathname, searchParams, tenantHref, prefixedRoutes]);
 
   const expandedGroupLabels = useMemo(() => {
     const labels = new Set<string>();
     NAV_GROUPS.forEach((group) => {
       const hasActive = group.items.some((item) => {
         const href = tenantHref(item.href);
-        return isActiveRoute(pathname, href, searchParams);
+        return isActiveRoute(pathname, href, searchParams, prefixedRoutes);
       });
       if (hasActive) labels.add(group.label);
     });
     return labels;
-  }, [pathname, tenantHref, searchParams]);
+  }, [pathname, tenantHref, searchParams, prefixedRoutes]);
 
   function handleToggle() {
     if (onToggleCollapse) {
@@ -499,6 +523,7 @@ export function Sidebar({
                 searchParams={searchParams}
                 onClose={handleClose}
                 onLogoutClick={() => setLogoutConfirmOpen(true)}
+                allHrefs={prefixedRoutes}
               />
             )}
             {filteredGroups.map((group) => (
@@ -512,6 +537,7 @@ export function Sidebar({
                 onClose={handleClose}
                 defaultOpen={expandedGroupLabels.has(group.label)}
                 onLogoutClick={() => setLogoutConfirmOpen(true)}
+                allHrefs={prefixedRoutes}
               />
             ))}
           </nav>
@@ -528,6 +554,7 @@ export function Sidebar({
               searchParams={searchParams}
               onClose={handleClose}
               onLogoutClick={() => setLogoutConfirmOpen(true)}
+              allHrefs={prefixedRoutes}
             />
           ))}
           <div className={cn("pt-1", collapsed && "flex justify-center")}>

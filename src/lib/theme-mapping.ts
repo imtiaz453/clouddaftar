@@ -243,6 +243,7 @@ export function getThemeCssVars(theme: {
       "--sidebar-accent-foreground": "220 14% 8%",
       "--sidebar-border": "0 0% 100%",
       "--sidebar-ring": "0 0% 100%",
+      "--neutral-tertiary": "0 0% 100%",
       "--radius": "1rem",
       "--font-family-body": FONT_MAP[theme.fontFamily || "inter"] || FONT_MAP.inter,
     };
@@ -258,6 +259,7 @@ export function getThemeCssVars(theme: {
     vars["--sidebar-accent-foreground"] = sidebar["accent-foreground"];
     vars["--sidebar-border"] = sidebar.accent;
     vars["--sidebar-ring"] = sidebar.accent;
+    vars["--neutral-tertiary"] = sidebar.accent;
   }
 
   if (primary) {

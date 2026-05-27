@@ -243,12 +243,14 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                   </Select>
                 </div>
               )}
-              {form.type === "EMPLOYEE_STORE" && (
+              {(form.type === "EMPLOYEE_STORE" || form.type === "MAIN_WAREHOUSE") && (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Assigned Employee *</label>
+                  <label className="text-sm font-medium">
+                    Assigned Employee{form.type === "EMPLOYEE_STORE" ? " *" : " (optional)"}
+                  </label>
                   <Select value={form.assignedEmployeeId} onValueChange={(v) => setForm({ ...form, assignedEmployeeId: v })}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select employee" />
+                      <SelectValue placeholder={form.type === "EMPLOYEE_STORE" ? "Select employee" : "Select employee (optional)"} />
                     </SelectTrigger>
                     <SelectContent>
                       {employees.map((emp) => (

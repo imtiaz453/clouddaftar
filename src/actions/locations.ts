@@ -67,7 +67,7 @@ export async function getEmployeesList() {
   const { companyId } = await requireCompanyAuth();
   return prisma.user.findMany({
     where: {
-      companies: { some: { companyId, isActive: true, role: { in: ["STAFF", "MANAGER"] } } },
+      companies: { some: { companyId, isActive: true, role: { in: ["STAFF", "MANAGER", "OWNER"] } } },
     },
     select: { id: true, name: true, email: true },
     orderBy: { name: "asc" },
@@ -320,8 +320,8 @@ export async function updateWarehouse(data: {
   if (!existing) throw new Error("Store not found");
 
   const type = data.type || existing.type;
-  const branchId = data.branchId !== undefined ? data.branchId : existing.branchId;
-  const assignedEmployeeId = data.assignedEmployeeId !== undefined ? data.assignedEmployeeId : existing.assignedEmployeeId;
+  const branchId = data.branchId !== undefined ? (data.branchId || null) : existing.branchId;
+  const assignedEmployeeId = data.assignedEmployeeId !== undefined ? (data.assignedEmployeeId || null) : existing.assignedEmployeeId;
 
   if (type === "POS_STORE" && !branchId) {
     throw new Error("Branch is required for POS/Showroom stores");
