@@ -66,6 +66,7 @@ interface QuotationItem {
   discount: number;
   tax: number;
   subtotal: number;
+  description?: string | null;
   product: { id: string; name: string; sku: string | null; unit: string | null };
 }
 
@@ -315,6 +316,7 @@ export function QuotationsClient({
             discount: Number(item.discount),
             tax: Number(item.tax),
             stock: product?.stock || 0,
+            description: item.description || "",
           } as LineItem;
         }),
       );

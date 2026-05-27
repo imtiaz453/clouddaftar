@@ -89,6 +89,7 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
     password: "",
     role: "STAFF",
     branchId: "",
+    createStore: false,
   });
   const [loading, setLoading] = useState(false);
 
@@ -130,6 +131,8 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      // Reset after successful creation
+      if (res.ok) setForm((prev) => ({ ...prev, createStore: false }));
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create user");
       addToast({
@@ -138,7 +141,7 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
         variant: "success",
       });
       setDialogOpen(false);
-      setForm({ name: "", email: "", password: "", role: "STAFF", branchId: "" });
+      setForm({ name: "", email: "", password: "", role: "STAFF", branchId: "", createStore: false });
       router.refresh();
     } catch (err) {
       addToast({
@@ -537,6 +540,17 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
                   </SelectContent>
                 </Select>
               </div>
+            )}
+            {form.role === "STAFF" && (
+              <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-accent">
+                <input
+                  type="checkbox"
+                  checked={form.createStore}
+                  onChange={(e) => setForm({ ...form, createStore: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <span>Create employee store for this user</span>
+              </label>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Creating..." : "Create User"}

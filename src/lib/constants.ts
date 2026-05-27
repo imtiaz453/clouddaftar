@@ -509,7 +509,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         label: "Stores",
-        href: "/settings/stores",
+        href: "/inventory/stores",
         icon: "Building2",
         permissions: ["INVENTORY_VIEW"],
       },

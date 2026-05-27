@@ -101,6 +101,7 @@ export function NewSaleClient({
   const [buyerTaxNumber, setBuyerTaxNumber] = useState("");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [padMode, setPadMode] = useState<"qty" | "discount" | "price">("qty");
+  const [mobileTab, setMobileTab] = useState<"cart" | "products">("cart");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenPrintSaleId, setFullscreenPrintSaleId] = useState<string | null>(null);
   const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null);
@@ -285,6 +286,12 @@ export function NewSaleClient({
   }
 
   useEffect(() => {
+    if (mobileTab === "products") {
+      requestAnimationFrame(() => barcodeRef.current?.focus());
+    }
+  }, [mobileTab]);
+
+  useEffect(() => {
     const barcode = barcodeInput.trim();
     if (barcode.length > 0) {
       const product = products.find(
@@ -405,7 +412,7 @@ export function NewSaleClient({
   return (
     <div
       ref={posShellRef}
-      className={`relative overflow-hidden border bg-slate-100 shadow-sm ${
+      className={`relative flex flex-col overflow-hidden border bg-slate-100 shadow-sm ${
         isFullscreen ? "h-screen rounded-none" : "h-[calc(100vh-4rem)] rounded-xl"
       }`}
     >
@@ -449,8 +456,37 @@ export function NewSaleClient({
         </div>
       </div>
 
-      <div className="grid h-[calc(100%-4rem)] grid-cols-1 overflow-hidden lg:grid-cols-[42%_58%]">
-        <section className="flex min-h-0 flex-col border-r bg-white">
+      <div className="flex md:hidden h-10 shrink-0 border-b bg-white">
+        <button
+          type="button"
+          onClick={() => setMobileTab("cart")}
+          className={`flex-1 cursor-pointer text-sm font-semibold transition ${
+            mobileTab === "cart"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Cart {validItems.length > 0 ? `(${validItems.length})` : ""}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab("products")}
+          className={`flex-1 cursor-pointer text-sm font-semibold transition ${
+            mobileTab === "products"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Products
+        </button>
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[42%_58%]">
+        <section
+          className={`flex min-h-0 flex-col border-r bg-white ${
+            mobileTab !== "cart" ? "hidden" : ""
+          } md:flex`}
+        >
           <div className="min-h-0 flex-1 overflow-y-auto">
             {items.length === 0 ? (
               <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
@@ -639,7 +675,7 @@ export function NewSaleClient({
                   type="button"
                   onClick={() => handleSubmit("COMPLETED")}
                   disabled={loading || validItems.length === 0}
-                  className="flex min-h-[146px] flex-1 items-center justify-center bg-[#7c4d72] px-3 text-lg font-bold text-white transition hover:bg-[#6d4364] disabled:opacity-50"
+                  className="flex min-h-[100px] flex-1 items-center justify-center bg-[#7c4d72] px-3 text-lg font-bold text-white transition hover:bg-[#6d4364] disabled:opacity-50 sm:min-h-[146px]"
                 >
                   {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                   Payment
@@ -653,7 +689,7 @@ export function NewSaleClient({
                     type="button"
                     onClick={() => handleKeypad(key)}
                     disabled={!selectedItem}
-                    className="flex h-12 items-center justify-center border-b border-l text-base font-semibold hover:bg-[#e7f2f2] disabled:opacity-40"
+                    className="flex h-10 items-center justify-center border-b border-l text-sm font-semibold hover:bg-[#e7f2f2] disabled:opacity-40 sm:h-12 sm:text-base"
                   >
                     {key === "back" ? <Delete className="h-4 w-4" /> : key}
                   </button>
@@ -770,7 +806,11 @@ export function NewSaleClient({
           </div>
         </section>
 
-        <section className="flex min-h-0 flex-col bg-[#d8dbde]">
+        <section
+          className={`flex min-h-0 flex-col bg-[#d8dbde] ${
+            mobileTab !== "products" ? "hidden" : ""
+          } md:flex`}
+        >
           <div className="flex flex-wrap items-center gap-2 border-b bg-white px-3 py-2">
             <Button variant="ghost" size="icon" className="h-9 w-9">
               <Home className="h-4 w-4" />
@@ -930,7 +970,7 @@ function ModeButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-12 cursor-pointer items-center justify-center gap-1 border-b border-l text-sm font-semibold ${
+      className={`flex h-10 cursor-pointer items-center justify-center gap-1 border-b border-l text-xs font-semibold sm:h-12 sm:text-sm ${
         active ? "bg-primary/10 text-primary" : "hover:bg-muted"
       }`}
     >

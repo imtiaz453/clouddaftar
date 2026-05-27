@@ -5,6 +5,7 @@ import { getCurrentAdmin } from "@/lib/admin-auth";
 import { getCurrentUser } from "@/lib/auth-helper";
 import { createAuditLog } from "@/lib/audit";
 import { isCustomRoleKey, normalizeRolePermissionOverrides } from "@/lib/constants";
+import { ensureDefaultWarehouseLocations } from "@/lib/locations";
 
 const APP_ROUTES = new Set([
   "api",
@@ -237,6 +238,25 @@ export async function POST(req: Request) {
       entityId: newUser.id,
       metadata: { email, role },
     });
+
+    if (data.createStore && role === "STAFF") {
+      const storeCode = `EMP-${newUser.id.slice(0, 6).toUpperCase()}`;
+      await prisma.$transaction(async (tx) => {
+        const store = await tx.warehouse.create({
+          data: {
+            companyId,
+            name: `${name}'s Store`,
+            code: storeCode,
+            type: "EMPLOYEE_STORE",
+            assignedEmployeeId: newUser.id,
+            isDefault: false,
+            isActive: true,
+          },
+        });
+        await ensureDefaultWarehouseLocations(tx, companyId, store);
+      });
+    }
+
     return NextResponse.json({
       success: true,
       data: newUser,
