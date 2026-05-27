@@ -55,6 +55,7 @@ import {
   ClipboardList,
   ReceiptText,
   Banknote,
+  Store,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -96,6 +97,7 @@ const iconMap: Record<string, LucideIcon> = {
   ClipboardList,
   ReceiptText,
   Banknote,
+  Store,
 };
 
 interface SidebarProps {
