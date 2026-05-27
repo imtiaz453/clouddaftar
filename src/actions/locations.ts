@@ -179,6 +179,33 @@ export async function updateBranch(data: {
   return updated;
 }
 
+export async function deleteBranch(id: string) {
+  const user = await requireCompanyAuth();
+  const { companyId } = user;
+
+  const branch = await prisma.branch.findFirst({
+    where: { id, companyId, deletedAt: null },
+  });
+  if (!branch) throw new Error("Branch not found");
+
+  if (branch.isDefault) throw new Error("Cannot delete the default branch");
+
+  await prisma.branch.update({
+    where: { id },
+    data: { deletedAt: new Date(), isActive: false },
+  });
+
+  await createAuditLog({
+    userId: user.id,
+    companyId,
+    action: "DISABLE",
+    entity: "Branch",
+    entityId: id,
+    metadata: { name: branch.name, action: "deleted" },
+  });
+  revalidateBoth("/settings", user.companySlug);
+}
+
 export async function toggleBranchStatus(id: string, isActive: boolean) {
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
@@ -329,6 +356,31 @@ export async function updateWarehouse(data: {
   });
   revalidateBoth("/settings", user.companySlug);
   return updated;
+}
+
+export async function deleteWarehouse(id: string) {
+  const user = await requireCompanyAuth();
+  const { companyId } = user;
+
+  const warehouse = await prisma.warehouse.findFirst({
+    where: { id, companyId, deletedAt: null },
+  });
+  if (!warehouse) throw new Error("Store not found");
+
+  await prisma.warehouse.update({
+    where: { id },
+    data: { deletedAt: new Date(), isActive: false },
+  });
+
+  await createAuditLog({
+    userId: user.id,
+    companyId,
+    action: "DISABLE",
+    entity: "Warehouse",
+    entityId: id,
+    metadata: { name: warehouse.name, action: "deleted" },
+  });
+  revalidateBoth("/settings", user.companySlug);
 }
 
 export async function toggleWarehouseStatus(id: string, isActive: boolean) {

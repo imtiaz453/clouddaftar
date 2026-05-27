@@ -30,7 +30,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Power, PowerOff, Warehouse, Store, User } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { Plus, Pencil, Power, PowerOff, Trash2, Warehouse, Store, User } from "lucide-react";
 
 const STORE_TYPES = [
   { value: "MAIN_WAREHOUSE", label: "Main Warehouse" },
@@ -142,6 +143,32 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
       router.refresh();
     } catch (err: any) {
       addToast({ title: err.message, variant: "error" });
+    }
+  }
+
+  const [deleteStore, setDeleteStore] = useState<Store | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!deleteStore) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/settings/stores", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteStore.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete store");
+      }
+      addToast({ title: "Store deleted", variant: "success" });
+      setDeleteStore(null);
+      router.refresh();
+    } catch (err: any) {
+      addToast({ title: err.message, variant: "error" });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -329,6 +356,9 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                         <Button variant="ghost" size="icon" onClick={() => handleToggleActive(store)} title={store.isActive ? "Disable" : "Enable"}>
                           {store.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                         </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteStore(store)} title="Delete">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -338,6 +368,16 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleteStore}
+        onOpenChange={(v) => { if (!v) setDeleteStore(null); }}
+        title="Delete Store"
+        description={`Are you sure you want to delete "${deleteStore?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }

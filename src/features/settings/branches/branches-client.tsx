@@ -23,7 +23,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Power, PowerOff } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { Plus, Pencil, Power, PowerOff, Trash2 } from "lucide-react";
 
 interface Branch {
   id: string;
@@ -110,6 +111,32 @@ export function BranchesClient({ branches }: BranchesClientProps) {
       router.refresh();
     } catch (err: any) {
       addToast({ title: err.message, variant: "error" });
+    }
+  }
+
+  const [deleteBranch, setDeleteBranch] = useState<Branch | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!deleteBranch) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/settings/branches", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteBranch.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete branch");
+      }
+      addToast({ title: "Branch deleted", variant: "success" });
+      setDeleteBranch(null);
+      router.refresh();
+    } catch (err: any) {
+      addToast({ title: err.message, variant: "error" });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -207,6 +234,9 @@ export function BranchesClient({ branches }: BranchesClientProps) {
                         <Button variant="ghost" size="icon" onClick={() => handleToggleActive(branch)} title={branch.isActive ? "Disable" : "Enable"}>
                           {branch.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                         </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteBranch(branch)} title="Delete">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -216,6 +246,16 @@ export function BranchesClient({ branches }: BranchesClientProps) {
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleteBranch}
+        onOpenChange={(v) => { if (!v) setDeleteBranch(null); }}
+        title="Delete Branch"
+        description={`Are you sure you want to delete "${deleteBranch?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }

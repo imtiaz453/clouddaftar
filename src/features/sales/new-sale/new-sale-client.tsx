@@ -91,7 +91,7 @@ export function NewSaleClient({
   const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paid, setPaid] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
   const [globalDiscount, setGlobalDiscount] = useState(0);

@@ -452,9 +452,12 @@ export function SalesClient({
   return (
     <div>
       <PageHeader title="Sales" description="Manage sales orders, proforma invoices, and invoices">
+        <Button onClick={openNewSale}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Sale
+        </Button>
         <ActionsMenu
           items={[
-            { label: "New Sale", icon: Plus, onSelect: openNewSale },
             {
               label: "Export Sales",
               icon: Download,
