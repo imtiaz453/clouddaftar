@@ -598,9 +598,19 @@ export function SalesClient({
             </TableHeader>
             <TableBody>
               {sales.data.map((sale) => (
-                <TableRow key={sale.id}>
+                <TableRow key={sale.id} className="group">
                   <TableCell className="font-mono text-xs font-medium">
-                    {sale.invoiceNumber}
+                    <div className="flex items-center gap-1">
+                      {sale.invoiceNumber}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); downloadInvoice(sale.id); }}
+                        title="Download PDF"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-accent-foreground group-hover:opacity-100"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </TableCell>
                   <TableCell>{sale.customer?.name || "Walk-in"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
