@@ -335,7 +335,8 @@ export const productSchema = z.object({
   discount: z.number().min(0).optional(),
   categoryId: z.string().optional().nullable(),
   isService: z.boolean().optional(),
-  trackingMode: z.enum(["NONE", "LOT", "SERIAL"]).optional(),
+  trackingMode: z.enum(["NONE", "LOT", "SERIAL", "BATCH"]).optional(),
+  mfgDate: z.string().optional(),
   expiryDate: z.string().optional(),
   image: z.string().optional(),
 });

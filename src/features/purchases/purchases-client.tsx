@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Truck, Eye, RotateCcw, FileText, Printer, Pencil, Undo2 } from "lucide-react";
+import { Plus, Truck, Eye, RotateCcw, FileText, Printer, Pencil, Undo2, Download, Search } from "lucide-react";
+import { exportToCSV, type ExportColumn } from "@/lib/export-utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -144,6 +145,37 @@ export function PurchasesClient({
     }
   }
 
+  function exportPurchases() {
+    const rows = initialPurchases.data.map((p) => ({
+      referenceNumber: p.referenceNumber,
+      supplier: p.supplier?.name || "Unknown",
+      items: p.items.length,
+      total: Number(p.total),
+      paid: Number(p.paid),
+      due: Number(p.due),
+      dueDate: p.dueDate ? formatDate(p.dueDate) : "",
+      paymentStatus: p.paymentStatus.replace("_", " "),
+      status: p.status.replace("_", " "),
+      date: formatDate(p.createdAt),
+    }));
+    exportToCSV(
+      rows,
+      [
+        { key: "referenceNumber", label: "Reference" },
+        { key: "supplier", label: "Supplier" },
+        { key: "items", label: "Items" },
+        { key: "total", label: "Total" },
+        { key: "paid", label: "Paid" },
+        { key: "due", label: "Due" },
+        { key: "dueDate", label: "Due Date" },
+        { key: "paymentStatus", label: "Payment" },
+        { key: "status", label: "Status" },
+        { key: "date", label: "Date" },
+      ],
+      `purchases-export-${Date.now()}`,
+    );
+  }
+
   function purchaseActions(purchase: PurchaseWithRelations) {
     return [
       { label: "View purchase", icon: Eye, onSelect: () => openDetail(purchase) },
@@ -197,8 +229,26 @@ export function PurchasesClient({
   return (
     <div>
       <PageHeader title="Purchases" description="Manage purchase orders and suppliers">
-        <ActionsMenu items={[{ label: "New Purchase", icon: Plus, onSelect: openNewDialog }]} />
+        <Button size="sm" onClick={openNewDialog}>
+          <Plus className="mr-2 h-4 w-4" /> New PO
+        </Button>
+        <ActionsMenu
+          items={[
+            { label: "Export CSV", icon: Download, onSelect: exportPurchases },
+          ]}
+        />
       </PageHeader>
+
+      <div className="mb-4">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search by reference or supplier..."
+            className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+      </div>
 
       <Card className="p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

@@ -70,6 +70,8 @@ export function ProductDialog({
     categoryId: "",
     isService: false,
     trackingMode: "NONE",
+    mfgDate: "",
+    expiryDate: "",
     tax: 0,
     image: "",
   });
@@ -90,6 +92,8 @@ export function ProductDialog({
       categoryId: product?.categoryId || "",
       isService: product?.isService || false,
       trackingMode: (product as any)?.trackingMode || "NONE",
+      mfgDate: (product as any)?.mfgDate ? ((product as any).mfgDate as string).slice(0, 10) : "",
+      expiryDate: (product as any)?.expiryDate ? ((product as any).expiryDate as string).slice(0, 10) : "",
       tax: Number(product?.tax) || 0,
       image: product?.image || "",
     });
@@ -242,8 +246,9 @@ export function ProductDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="NONE">No lot or serial tracking</SelectItem>
-                    <SelectItem value="LOT">Track by lot / batch</SelectItem>
+                    <SelectItem value="LOT">Track by lot number</SelectItem>
                     <SelectItem value="SERIAL">Track by serial number</SelectItem>
+                    <SelectItem value="BATCH">Track by batch</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -265,6 +270,22 @@ export function ProductDialog({
                   </SelectContent>
                 </Select>
               </div>
+              {form.trackingMode !== "NONE" && (
+                <>
+                  <Input
+                    label="Manufacturing Date (MFG)"
+                    type="date"
+                    value={form.mfgDate}
+                    onChange={(e) => setForm({ ...form, mfgDate: e.target.value })}
+                  />
+                  <Input
+                    label="Expiry Date (EXP)"
+                    type="date"
+                    value={form.expiryDate}
+                    onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
+                  />
+                </>
+              )}
               <Input
                 label="Purchase Price"
                 type="number"

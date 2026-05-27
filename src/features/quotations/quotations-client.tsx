@@ -14,6 +14,7 @@ import {
   Printer,
   Search,
   Trash2,
+  MoreHorizontal,
 } from "lucide-react";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/lib/export-utils";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/shared/page-header";
+import { ActionsMenu } from "@/components/shared/actions-menu";
 import { formatCurrency, formatDate, taxLabel } from "@/lib/utils";
 import { useToast } from "@/providers/toast-provider";
 import {
@@ -259,6 +262,39 @@ export function QuotationsClient({
     setConfirmOpen(true);
   };
 
+  function quotationActions(q: Quotation) {
+    const items = [];
+    items.push({ label: "View quotation", icon: Eye, onSelect: () => setDetailId(q.id) });
+    items.push({ label: "Print quotation", icon: Printer, onSelect: () => printQuotation(q.id) });
+    items.push({ label: "Download PDF", icon: Download, onSelect: () => downloadQuotation(q.id) });
+    if (q.status === "DRAFT") {
+      items.push({ label: "Send quotation", icon: Send, onSelect: () => handleAction(q.id, "send") });
+    }
+    if (q.status === "SENT") {
+      items.push({ label: "Accept quotation", icon: Check, onSelect: () => handleAction(q.id, "accept") });
+      items.push({ label: "Reject quotation", icon: X, onSelect: () => handleAction(q.id, "reject") });
+    }
+    if (isConvertibleQuotation(q)) {
+      items.push({ label: "Convert to sales order", icon: ArrowRightFromLine, onSelect: () => confirmConvertQuotation(q) });
+    }
+    if (q.status === "DRAFT" || q.status === "SENT") {
+      items.push({
+        label: "Delete quotation",
+        icon: Trash2,
+        onSelect: () => {
+          setConfirmTitle("Delete Quotation");
+          setConfirmDescription(`Delete ${q.quoteNumber}? This cannot be undone.`);
+          setConfirmVariant("destructive");
+          pendingConfirm.current = () => { setConfirmOpen(false); handleAction(q.id, "delete"); };
+          setConfirmOpen(true);
+        },
+        destructive: true,
+        separatorBefore: true,
+      });
+    }
+    return items;
+  }
+
   const handleDetailSave = async () => {
     if (!detail) return;
     const validItems = detailItems.filter((i) => i.productId && i.quantity > 0);
@@ -339,6 +375,17 @@ export function QuotationsClient({
 
   return (
     <div className="space-y-4">
+      <PageHeader title="Quotations" description="Create and manage customer quotations">
+        <Button size="sm" onClick={() => setShowCreate(true)}>
+          <Plus className="mr-2 h-4 w-4" /> New Quotation
+        </Button>
+        <ActionsMenu
+          items={[
+            { label: "Export CSV", icon: Download, onSelect: () => handleExport("csv") },
+            { label: "Export Excel", icon: Download, onSelect: () => handleExport("excel") },
+          ]}
+        />
+      </PageHeader>
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -361,20 +408,6 @@ export function QuotationsClient({
           <option value="REJECTED">Rejected</option>
           <option value="EXPIRED">Expired</option>
         </select>
-        <div className="ml-auto flex gap-1">
-          <Button variant="outline" size="sm" onClick={() => handleExport("csv")}>
-            <Download className="mr-1 h-3.5 w-3.5" />
-            CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
-            <Download className="mr-1 h-3.5 w-3.5" />
-            Excel
-          </Button>
-        </div>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
-          <Plus className="mr-1 h-4 w-4" />
-          New Quotation
-        </Button>
       </div>
 
       <Card className="p-0">
@@ -408,39 +441,7 @@ export function QuotationsClient({
                         <span>Valid: {q.validUntil ? formatDate(q.validUntil) : "-"}</span>
                         <span className="font-medium text-foreground">{formatCurrency(q.total)}</span>
                       </div>
-                      <div className="flex gap-1 pt-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDetailId(q.id)} title="View details">
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => printQuotation(q.id)} title="Print">
-                          <Printer className="h-3.5 w-3.5" />
-                        </Button>
-                        {q.status === "DRAFT" && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600" onClick={() => handleAction(q.id, "send")} title="Send">
-                            <Send className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {q.status === "SENT" && (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" onClick={() => handleAction(q.id, "accept")} title="Accept">
-                              <Check className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => handleAction(q.id, "reject")} title="Reject">
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        )}
-                        {isConvertibleQuotation(q) && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-green-700" onClick={() => confirmConvertQuotation(q)} title="Convert">
-                            <ArrowRightFromLine className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {(q.status === "DRAFT" || q.status === "SENT") && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { setConfirmTitle("Delete Quotation"); setConfirmDescription(`Delete ${q.quoteNumber}? This cannot be undone.`); setConfirmVariant("destructive"); pendingConfirm.current = () => { setConfirmOpen(false); handleAction(q.id, "delete"); }; setConfirmOpen(true); }} title="Delete">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
+                      <ActionsMenu compact items={quotationActions(q)} />
                     </div>
                   ))}
                 </div>
@@ -493,92 +494,7 @@ export function QuotationsClient({
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => setDetailId(q.id)}
-                              title="View quotation details"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => printQuotation(q.id)}
-                              title="Print quotation"
-                            >
-                              <Printer className="h-3.5 w-3.5" />
-                            </Button>
-                            {q.status === "DRAFT" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-blue-600"
-                                onClick={() => handleAction(q.id, "send")}
-                                title="Send quotation"
-                              >
-                                <Send className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {q.status === "SENT" && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-green-600"
-                                  onClick={() => handleAction(q.id, "accept")}
-                                  title="Accept quotation"
-                                >
-                                  <Check className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-red-600"
-                                  onClick={() => handleAction(q.id, "reject")}
-                                  title="Reject quotation"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </Button>
-                              </>
-                            )}
-                            {isConvertibleQuotation(q) && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-green-700"
-                                onClick={() => confirmConvertQuotation(q)}
-                                title="Convert to sales order"
-                              >
-                                <ArrowRightFromLine className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {(q.status === "DRAFT" || q.status === "SENT") && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => {
-                                  setConfirmTitle("Delete Quotation");
-                                  setConfirmDescription(
-                                    `Delete ${q.quoteNumber}? This cannot be undone.`,
-                                  );
-                                  setConfirmVariant("destructive");
-                                  pendingConfirm.current = () => {
-                                    setConfirmOpen(false);
-                                    handleAction(q.id, "delete");
-                                  };
-                                  setConfirmOpen(true);
-                                }}
-                                title="Delete quotation"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </div>
+                          <ActionsMenu compact items={quotationActions(q)} />
                         </TableCell>
                       </TableRow>
                     ))

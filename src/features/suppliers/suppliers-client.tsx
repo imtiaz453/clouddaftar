@@ -83,9 +83,11 @@ export function SuppliersClient({ suppliers }: SuppliersClientProps) {
   return (
     <div>
       <PageHeader title="Suppliers" description="Manage your suppliers and vendors">
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> New Supplier
+        </Button>
         <ActionsMenu
           items={[
-            { label: "Add Supplier", icon: Plus, onSelect: () => setDialogOpen(true) },
             { label: "Import Suppliers", icon: Upload, onSelect: () => setImportOpen(true) },
           ]}
         />

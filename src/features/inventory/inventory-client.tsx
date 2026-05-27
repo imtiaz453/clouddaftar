@@ -357,9 +357,11 @@ export function InventoryClient({
         title="Inventory"
         description="Products, replenishment, warehouses, traceability, valuation, and stock movements"
       >
+        <Button size="sm" onClick={handleAdd}>
+          <Plus className="mr-2 h-4 w-4" /> New Product
+        </Button>
         <ActionsMenu
           items={[
-            { label: "Add Product", icon: Plus, onSelect: handleAdd },
             { label: "Transfer Stock", icon: ArrowRightLeft, onSelect: openTransferDialog },
             { label: "Import Products", icon: Upload, onSelect: () => setImportOpen(true) },
             {

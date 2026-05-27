@@ -355,7 +355,8 @@ export async function createProduct(data: {
   discount?: number;
   categoryId?: string | null;
   isService?: boolean;
-  trackingMode?: "NONE" | "LOT" | "SERIAL";
+  trackingMode?: "NONE" | "LOT" | "SERIAL" | "BATCH";
+  mfgDate?: string;
   expiryDate?: string;
   image?: string;
 }) {

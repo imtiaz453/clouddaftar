@@ -78,6 +78,7 @@ enum ProductTrackingMode {
   NONE
   LOT
   SERIAL
+  BATCH
 }
 
 enum ExpenseStatus {
@@ -515,6 +516,7 @@ model Product {
   isActive       Boolean             @default(true)
   isService      Boolean             @default(false)
   trackingMode   ProductTrackingMode @default(NONE)
+  mfgDate        DateTime?
   expiryDate     DateTime?
   categoryId     String?
   companyId      String

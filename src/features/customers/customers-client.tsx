@@ -108,9 +108,11 @@ export function CustomersClient({ customers }: CustomersClientProps) {
   return (
     <div>
       <PageHeader title="Customers" description="Manage your customer base">
+        <Button size="sm" onClick={() => openNewDialog()}>
+          <Plus className="mr-2 h-4 w-4" /> New Customer
+        </Button>
         <ActionsMenu
           items={[
-            { label: "Add Customer", icon: Plus, onSelect: () => openNewDialog() },
             { label: "Import Customers", icon: Upload, onSelect: () => setImportOpen(true) },
           ]}
         />
