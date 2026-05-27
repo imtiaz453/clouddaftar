@@ -15,6 +15,12 @@ enum RoleType {
   CASHIER
 }
 
+enum StoreType {
+  MAIN_WAREHOUSE
+  POS_STORE
+  EMPLOYEE_STORE
+}
+
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -122,6 +128,8 @@ enum AuditAction {
   LOGOUT
   EXPORT
   IMPORT
+  ENABLE
+  DISABLE
 }
 
 enum NotificationType {
@@ -199,6 +207,7 @@ model User {
   salaryAdjustments          SalaryAdjustment[]
   createdInventoryLogs       InventoryLog[]          @relation("InventoryLogCreatedBy")
   employeeRecord             EmployeeRecord?
+  assignedStores             Warehouse[]             @relation("WarehouseAssignedEmployee")
 
   @@index([email])
   @@map("users")
@@ -365,19 +374,23 @@ model Branch {
 }
 
 model Warehouse {
-  id        String    @id @default(cuid())
-  name      String
-  code      String
-  branchId  String?
-  companyId String
-  isDefault Boolean   @default(false)
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id                String    @id @default(cuid())
+  name              String
+  code              String
+  type              StoreType @default(MAIN_WAREHOUSE)
+  branchId          String?
+  assignedEmployeeId String?
+  companyId         String
+  isDefault         Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
 
   company          Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   branch           Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  assignedEmployee User?               @relation("WarehouseAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
   productStocks    ProductStock[]
   locations        WarehouseLocation[]
   sales            Sale[]
@@ -388,6 +401,7 @@ model Warehouse {
   @@unique([code, companyId])
   @@index([companyId])
   @@index([branchId])
+  @@index([assignedEmployeeId])
   @@index([isActive])
   @@map("warehouses")
 }

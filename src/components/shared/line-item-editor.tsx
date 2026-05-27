@@ -382,7 +382,6 @@ export function LineItemEditor({
       setOpenDropdownId(null);
       setDropdownRect(null);
       setDropdownPortalTarget(null);
-      mobilePosRef.current = null;
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -483,22 +482,12 @@ export function LineItemEditor({
                         setOpenDropdownId(item.id);
                         setDropdownRect(null);
                         setDropdownPortalTarget(null);
-                        const el = mobileSearchInputRefs.current[item.id];
-                        if (el) {
-                          const r = el.getBoundingClientRect();
-                          mobilePosRef.current = { top: r.bottom + 4, left: r.left, width: Math.max(r.width, 300) };
-                        }
                       }}
                       onFocus={() => {
                         if (!item.productId) {
                           setOpenDropdownId(item.id);
                           setDropdownRect(null);
                           setDropdownPortalTarget(null);
-                          const el = mobileSearchInputRefs.current[item.id];
-                          if (el) {
-                            const r = el.getBoundingClientRect();
-                            mobilePosRef.current = { top: r.bottom + 4, left: r.left, width: Math.max(r.width, 300) };
-                          }
                         }
                       }}
                       onKeyDown={(e) => {
@@ -511,16 +500,10 @@ export function LineItemEditor({
                       }}
                       className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                     />
-                    {showDropdown && mobilePosRef.current && typeof document !== "undefined" && createPortal(
+                    {showDropdown && (
                       <div
                         data-product-dropdown="true"
-                        className="z-[9999] max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg"
-                        style={{
-                          position: "fixed",
-                          top: mobilePosRef.current.top,
-                          left: mobilePosRef.current.left,
-                          width: mobilePosRef.current.width,
-                        }}
+                        className="absolute left-0 top-full z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover shadow-lg"
                       >
                         {activeResults.length === 0 ? (
                           <div className="px-3 py-4 text-center text-xs text-muted-foreground">
@@ -568,8 +551,7 @@ export function LineItemEditor({
                             </button>
                           ))
                         )}
-                      </div>,
-                      document.body,
+                      </div>
                     )}
                   </div>
                 )}

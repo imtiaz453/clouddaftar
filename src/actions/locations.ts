@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth, revalidateBoth } from "@/lib/auth-helper";
 import { createAuditLog } from "@/lib/audit";
 import { ensureDefaultBranchAndWarehouse, ensureDefaultWarehouseLocations } from "@/lib/locations";
+import type { StoreType } from "@prisma/client";
 
 function normalizeCode(value: string) {
   return value
@@ -31,8 +32,45 @@ export async function getWarehouses(branchId?: string) {
 
   return prisma.warehouse.findMany({
     where: { companyId, deletedAt: null, ...(branchId ? { branchId } : {}) },
-    include: { branch: { select: { id: true, name: true, code: true } } },
+    include: {
+      branch: { select: { id: true, name: true, code: true } },
+      assignedEmployee: { select: { id: true, name: true, email: true } },
+    },
     orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+  });
+}
+
+export async function getBranchesList() {
+  const { companyId } = await requireCompanyAuth();
+  return prisma.branch.findMany({
+    where: { companyId, deletedAt: null, isActive: true },
+    select: { id: true, name: true, code: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function getStores() {
+  const { companyId } = await requireCompanyAuth();
+  await ensureDefaultBranchAndWarehouse(prisma, companyId);
+
+  return prisma.warehouse.findMany({
+    where: { companyId, deletedAt: null },
+    include: {
+      branch: { select: { id: true, name: true, code: true } },
+      assignedEmployee: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+  });
+}
+
+export async function getEmployeesList() {
+  const { companyId } = await requireCompanyAuth();
+  return prisma.user.findMany({
+    where: {
+      companies: { some: { companyId, isActive: true, role: { in: ["STAFF", "MANAGER"] } } },
+    },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
   });
 }
 
@@ -71,7 +109,8 @@ export async function createBranch(data: {
         data: {
           companyId,
           branchId: created.id,
-          name: `${created.name} Warehouse`,
+          type: "POS_STORE",
+          name: `${created.name} Store`,
           code,
           isDefault: true,
         },
@@ -94,17 +133,101 @@ export async function createBranch(data: {
   return branch;
 }
 
+export async function updateBranch(data: {
+  id: string;
+  name: string;
+  code?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  isActive?: boolean;
+}) {
+  const user = await requireCompanyAuth();
+  const { companyId, id: userId } = user;
+  if (!data.name.trim()) throw new Error("Branch name is required");
+
+  const branch = await prisma.branch.findFirst({
+    where: { id: data.id, companyId, deletedAt: null },
+  });
+  if (!branch) throw new Error("Branch not found");
+
+  const code = data.code ? normalizeCode(data.code) : branch.code;
+
+  const updated = await prisma.branch.update({
+    where: { id: data.id },
+    data: {
+      name: data.name.trim(),
+      code,
+      phone: data.phone ?? branch.phone,
+      email: data.email ?? branch.email,
+      address: data.address ?? branch.address,
+      city: data.city ?? branch.city,
+      isActive: data.isActive ?? branch.isActive,
+    },
+  });
+
+  await createAuditLog({
+    userId,
+    companyId,
+    action: "UPDATE",
+    entity: "Branch",
+    entityId: updated.id,
+    metadata: { name: updated.name, code: updated.code },
+  });
+  revalidateBoth("/settings", user.companySlug);
+  return updated;
+}
+
+export async function toggleBranchStatus(id: string, isActive: boolean) {
+  const user = await requireCompanyAuth();
+  const { companyId, id: userId } = user;
+
+  const branch = await prisma.branch.findFirst({
+    where: { id, companyId, deletedAt: null },
+  });
+  if (!branch) throw new Error("Branch not found");
+
+  const updated = await prisma.branch.update({
+    where: { id },
+    data: { isActive },
+  });
+
+  await createAuditLog({
+    userId,
+    companyId,
+    action: isActive ? "ENABLE" : "DISABLE",
+    entity: "Branch",
+    entityId: updated.id,
+    metadata: { name: updated.name },
+  });
+  revalidateBoth("/settings", user.companySlug);
+  return updated;
+}
+
 export async function createWarehouse(data: {
   name: string;
   code?: string;
+  type?: StoreType;
   branchId?: string;
+  assignedEmployeeId?: string;
   isDefault?: boolean;
+  notes?: string;
 }) {
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const code = normalizeCode(data.code || data.name);
-  if (!data.name.trim()) throw new Error("Warehouse name is required");
-  if (!code) throw new Error("Warehouse code is required");
+  if (!data.name.trim()) throw new Error("Store/Warehouse name is required");
+  if (!code) throw new Error("Store/Warehouse code is required");
+
+  const type = data.type || "MAIN_WAREHOUSE";
+
+  if (type === "POS_STORE" && !data.branchId) {
+    throw new Error("Branch is required for POS/Showroom stores");
+  }
+  if (type === "EMPLOYEE_STORE" && !data.assignedEmployeeId) {
+    throw new Error("Employee is required for Employee stores");
+  }
 
   if (data.branchId) {
     const branch = await prisma.branch.findFirst({
@@ -113,14 +236,24 @@ export async function createWarehouse(data: {
     if (!branch) throw new Error("Branch not found");
   }
 
+  if (data.assignedEmployeeId) {
+    const employee = await prisma.user.findFirst({
+      where: { id: data.assignedEmployeeId, companies: { some: { companyId } } },
+    });
+    if (!employee) throw new Error("Employee not found");
+  }
+
   const warehouse = await prisma.$transaction(async (tx) => {
     const created = await tx.warehouse.create({
       data: {
         companyId,
+        type,
         branchId: data.branchId || null,
+        assignedEmployeeId: data.assignedEmployeeId || null,
         name: data.name.trim(),
         code,
         isDefault: data.isDefault ?? false,
+        notes: data.notes || null,
       },
     });
     await ensureDefaultWarehouseLocations(tx, companyId, created);
@@ -133,10 +266,95 @@ export async function createWarehouse(data: {
     action: "CREATE",
     entity: "Warehouse",
     entityId: warehouse.id,
-    metadata: { name: warehouse.name, code: warehouse.code, branchId: warehouse.branchId },
+    metadata: { name: warehouse.name, code: warehouse.code, type: warehouse.type, branchId: warehouse.branchId },
   });
   revalidateBoth("/settings", user.companySlug);
   return warehouse;
+}
+
+export async function updateWarehouse(data: {
+  id: string;
+  name: string;
+  code?: string;
+  type?: StoreType;
+  branchId?: string | null;
+  assignedEmployeeId?: string | null;
+  isDefault?: boolean;
+  isActive?: boolean;
+  notes?: string | null;
+}) {
+  const user = await requireCompanyAuth();
+  const { companyId, id: userId } = user;
+  if (!data.name.trim()) throw new Error("Store name is required");
+
+  const existing = await prisma.warehouse.findFirst({
+    where: { id: data.id, companyId, deletedAt: null },
+  });
+  if (!existing) throw new Error("Store not found");
+
+  const type = data.type || existing.type;
+  const branchId = data.branchId !== undefined ? data.branchId : existing.branchId;
+  const assignedEmployeeId = data.assignedEmployeeId !== undefined ? data.assignedEmployeeId : existing.assignedEmployeeId;
+
+  if (type === "POS_STORE" && !branchId) {
+    throw new Error("Branch is required for POS/Showroom stores");
+  }
+  if (type === "EMPLOYEE_STORE" && !assignedEmployeeId) {
+    throw new Error("Employee is required for Employee stores");
+  }
+
+  const code = data.code ? normalizeCode(data.code) : existing.code;
+
+  const updated = await prisma.warehouse.update({
+    where: { id: data.id },
+    data: {
+      name: data.name.trim(),
+      code,
+      type,
+      branchId,
+      assignedEmployeeId,
+      isDefault: data.isDefault ?? existing.isDefault,
+      isActive: data.isActive ?? existing.isActive,
+      notes: data.notes !== undefined ? data.notes : existing.notes,
+    },
+  });
+
+  await createAuditLog({
+    userId,
+    companyId,
+    action: "UPDATE",
+    entity: "Warehouse",
+    entityId: updated.id,
+    metadata: { name: updated.name, code: updated.code, type: updated.type },
+  });
+  revalidateBoth("/settings", user.companySlug);
+  return updated;
+}
+
+export async function toggleWarehouseStatus(id: string, isActive: boolean) {
+  const user = await requireCompanyAuth();
+  const { companyId, id: userId } = user;
+
+  const warehouse = await prisma.warehouse.findFirst({
+    where: { id, companyId, deletedAt: null },
+  });
+  if (!warehouse) throw new Error("Store not found");
+
+  const updated = await prisma.warehouse.update({
+    where: { id },
+    data: { isActive },
+  });
+
+  await createAuditLog({
+    userId,
+    companyId,
+    action: isActive ? "ENABLE" : "DISABLE",
+    entity: "Warehouse",
+    entityId: updated.id,
+    metadata: { name: updated.name },
+  });
+  revalidateBoth("/settings", user.companySlug);
+  return updated;
 }
 
 export async function createWarehouseLocation(data: {
@@ -307,44 +525,14 @@ export async function getWarehouseOperationsDashboard(options?: { includeWarehou
   return {
     warehouses,
     operationCards: [
-      {
-        label: "Receipts",
-        value: purchaseOrders,
-        hint: "Purchases waiting to receive",
-        tone: "blue",
-      },
-      {
-        label: "Delivery Orders",
-        value: draftSales,
-        hint: "Sales not fully delivered",
-        tone: "emerald",
-      },
-      {
-        label: "Internal Transfers",
-        value: 0,
-        hint: "Move stock between warehouses",
-        tone: "violet",
-      },
-      {
-        label: "Replenishment",
-        value: lowStockProducts,
-        hint: "Products at or below minimum",
-        tone: "amber",
-      },
-      {
-        label: "Adjustments",
-        value: adjustmentLogs,
-        hint: "Inventory corrections logged",
-        tone: "rose",
-      },
+      { label: "Receipts", value: purchaseOrders, hint: "Purchases waiting to receive", tone: "blue" },
+      { label: "Delivery Orders", value: draftSales, hint: "Sales not fully delivered", tone: "emerald" },
+      { label: "Internal Transfers", value: 0, hint: "Move stock between stores", tone: "violet" },
+      { label: "Replenishment", value: lowStockProducts, hint: "Products at or below minimum", tone: "amber" },
+      { label: "Adjustments", value: adjustmentLogs, hint: "Inventory corrections logged", tone: "rose" },
       { label: "Batch Transfers", value: 0, hint: "Grouped scan operations", tone: "slate" },
     ],
-    totals: {
-      warehouses: warehouseCount,
-      locations: locationCount,
-      stock: totalWarehouseStock,
-      lowStockProducts,
-    },
+    totals: { warehouses: warehouseCount, locations: locationCount, stock: totalWarehouseStock, lowStockProducts },
     locationTypeCounts,
     barcodeReadiness: {
       productsWithBarcode,
