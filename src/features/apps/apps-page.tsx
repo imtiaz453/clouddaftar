@@ -18,6 +18,7 @@ import {
   Truck,
   Users,
   Search,
+  ArrowRight,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { dashboardHref } from "@/lib/dashboard-href";
@@ -33,7 +34,7 @@ const apps = [
     href: "/sales/new",
     icon: ShoppingCart,
     accent: "bg-rose-600",
-    ring: "ring-rose-200",
+    ring: "ring-rose-100",
     permissions: ["SALES_CREATE"],
   },
   {
@@ -43,7 +44,7 @@ const apps = [
     href: "/sales",
     icon: FileText,
     accent: "bg-cyan-600",
-    ring: "ring-cyan-200",
+    ring: "ring-cyan-100",
     permissions: ["SALES_VIEW"],
   },
   {
@@ -53,7 +54,7 @@ const apps = [
     href: "/purchases",
     icon: Truck,
     accent: "bg-emerald-600",
-    ring: "ring-emerald-200",
+    ring: "ring-emerald-100",
     permissions: ["PURCHASES_VIEW"],
   },
   {
@@ -63,7 +64,7 @@ const apps = [
     href: "/inventory",
     icon: Package,
     accent: "bg-amber-500",
-    ring: "ring-amber-200",
+    ring: "ring-amber-100",
     permissions: ["INVENTORY_VIEW"],
   },
   {
@@ -73,7 +74,7 @@ const apps = [
     href: "/customers",
     icon: Users,
     accent: "bg-sky-600",
-    ring: "ring-sky-200",
+    ring: "ring-sky-100",
     permissions: ["CUSTOMERS_VIEW", "SUPPLIERS_VIEW"],
   },
   {
@@ -83,7 +84,7 @@ const apps = [
     href: "/accounting",
     icon: BookOpen,
     accent: "bg-violet-600",
-    ring: "ring-violet-200",
+    ring: "ring-violet-100",
     permissions: ["ACCOUNTING_VIEW"],
   },
   {
@@ -93,7 +94,7 @@ const apps = [
     href: "/expenses",
     icon: ReceiptText,
     accent: "bg-lime-600",
-    ring: "ring-lime-200",
+    ring: "ring-lime-100",
     permissions: ["EXPENSES_VIEW", "EXPENSES_CREATE"],
   },
   {
@@ -103,7 +104,7 @@ const apps = [
     href: "/employees",
     icon: Users,
     accent: "bg-blue-600",
-    ring: "ring-blue-200",
+    ring: "ring-blue-100",
     permissions: ["EMPLOYEES_VIEW"],
   },
   {
@@ -113,7 +114,7 @@ const apps = [
     href: "/payroll",
     icon: Banknote,
     accent: "bg-fuchsia-600",
-    ring: "ring-fuchsia-200",
+    ring: "ring-fuchsia-100",
     permissions: ["PAYROLL_VIEW"],
   },
   {
@@ -123,7 +124,7 @@ const apps = [
     href: "/reports/sales",
     icon: BarChart3,
     accent: "bg-indigo-600",
-    ring: "ring-indigo-200",
+    ring: "ring-indigo-100",
     permissions: ["REPORTS_VIEW"],
   },
   {
@@ -133,7 +134,7 @@ const apps = [
     href: "/inventory/warehouses",
     icon: Building2,
     accent: "bg-teal-600",
-    ring: "ring-teal-200",
+    ring: "ring-teal-100",
     permissions: ["INVENTORY_VIEW"],
   },
   {
@@ -143,7 +144,7 @@ const apps = [
     href: "/settings/templates",
     icon: FileText,
     accent: "bg-pink-600",
-    ring: "ring-pink-200",
+    ring: "ring-pink-100",
     permissions: ["SETTINGS_MANAGE"],
   },
   {
@@ -153,7 +154,7 @@ const apps = [
     href: "/settings",
     icon: Settings,
     accent: "bg-zinc-800",
-    ring: "ring-zinc-200",
+    ring: "ring-zinc-100",
     permissions: ["SETTINGS_VIEW"],
   },
 ];
@@ -182,11 +183,14 @@ export function AppsPage({
 }: AppsPageProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
+
   const sessionUser = session?.user as { companySlug?: string; role?: string } | undefined;
   const role = sessionUser?.role || "STAFF";
   const tenantSlug = companySlug || sessionUser?.companySlug;
+
   const launcherPathname =
     tenantSlug && pathname === "/apps" ? `/${tenantSlug}${pathname}` : pathname;
+
   const permissions = new Set(
     applyPlanPermissionLimitsForRole(
       getEffectiveUserPermissions(role, rolePermissions, userPermissionOverrides),
@@ -194,11 +198,15 @@ export function AppsPage({
       role,
     ),
   );
+
   const visibleApps = apps.filter((app) => hasAnyPermission(app.permissions, permissions));
+
   const [query, setQuery] = useState("");
   const [activeWorkflow, setActiveWorkflow] = useState("All");
+
   const filteredApps = useMemo(() => {
     const q = query.trim().toLowerCase();
+
     return visibleApps.filter((app) => {
       const matchesWorkflow = activeWorkflow === "All" || app.category === activeWorkflow;
       const matchesQuery =
@@ -206,121 +214,214 @@ export function AppsPage({
         app.title.toLowerCase().includes(q) ||
         app.description.toLowerCase().includes(q) ||
         app.category.toLowerCase().includes(q);
+
       return matchesWorkflow && matchesQuery;
     });
   }, [visibleApps, query, activeWorkflow]);
+
   const groupedApps = filteredApps.reduce<Record<string, typeof apps>>((groups, app) => {
     groups[app.category] = groups[app.category] ? [...groups[app.category], app] : [app];
     return groups;
   }, {});
+
   const workflows = [
     "All",
     ...workflowOrder.filter((workflow) => visibleApps.some((app) => app.category === workflow)),
   ];
 
+  const orderedGroupedApps = workflowOrder
+    .filter((workflow) => groupedApps[workflow]?.length)
+    .map((workflow) => ({
+      workflow,
+      items: groupedApps[workflow],
+    }));
+
   return (
-    <div className="page-stack mx-auto w-full max-w-7xl">
-      <section className="px-1 py-2 sm:px-2 sm:py-4">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <LayoutGrid className="h-3.5 w-3.5" />
-              Module launcher
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Choose a module and get to work
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Apps are grouped by workflow so your team can jump straight to sales, stock, finance,
-              or admin — without digging through menus.
-            </p>
-          </div>
-          <div className="flex min-w-0 flex-wrap gap-x-6 gap-y-3 border-t border-border pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-            {[
-              { value: visibleApps.length, label: "Available" },
-              { value: Object.keys(groupedApps).length, label: "Workflows" },
-              { value: role, label: "Role" },
-            ].map((stat) => (
-              <div key={stat.label} className="min-w-20">
-                <p className="text-xl font-semibold tabular-nums">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
+    <div className="mx-auto w-full max-w-7xl space-y-6">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="relative p-5 sm:p-6 lg:p-7">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
+
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Module Launcher
               </div>
-            ))}
+
+              <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                Choose a module and get to work
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Access sales, inventory, finance, reports, settings, and daily business operations
+                from one clean workspace.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:min-w-[360px]">
+              <div className="rounded-lg bg-background p-3 shadow-sm">
+                <p className="text-xl font-semibold tabular-nums">{visibleApps.length}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Available</p>
+              </div>
+
+              <div className="rounded-lg bg-background p-3 shadow-sm">
+                <p className="text-xl font-semibold tabular-nums">
+                  {Object.keys(groupedApps).length}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Workflows</p>
+              </div>
+
+              <div className="rounded-lg bg-background p-3 shadow-sm">
+                <p className="truncate text-xl font-semibold">{role}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Role</p>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="mt-6 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search apps, workflows, or settings…"
-              className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {workflows.map((workflow) => (
-              <button
-                key={workflow}
-                type="button"
-                onClick={() => setActiveWorkflow(workflow)}
-                className={cn(
-                  "h-9 rounded-lg border px-3 text-sm font-medium transition",
-                  activeWorkflow === workflow
-                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                {workflow}
-              </button>
-            ))}
+
+          <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(280px,420px)_1fr] lg:items-center">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search modules, workflows, or settings..."
+                className="h-11 w-full rounded-xl border border-input bg-background pl-9 pr-3 text-sm shadow-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              {workflows.map((workflow) => (
+                <button
+                  key={workflow}
+                  type="button"
+                  onClick={() => setActiveWorkflow(workflow)}
+                  className={cn(
+                    "h-10 rounded-xl border px-3 text-sm font-medium transition",
+                    activeWorkflow === workflow
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  {workflow}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {visibleApps.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/20 p-10 text-center">
-          <Sparkles className="mx-auto h-9 w-9 text-muted-foreground" />
-          <h2 className="mt-3 text-lg font-semibold">No modules enabled</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ask an administrator to review your role and permissions.
-          </p>
-        </div>
+        <EmptyState
+          icon={Sparkles}
+          title="No modules enabled"
+          description="Ask an administrator to review your role and permissions."
+        />
       ) : filteredApps.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/20 p-10 text-center">
-          <Search className="mx-auto h-9 w-9 text-muted-foreground" />
-          <h2 className="mt-3 text-lg font-semibold">No matches</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Try another workflow or search term.</p>
+        <EmptyState
+          icon={Search}
+          title="No matches found"
+          description="Try another workflow or search term."
+        />
+      ) : activeWorkflow === "All" ? (
+        <div className="space-y-7">
+          {orderedGroupedApps.map(({ workflow, items }) => (
+            <section key={workflow} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">{workflow}</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {items.length} module{items.length === 1 ? "" : "s"} available
+                  </p>
+                </div>
+              </div>
+
+              <ModuleGrid
+                apps={items}
+                launcherPathname={launcherPathname}
+              />
+            </section>
+          ))}
         </div>
       ) : (
-        <section className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-          {filteredApps.map((app) => {
-            const Icon = app.icon;
-            return (
-              <Link
-                key={app.title}
-                href={dashboardHref(launcherPathname, app.href)}
-                title={app.description}
-                className="group flex min-w-0 flex-col items-center rounded-lg px-2 py-3 text-center transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        <ModuleGrid
+          apps={filteredApps}
+          launcherPathname={launcherPathname}
+        />
+      )}
+    </div>
+  );
+}
+
+function ModuleGrid({
+  apps,
+  launcherPathname,
+}: {
+  apps: typeof apps;
+  launcherPathname: string;
+}) {
+  return (
+    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {apps.map((app) => {
+        const Icon = app.icon;
+
+        return (
+          <Link
+            key={app.title}
+            href={dashboardHref(launcherPathname, app.href)}
+            className="group relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="flex items-start gap-4">
+              <span
+                className={cn(
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ring-4",
+                  app.accent,
+                  app.ring,
+                )}
               >
-                <span
-                  className={cn(
-                    "flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm ring-4 transition group-hover:-translate-y-0.5 group-hover:shadow-md sm:h-24 sm:w-24",
-                    app.accent,
-                    app.ring,
-                  )}
-                >
-                  <Icon className="h-10 w-10 sm:h-12 sm:w-12" />
-                </span>
-                <h3 className="mt-3 text-sm font-semibold leading-tight">{app.title}</h3>
-                <p className="mt-1 line-clamp-2 max-w-44 text-xs leading-5 text-muted-foreground">
+                <Icon className="h-6 w-6" />
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {app.category}
+                    </p>
+                    <h3 className="mt-1 truncate text-base font-semibold text-foreground">
+                      {app.title}
+                    </h3>
+                  </div>
+
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100" />
+                </div>
+
+                <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
                   {app.description}
                 </p>
-              </Link>
-            );
-          })}
-        </section>
-      )}
+              </div>
+            </div>
+          </Link>
+        );
+      })}
+    </section>
+  );
+}
+
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-10 text-center">
+      <Icon className="mx-auto h-9 w-9 text-muted-foreground" />
+      <h2 className="mt-3 text-lg font-semibold">{title}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }
