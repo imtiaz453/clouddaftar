@@ -1302,6 +1302,9 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                         <SelectItem value="rose">Rose</SelectItem>
                         <SelectItem value="plum">Plum</SelectItem>
                         <SelectItem value="brand">CloudDaftar Purple</SelectItem>
+                        <SelectItem value="midnight">Midnight Blue</SelectItem>
+                        <SelectItem value="charcoal">Charcoal</SelectItem>
+                        <SelectItem value="beige">Beige</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

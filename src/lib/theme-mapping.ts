@@ -117,9 +117,27 @@ export const THEME_COLORS: Record<string, Record<string, any>> = {
       accent: "312 20% 30%",
       "accent-foreground": "210 40% 98%",
     },
+    midnight: {
+      background: "226 47% 15%",
+      foreground: "210 40% 98%",
+      accent: "226 40% 22%",
+      "accent-foreground": "210 40% 98%",
+    },
+    charcoal: {
+      background: "0 8% 17%",
+      foreground: "210 40% 98%",
+      accent: "0 6% 25%",
+      "accent-foreground": "210 40% 98%",
+    },
+    beige: {
+      background: "30 20% 94%",
+      foreground: "30 30% 20%",
+      accent: "30 15% 85%",
+      "accent-foreground": "30 30% 20%",
+    },
   },
   primary: {
-    blue: { DEFAULT: "312 23% 37%", foreground: "210 40% 98%" },
+    blue: { DEFAULT: "203 92% 55%", foreground: "0 0% 100%" },
     green: { DEFAULT: "142.1 76.2% 36.3%", foreground: "355 100% 97%" },
     violet: { DEFAULT: "262.1 83.3% 57.8%", foreground: "210 40% 98%" },
     red: { DEFAULT: "0 72.2% 50.6%", foreground: "210 40% 98%" },

@@ -239,13 +239,23 @@ function NavItemLink({
       prefetch={false}
       onClick={onClose}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors",
+        "group relative flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition-all duration-150",
         active
-          ? "bg-neutral-tertiary text-fg-brand font-medium"
+          ? "bg-neutral-tertiary text-fg-brand font-medium shadow-sm"
           : "text-sidebar-foreground/70 hover:bg-neutral-tertiary hover:text-fg-brand",
       )}
     >
-      {Icon && <Icon className="h-5 w-5 shrink-0" />}
+      {active && !collapsed && (
+        <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-fg-brand" />
+      )}
+      {Icon && (
+        <Icon
+          className={cn(
+            "h-5 w-5 shrink-0 transition-colors",
+            active ? "text-fg-brand" : "text-sidebar-foreground/50 group-hover:text-fg-brand",
+          )}
+        />
+      )}
       {!collapsed && (
         <>
           <span className="flex-1 truncate">{item.label}</span>
@@ -364,7 +374,7 @@ export function Sidebar({
   userRole,
 }: SidebarProps) {
   const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const searchParams = useMemo(() => useSearchParams() ?? new URLSearchParams(), []);
   const permissions = useUserPermissions(rolePermissions, userPermissionOverrides, planCode, userRole);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [logo, setLogo] = useState(companyLogo);
