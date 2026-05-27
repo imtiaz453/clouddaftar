@@ -196,7 +196,7 @@ export function CustomerAgingClient({ initialData }: CustomerAgingClientProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Customer Aging" description="Aging analysis of customer receivables" />
+      
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {summaryCards.map((card) => {
