@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/providers/toast-provider";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { formatDate, formatCurrency } from "@/lib/utils";
 
 const ROLE_OPTIONS = [
@@ -167,6 +168,26 @@ export function EmployeeDetailClient({
     }
   }
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDeleteEmployee() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.userId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete employee");
+      }
+      addToast({ title: "Employee deleted", variant: "success" });
+      router.push("/employees");
+    } catch (err: any) {
+      addToast({ title: err.message, variant: "error" });
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }
+
   async function handleAddCert(e: React.FormEvent) {
     e.preventDefault();
     try {
@@ -225,6 +246,10 @@ export function EmployeeDetailClient({
         <Button variant="outline" size="sm" className="ml-auto" onClick={() => setEditOpen(true)}>
           <Pencil className="mr-1 h-3.5 w-3.5" />
           Edit
+        </Button>
+        <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+          <Trash2 className="mr-1 h-3.5 w-3.5" />
+          Delete
         </Button>
       </div>
 
@@ -563,6 +588,16 @@ export function EmployeeDetailClient({
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={(v) => { if (!v) setDeleteOpen(false); }}
+        title="Delete Employee"
+        description={`Are you sure you want to delete ${employee.user?.name || "this employee"}? This will also revoke their system access. This action cannot be undone.`}
+        confirmText="Delete"
+        onConfirm={handleDeleteEmployee}
+        loading={deleting}
+      />
     </div>
   );
 }

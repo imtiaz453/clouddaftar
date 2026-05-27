@@ -189,6 +189,19 @@ export async function POST(req: Request) {
       data.permissionOverrides = resolved.permissionOverrides;
     }
 
+    if (role === "OWNER") {
+      const existingOwner = await prisma.companyMembership.findFirst({
+        where: { companyId, role: "OWNER", isActive: true },
+        select: { id: true },
+      });
+      if (existingOwner) {
+        return NextResponse.json(
+          { success: false, error: "An owner already exists for this company." },
+          { status: 400 },
+        );
+      }
+    }
+
     const existingUser = await prisma.user.findFirst({
       where: { email: { equals: email, mode: "insensitive" } },
     });

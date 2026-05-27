@@ -342,6 +342,9 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
                           <SelectItem value="MANAGER">Manager</SelectItem>
                           <SelectItem value="STAFF">Staff</SelectItem>
                           <SelectItem value="CASHIER">Cashier</SelectItem>
+                          {currentUserRole === "OWNER" && (
+                            <SelectItem value="OWNER">Owner</SelectItem>
+                          )}
                           {customPermissionGroups.length > 0 && (
                             <>
                               <div className="mt-1 border-t px-2 py-1 pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -505,6 +508,9 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
                   <SelectItem value="MANAGER">Manager</SelectItem>
                   <SelectItem value="STAFF">Staff</SelectItem>
                   <SelectItem value="CASHIER">Cashier</SelectItem>
+                  {currentUserRole === "OWNER" && (
+                    <SelectItem value="OWNER">Owner</SelectItem>
+                  )}
                   {customPermissionGroups.length > 0 && (
                     <>
                       <div className="mt-1 border-t px-2 py-1 pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">

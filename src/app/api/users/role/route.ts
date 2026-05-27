@@ -35,6 +35,19 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
+    if (role === "OWNER") {
+      if (currentUserRole !== "OWNER") {
+        return NextResponse.json({ error: "Only the current owner can assign the owner role" }, { status: 403 });
+      }
+      const existingOwner = await prisma.companyMembership.findFirst({
+        where: { companyId, role: "OWNER", isActive: true, id: { not: membershipId } },
+        select: { id: true },
+      });
+      if (existingOwner) {
+        return NextResponse.json({ error: "An owner already exists. Demote the current owner first." }, { status: 400 });
+      }
+    }
+
     let resolvedRole = role;
     let permissionOverrides: unknown = undefined;
 

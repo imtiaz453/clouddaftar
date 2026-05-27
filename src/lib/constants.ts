@@ -404,6 +404,7 @@ export interface NavItem {
   href: string;
   icon: string;
   permissions?: string[];
+  badge?: string | number;
 }
 
 export interface NavGroup {

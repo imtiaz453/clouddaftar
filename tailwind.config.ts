@@ -69,11 +69,14 @@ const config: Config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "neutral-tertiary": "hsl(var(--neutral-tertiary))",
+        "fg-brand": "hsl(var(--primary))",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        base: "var(--radius)",
       },
       keyframes: {
         "accordion-down": {

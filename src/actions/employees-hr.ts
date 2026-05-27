@@ -59,6 +59,9 @@ export async function updateEmployeeRole(
   branchId?: string | null,
 ) {
   const user = await requireCompanyAuth();
+  if (role === "OWNER" && user.role !== "OWNER") {
+    throw new Error("Only the current owner can assign the owner role");
+  }
   const membership = await prisma.companyMembership.findFirst({
     where: { id: membershipId, companyId: user.companyId },
     select: { id: true },
@@ -70,6 +73,15 @@ export async function updateEmployeeRole(
       select: { id: true },
     });
     if (!branch) throw new Error("Branch not found in this company");
+  }
+  if (role === "OWNER") {
+    const existingOwner = await prisma.companyMembership.findFirst({
+      where: { companyId: user.companyId, role: "OWNER", isActive: true },
+      select: { id: true },
+    });
+    if (existingOwner) {
+      throw new Error("An owner already exists. Demote the current owner first.");
+    }
   }
   await prisma.companyMembership.update({
     where: { id: membershipId },
@@ -218,4 +230,36 @@ export async function getEmployeeRetention() {
       joinedAt: m.joinedAt,
     })),
   };
+}
+
+export async function deleteEmployeeRecord(userId: string) {
+  const user = await requireCompanyAuth();
+  const { companyId, id: currentUserId } = user;
+
+  const record = await prisma.employeeRecord.findFirst({
+    where: { userId, companyId, isActive: true },
+  });
+  if (!record) throw new Error("Employee not found");
+
+  await prisma.employeeRecord.update({
+    where: { id: record.id },
+    data: { isActive: false },
+  });
+
+  if (record.hasSystemAccess && record.userId) {
+    await prisma.companyMembership.updateMany({
+      where: { userId: record.userId, companyId },
+      data: { isActive: false },
+    });
+  }
+
+  await createAuditLog({
+    userId: currentUserId,
+    companyId,
+    action: "DISABLE",
+    entity: "EmployeeRecord",
+    entityId: record.id,
+    metadata: { name: record.name, action: "deleted" },
+  });
+  revalidatePath("/employees");
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -187,7 +187,6 @@ function NavItemLink({
   searchParams,
   onClose,
   onLogoutClick,
-  glass,
 }: {
   item: NavItem;
   collapsed: boolean;
@@ -196,7 +195,6 @@ function NavItemLink({
   searchParams: URLSearchParams;
   onClose?: () => void;
   onLogoutClick: () => void;
-  glass: boolean;
 }) {
   const Icon = iconMap[item.icon] as LucideIcon | undefined;
   const href =
@@ -214,23 +212,9 @@ function NavItemLink({
           onClose?.();
           onLogoutClick();
         }}
-        className={cn(
-          glass
-            ? "hover:bg-white/44 group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 text-sm font-semibold text-sidebar-foreground/70 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:text-sidebar-foreground hover:shadow-[0_18px_38px_rgba(255,255,255,0.34),0_10px_24px_rgba(18,24,30,0.12),inset_0_1px_1px_rgba(255,255,255,0.72)] active:translate-y-0 active:scale-[0.98]"
-            : "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
-        )}
+        className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-sm text-sidebar-foreground/70 transition-colors hover:bg-neutral-tertiary hover:text-fg-brand"
       >
-        {Icon && (
-          <>
-            {glass ? (
-              <span className="bg-white/34 group-hover:bg-white/52 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sidebar-foreground/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.78),0_8px_18px_rgba(18,24,30,0.08)] transition-all duration-300 group-hover:text-sidebar-foreground">
-                <Icon className="h-[18px] w-[18px]" />
-              </span>
-            ) : (
-              <Icon className="h-5 w-5 shrink-0" />
-            )}
-          </>
-        )}
+        {Icon && <Icon className="h-5 w-5 shrink-0" />}
         {!collapsed && <span>{item.label}</span>}
       </button>
     );
@@ -242,37 +226,23 @@ function NavItemLink({
       prefetch={false}
       onClick={onClose}
       className={cn(
-        glass
-          ? "group relative isolate flex items-center gap-3 overflow-hidden rounded-2xl px-3 py-2 text-sm font-semibold transition-all duration-300 ease-out before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:opacity-0 before:shadow-[inset_0_1px_1px_rgba(255,255,255,0.82),inset_0_-1px_1px_rgba(255,255,255,0.28)] before:transition-opacity before:duration-300 after:absolute after:inset-y-2 after:left-0 after:w-1 after:rounded-r-full after:opacity-0 after:transition-all after:duration-300"
-          : "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
-        glass
-          ? active
-            ? "bg-white/54 before:bg-white/36 text-sidebar-foreground shadow-[0_22px_48px_rgba(255,255,255,0.42),0_12px_28px_rgba(18,24,30,0.14),inset_0_1px_1px_rgba(255,255,255,0.82)] before:opacity-100 after:bg-sidebar-foreground/80 after:opacity-100"
-            : "text-sidebar-foreground/72 hover:bg-white/44 hover:-translate-y-0.5 hover:text-sidebar-foreground hover:shadow-[0_18px_38px_rgba(255,255,255,0.34),0_10px_24px_rgba(18,24,30,0.12),inset_0_1px_1px_rgba(255,255,255,0.72)] active:translate-y-0 active:scale-[0.98]"
-          : active
-            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-            : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+        "group relative flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors",
+        active
+          ? "bg-neutral-tertiary text-fg-brand font-medium"
+          : "text-sidebar-foreground/70 hover:bg-neutral-tertiary hover:text-fg-brand",
       )}
     >
-      {Icon && (
+      {Icon && <Icon className="h-5 w-5 shrink-0" />}
+      {!collapsed && (
         <>
-          {glass ? (
-            <span
-              className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
-                active
-                  ? "bg-white/50 text-sidebar-foreground shadow-[inset_0_1px_1px_rgba(255,255,255,0.82),0_8px_18px_rgba(18,24,30,0.08)]"
-                  : "group-hover:bg-white/52 bg-white/30 text-sidebar-foreground/70 shadow-[inset_0_1px_1px_rgba(255,255,255,0.62),0_8px_18px_rgba(18,24,30,0.06)] group-hover:text-sidebar-foreground",
-              )}
-            >
-              <Icon className="h-[18px] w-[18px]" />
+          <span className="flex-1 truncate">{item.label}</span>
+          {item.badge != null && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+              {item.badge}
             </span>
-          ) : (
-            <Icon className="h-5 w-5 shrink-0" />
           )}
         </>
       )}
-      {!collapsed && <span className="truncate">{item.label}</span>}
     </Link>
   );
 }
@@ -286,7 +256,6 @@ function NavGroupSection({
   onClose,
   defaultOpen,
   onLogoutClick,
-  glass,
 }: {
   group: NavGroup;
   collapsed: boolean;
@@ -296,7 +265,6 @@ function NavGroupSection({
   onClose?: () => void;
   defaultOpen: boolean;
   onLogoutClick: () => void;
-  glass: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const GroupIcon = iconMap[group.icon] as LucideIcon | undefined;
@@ -307,7 +275,7 @@ function NavGroupSection({
 
   if (collapsed) {
     return (
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         {group.items.map((item) => (
           <NavItemLink
             key={item.href}
@@ -318,7 +286,6 @@ function NavGroupSection({
             searchParams={searchParams}
             onClose={onClose}
             onLogoutClick={onLogoutClick}
-            glass={glass}
           />
         ))}
       </div>
@@ -326,26 +293,12 @@ function NavGroupSection({
   }
 
   return (
-    <div className="space-y-0.5">
+    <div>
       <button
         onClick={() => setOpen(!open)}
-        className={cn(
-          glass
-            ? "text-sidebar-foreground/48 hover:bg-white/34 group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-xs font-bold uppercase tracking-normal transition-all duration-300 hover:text-sidebar-foreground hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.62)]"
-            : "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-normal text-sidebar-foreground/45 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-        )}
+        className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/50 transition-colors hover:bg-neutral-tertiary hover:text-sidebar-foreground"
       >
-        {GroupIcon && (
-          <>
-            {glass ? (
-              <span className="bg-white/24 group-hover:bg-white/42 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.58)] transition-colors">
-                <GroupIcon className="h-3.5 w-3.5" />
-              </span>
-            ) : (
-              <GroupIcon className="h-4 w-4 shrink-0" />
-            )}
-          </>
-        )}
+        {GroupIcon && <GroupIcon className="h-4 w-4 shrink-0" />}
         <span className="flex-1 text-left">{group.label}</span>
         <ChevronDown
           className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")}
@@ -357,12 +310,7 @@ function NavGroupSection({
           open ? "max-h-[900px] opacity-100" : "max-h-0 opacity-0",
         )}
       >
-        <div
-          className={cn(
-            "space-y-1 border-l pl-2",
-            glass ? "border-white/42 ml-[15px]" : "ml-[7px] border-sidebar-border/50",
-          )}
-        >
+        <div className="ml-3 space-y-0.5 border-l border-sidebar-border/50 pl-2">
           {group.items.map((item) => (
             <NavItemLink
               key={item.href}
@@ -373,13 +321,17 @@ function NavGroupSection({
               searchParams={searchParams}
               onClose={onClose}
               onLogoutClick={onLogoutClick}
-              glass={glass}
             />
           ))}
         </div>
       </div>
     </div>
   );
+}
+
+function getTenantFromPathname(pathname: string, allRoutes: Set<string>): string | null {
+  const segments = pathname.split("/").filter(Boolean);
+  return segments.length >= 2 && !allRoutes.has("/" + segments[0]) ? segments[0] : null;
 }
 
 export function Sidebar({
@@ -389,7 +341,6 @@ export function Sidebar({
   collapsed: collapsedProp,
   onToggleCollapse,
   onMobileClose,
-  themeSettings,
   rolePermissions,
   userPermissionOverrides,
   planCode,
@@ -400,29 +351,12 @@ export function Sidebar({
   const permissions = useUserPermissions(rolePermissions, userPermissionOverrides, planCode, userRole);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [logo, setLogo] = useState(companyLogo);
-  const [sidebarStyle, setSidebarStyle] = useState("gradient");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const collapsed = collapsedProp ?? internalCollapsed;
-  const isGlassTheme = sidebarStyle === "glass";
 
   useEffect(() => {
     setLogo(companyLogo);
   }, [companyLogo]);
-
-  useEffect(() => {
-    function readSidebarStyle() {
-      const inline = document.documentElement.style.getPropertyValue("--sidebar-style").trim();
-      if (inline) setSidebarStyle(inline);
-    }
-    const observer = new MutationObserver(readSidebarStyle);
-    observer.observe(document.documentElement, { attributeFilter: ["style"] });
-    readSidebarStyle();
-    window.addEventListener("theme-updated", readSidebarStyle);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("theme-updated", readSidebarStyle);
-    };
-  }, []);
 
   useEffect(() => {
     function handleLogoUpdate(e: Event) {
@@ -433,14 +367,14 @@ export function Sidebar({
     return () => window.removeEventListener("logo-updated", handleLogoUpdate);
   }, []);
 
-  const segments = pathname.split("/").filter(Boolean);
   const allRoutes = useMemo(() => {
     const routes = new Set<string>();
     NAV_GROUPS.forEach((g) => g.items.forEach((i) => routes.add(i.href)));
     SIDEBAR_BOTTOM_ITEMS.forEach((i) => routes.add(i.href));
     return routes;
   }, []);
-  const tenant = segments.length >= 2 && !allRoutes.has("/" + segments[0]) ? segments[0] : null;
+
+  const tenant = useMemo(() => getTenantFromPathname(pathname, allRoutes), [pathname, allRoutes]);
 
   const tenantHref = useCallback(
     (href: string) => {
@@ -466,8 +400,6 @@ export function Sidebar({
       ) ?? null
     );
   }, [filteredGroups, pathname, searchParams, tenantHref]);
-
-  const visibleGroups = filteredGroups;
 
   const expandedGroupLabels = useMemo(() => {
     const labels = new Set<string>();
@@ -501,77 +433,32 @@ export function Sidebar({
       <aside
         className={cn(
           "sidebar-base fixed left-0 top-0 z-50 flex h-screen flex-col transition-all duration-300 ease-out",
-          isGlassTheme
-            ? "border-r border-white/45 shadow-[18px_0_58px_rgba(18,24,30,0.16)] backdrop-blur-3xl"
-            : "border-r border-sidebar-border/50 shadow-panel-lg",
+          "border-r border-sidebar-border/50",
           collapsed ? "w-[4.25rem]" : "w-64",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          sidebarStyle === "minimal" && "sidebar-minimal",
-          sidebarStyle === "gradient" && "sidebar-gradient",
-          sidebarStyle === "glass" && "sidebar-glass",
-          (!sidebarStyle || sidebarStyle === "solid") && "sidebar-solid",
         )}
-        style={
-          isGlassTheme
-            ? ({
-                backgroundColor: "rgba(242, 243, 243, 0.42)",
-                ["--sidebar-background" as string]: "210 7% 86%",
-                ["--sidebar-foreground" as string]: "220 14% 8%",
-                ["--sidebar-primary" as string]: "220 14% 8%",
-                ["--sidebar-primary-foreground" as string]: "0 0% 100%",
-                ["--sidebar-accent" as string]: "0 0% 100%",
-                ["--sidebar-border" as string]: "0 0% 100%",
-              } as CSSProperties)
-            : undefined
-        }
       >
-        <div
-          className={cn(
-            "sidebar-header-height flex items-center px-3",
-            isGlassTheme ? "border-b border-white/40" : "border-b border-sidebar-border/70",
-          )}
-        >
+        <div className="flex items-center border-b border-sidebar-border/70 px-3">
           <Link
             href={tenantHref("/")}
             prefetch={false}
-            className={cn(
-              "group flex min-w-0 items-center gap-3 px-2 py-2 transition-all",
-              isGlassTheme
-                ? "hover:bg-white/34 rounded-2xl duration-300"
-                : "rounded-lg duration-200",
-            )}
+            className="flex min-w-0 items-center gap-3 px-2 py-2 transition-all"
             onClick={handleClose}
           >
             {logo ? (
               <img
                 src={logo}
                 alt="Logo"
-                className={cn(
-                  "object-contain",
-                  isGlassTheme
-                    ? "bg-white/64 h-10 w-10 rounded-2xl p-1.5 shadow-[0_18px_38px_rgba(255,255,255,0.38),0_10px_24px_rgba(18,24,30,0.12),inset_0_1px_1px_rgba(255,255,255,0.82)] backdrop-blur-2xl transition-transform duration-300 group-hover:-translate-y-0.5"
-                    : "h-9 w-9 rounded-lg bg-white/90 p-1 shadow-sm",
-                )}
+                className="h-9 w-9 rounded-lg bg-white/90 object-contain p-1 shadow-sm"
               />
             ) : (
-              <div
-                className={cn(
-                  "flex items-center justify-center",
-                  isGlassTheme
-                    ? "bg-white/58 h-10 w-10 rounded-2xl text-sidebar-foreground shadow-[0_18px_38px_rgba(255,255,255,0.38),0_10px_24px_rgba(18,24,30,0.12),inset_0_1px_1px_rgba(255,255,255,0.82)] backdrop-blur-2xl transition-transform duration-300 group-hover:-translate-y-0.5"
-                    : "h-9 w-9 rounded-lg bg-sidebar-primary shadow-sm shadow-black/20",
-                )}
-              >
-                <Building
-                  className={cn(
-                    isGlassTheme ? "h-[18px] w-[18px]" : "h-4 w-4 text-primary-foreground",
-                  )}
-                />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary shadow-sm shadow-black/20">
+                <Building className="h-4 w-4 text-primary-foreground" />
               </div>
             )}
             {!collapsed && (
               <div className="flex min-w-0 flex-col">
-                <span className="text-sm font-extrabold text-sidebar-foreground">Cloud Daftar</span>
+                <span className="text-sm font-bold text-sidebar-foreground">Cloud Daftar</span>
                 {companyName && companyName !== "Cloud Daftar" && (
                   <span className="truncate text-xs text-sidebar-foreground/60">{companyName}</span>
                 )}
@@ -580,27 +467,15 @@ export function Sidebar({
           </Link>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2.5 py-4">
-          <nav className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-2 py-3">
+          <nav className="space-y-3">
             {activeModuleGroup && !collapsed && (
-              <div
-                className={cn(
-                  "space-y-2 p-2",
-                  isGlassTheme
-                    ? "border-white/42 bg-white/24 rounded-2xl border shadow-[inset_0_1px_1px_rgba(255,255,255,0.62)]"
-                    : "rounded-lg border border-sidebar-border/60 bg-sidebar-accent/35",
-                )}
-              >
+              <div className="space-y-1 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/35 p-2">
                 <Link
                   href={tenantHref("/apps")}
                   prefetch={false}
                   onClick={handleClose}
-                  className={cn(
-                    "flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground",
-                    isGlassTheme
-                      ? "hover:bg-white/38 rounded-xl"
-                      : "rounded-md hover:bg-sidebar-accent/50",
-                  )}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold uppercase text-sidebar-foreground/60 transition-colors hover:bg-neutral-tertiary hover:text-sidebar-foreground"
                 >
                   <Layers className="h-4 w-4" />
                   <span>All Apps</span>
@@ -624,10 +499,9 @@ export function Sidebar({
                 searchParams={searchParams}
                 onClose={handleClose}
                 onLogoutClick={() => setLogoutConfirmOpen(true)}
-                glass={isGlassTheme}
               />
             )}
-            {visibleGroups.map((group) => (
+            {filteredGroups.map((group) => (
               <NavGroupSection
                 key={group.label}
                 group={group}
@@ -638,19 +512,12 @@ export function Sidebar({
                 onClose={handleClose}
                 defaultOpen={expandedGroupLabels.has(group.label)}
                 onLogoutClick={() => setLogoutConfirmOpen(true)}
-                glass={isGlassTheme}
               />
             ))}
           </nav>
         </div>
 
-        <div
-          className={cn(
-            isGlassTheme
-              ? "space-y-1 border-t border-white/40 px-2.5 py-2.5"
-              : "space-y-0.5 border-t border-sidebar-border px-2 py-2",
-          )}
-        >
+        <div className="space-y-0.5 border-t border-sidebar-border px-2 py-2">
           {filteredBottom.map((item) => (
             <NavItemLink
               key={item.href}
@@ -661,18 +528,12 @@ export function Sidebar({
               searchParams={searchParams}
               onClose={handleClose}
               onLogoutClick={() => setLogoutConfirmOpen(true)}
-              glass={isGlassTheme}
             />
           ))}
-          <div className={cn("pt-2", collapsed && "flex justify-center")}>
+          <div className={cn("pt-1", collapsed && "flex justify-center")}>
             <button
               onClick={handleToggle}
-              className={cn(
-                "flex w-full items-center justify-center px-3 py-2 text-sidebar-foreground/55 lg:flex",
-                isGlassTheme
-                  ? "hover:bg-white/42 rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:text-sidebar-foreground hover:shadow-[0_18px_38px_rgba(255,255,255,0.34),0_10px_24px_rgba(18,24,30,0.12),inset_0_1px_1px_rgba(255,255,255,0.72)] active:translate-y-0"
-                  : "rounded-lg transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-              )}
+              className="flex w-full items-center justify-center rounded-lg px-3 py-1.5 text-sidebar-foreground/55 transition-colors hover:bg-neutral-tertiary hover:text-sidebar-foreground"
             >
               {collapsed ? (
                 <ChevronRight className="h-4 w-4" />
@@ -698,3 +559,5 @@ export function Sidebar({
     </>
   );
 }
+
+

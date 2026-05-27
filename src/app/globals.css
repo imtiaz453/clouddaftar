@@ -48,6 +48,7 @@
 
     --spacing-scale: 1;
     --sidebar-style: gradient;
+    --neutral-tertiary: 224 35% 16%;
     --font-family-body: var(--font-sans), system-ui, -apple-system, sans-serif;
   }
 
@@ -80,6 +81,7 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 224 28% 14%;
     --sidebar-ring: 262 80% 65%;
+    --neutral-tertiary: 224 35% 12%;
   }
 
   html {
