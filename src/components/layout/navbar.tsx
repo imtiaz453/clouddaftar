@@ -29,10 +29,9 @@ import {
   Palette,
   ChevronDown,
   Layers,
-  Building2,
-  Command,
+  Menu,
   X,
-  Sparkles,
+  Building2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -160,6 +159,7 @@ export function Navbar({
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const segments = pathname.split("/").filter(Boolean);
@@ -212,7 +212,7 @@ export function Navbar({
   const initials = session?.user?.name
     ? session.user.name
         .split(" ")
-        .map((namePart) => namePart[0])
+        .map((n) => n[0])
         .join("")
         .toUpperCase()
         .slice(0, 2)
@@ -232,7 +232,7 @@ export function Navbar({
         }
       }
     } catch {
-      // Ignore cache errors.
+      // ignore cache error
     }
 
     setNotifLoading(true);
@@ -260,12 +260,12 @@ export function Navbar({
               }),
             );
           } catch {
-            // Ignore cache write errors.
+            // ignore cache write error
           }
         }
       }
     } catch {
-      // Silent fail.
+      // silent fail
     } finally {
       setNotifLoading(false);
     }
@@ -326,6 +326,7 @@ export function Navbar({
 
       if (event.key === "Escape") {
         setSearchOpen(false);
+        setMobileMenuOpen(false);
         return;
       }
 
@@ -339,6 +340,18 @@ export function Navbar({
 
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mounted, searchOpen]);
+
+  useEffect(() => {
+    function closeMobileOnResize() {
+      if (window.innerWidth >= 768) {
+        setMobileMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("resize", closeMobileOnResize);
+
+    return () => window.removeEventListener("resize", closeMobileOnResize);
+  }, []);
 
   async function markAllRead() {
     try {
@@ -364,13 +377,13 @@ export function Navbar({
         body: JSON.stringify({ id }),
       });
 
-      setNotifications((prev) => prev.filter((notification) => notification.id !== id));
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
       setUnreadCount((prev) => Math.max(0, prev - 1));
       window.dispatchEvent(new Event("notifications:refresh"));
 
       if (link) router.push(tenantHref(link));
     } catch {
-      // Silent fail.
+      // silent fail
     }
   }
 
@@ -390,84 +403,85 @@ export function Navbar({
     return `${days}d ago`;
   }
 
+  function navigateTo(href: string) {
+    setMobileMenuOpen(false);
+    router.push(tenantHref(href));
+  }
+
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/85 text-slate-950 shadow-sm shadow-slate-950/[0.03] backdrop-blur-xl supports-[backdrop-filter]:bg-white/75 dark:border-slate-800/80 dark:bg-slate-950/80 dark:text-slate-50">
-        <div className="flex h-16 items-center gap-2 px-3 sm:px-4 lg:px-6">
+      <header className="fixed left-1/2 top-2 z-40 h-16 w-[95vw] min-w-[320px] max-w-[1440px] -translate-x-1/2 rounded-full border border-white/30 bg-slate-950/70 px-3 text-white shadow-[0_10px_25px_-12px_rgba(0,0,0,0.75)] ring-2 ring-white/20 backdrop-blur-md dark:bg-slate-950/80">
+        <div className="relative flex h-full items-center gap-2">
           {!hideMenuButton && (
             <button
               type="button"
-              onClick={() => router.push(tenantHref("/apps"))}
-              className="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-primary/10"
+              onClick={() => navigateTo("/apps")}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-sm transition hover:bg-white/20"
               aria-label="Open apps"
               title="Apps"
             >
-              <Layers className="h-5 w-5 transition-transform group-hover:scale-110" />
+              <Layers className="h-5 w-5" />
+            </button>
+          )}
+
+          {mounted && showModuleMenus && (
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-sm transition hover:bg-white/20 md:hidden"
+              aria-label="Toggle menu"
+              title="Menu"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           )}
 
           <button
             type="button"
-            onClick={() => router.push(tenantHref("/"))}
-            className="flex min-w-0 shrink-0 items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-900"
+            onClick={() => navigateTo("/")}
+            className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/30 bg-white/15 py-1 pl-1 pr-4 shadow-sm transition hover:bg-white/20 md:static md:left-auto md:translate-x-0"
             title={companyName || "Cloud Daftar"}
           >
-            {companyLogo ? (
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <img src={companyLogo} alt="Logo" className="h-7 w-7 rounded-xl object-contain" />
-              </span>
-            ) : (
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-950 to-slate-700 text-xs font-black text-white shadow-lg shadow-slate-950/20 dark:from-white dark:to-slate-300 dark:text-slate-950">
-                CD
-              </span>
-            )}
+            <span className="brand__icon flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/30 shadow">
+              {companyLogo ? (
+                <img src={companyLogo} alt="Logo" className="h-8 w-8 rounded-full object-contain" />
+              ) : (
+                <Building2 className="h-5 w-5 text-white" />
+              )}
+            </span>
 
-            <span className="hidden min-w-0 flex-col text-left sm:flex">
-              <span className="max-w-[10rem] truncate text-sm font-black tracking-tight lg:max-w-[15rem]">
-                {companyName || "Cloud Daftar"}
-              </span>
-              <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                <Sparkles className="h-3 w-3" />
-                Business Workspace
-              </span>
+            <span className="max-w-[8rem] truncate text-sm font-black tracking-tight text-white sm:max-w-[12rem]">
+              {companyName || "Cloud Daftar"}
             </span>
           </button>
 
           {mounted && showModuleMenus && (
-            <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto px-2 xl:flex">
-              {moduleMenus.map((group) => (
+            <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
+              {moduleMenus.slice(0, 8).map((group) => (
                 <DropdownMenu key={group.label}>
                   <DropdownMenuTrigger asChild>
-                    <button className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl px-3 text-sm font-bold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-950 data-[state=open]:bg-slate-950 data-[state=open]:text-white dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white dark:data-[state=open]:bg-white dark:data-[state=open]:text-slate-950">
+                    <button className="inline-flex h-10 items-center gap-1 rounded-full px-3 text-sm font-bold text-white/85 transition hover:bg-emerald-200 hover:text-slate-950 data-[state=open]:bg-emerald-200 data-[state=open]:text-slate-950 lg:px-4">
                       {group.label}
-                      <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                      <ChevronDown className="h-3.5 w-3.5" />
                     </button>
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent
-                    align="start"
-                    className="w-64 rounded-2xl border-slate-200 p-2 shadow-xl shadow-slate-950/10 dark:border-slate-800"
+                    align="center"
+                    className="w-64 rounded-2xl border-white/20 bg-white/95 p-2 shadow-xl backdrop-blur dark:bg-slate-950/95"
                   >
-                    <DropdownMenuLabel className="flex items-center gap-2 px-3 py-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <Building2 className="h-4 w-4" />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-extrabold">{group.label}</span>
-                        <span className="block text-[11px] font-normal text-muted-foreground">
-                          {group.items.length} screen{group.items.length === 1 ? "" : "s"}
-                        </span>
-                      </span>
+                    <DropdownMenuLabel className="px-3 py-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
+                      {group.label}
                     </DropdownMenuLabel>
 
                     <DropdownMenuSeparator />
 
-                    <div className="max-h-[22rem] overflow-y-auto py-1">
+                    <div className="max-h-[22rem] overflow-y-auto">
                       {group.items.map((item) => (
                         <DropdownMenuItem
                           key={item.href}
-                          onClick={() => router.push(tenantHref(item.href))}
-                          className="cursor-pointer rounded-xl px-3 py-2.5 text-sm font-semibold"
+                          onClick={() => navigateTo(item.href)}
+                          className="cursor-pointer rounded-xl px-3 py-2.5 font-semibold"
                         >
                           {item.label}
                         </DropdownMenuItem>
@@ -479,62 +493,28 @@ export function Navbar({
             </nav>
           )}
 
-          {mounted && showModuleMenus && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="inline-flex h-10 items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 xl:hidden">
-                  Modules
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-
-              <DropdownMenuContent
-                align="start"
-                className="max-h-[75vh] w-72 overflow-y-auto rounded-2xl p-2 shadow-xl"
-              >
-                {moduleMenus.map((group) => (
-                  <div key={group.label}>
-                    <DropdownMenuLabel className="px-3 py-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
-                      {group.label}
-                    </DropdownMenuLabel>
-
-                    {group.items.map((item) => (
-                      <DropdownMenuItem
-                        key={item.href}
-                        onClick={() => router.push(tenantHref(item.href))}
-                        className="cursor-pointer rounded-xl px-3 py-2.5 text-sm font-semibold"
-                      >
-                        {item.label}
-                      </DropdownMenuItem>
-                    ))}
-
-                    <DropdownMenuSeparator />
-                  </div>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {mounted && showModuleMenus && (
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="ml-auto hidden h-10 min-w-[17rem] max-w-md flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/90 px-3 text-left text-sm text-slate-500 shadow-inner transition-all hover:border-primary/40 hover:bg-white hover:text-slate-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-400 dark:hover:bg-slate-900 lg:flex"
-            >
-              <Search className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate">Search modules, reports, actions...</span>
-              <kbd className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-black text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
-                Ctrl K
-              </kbd>
-            </button>
-          )}
-
-          <div className="ml-auto flex items-center gap-2 lg:ml-2">
+          <div className="ml-auto flex items-center gap-2">
             {mounted && showModuleMenus && (
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 lg:hidden"
+                className="hidden h-10 items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white/80 shadow-sm transition hover:bg-white/20 hover:text-white lg:flex"
+                aria-label="Search"
+                title="Search"
+              >
+                <Search className="h-4 w-4" />
+                <span>Search</span>
+                <kbd className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-black text-white/80">
+                  Ctrl K
+                </kbd>
+              </button>
+            )}
+
+            {mounted && showModuleMenus && (
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-sm transition hover:bg-white/20 lg:hidden"
                 aria-label="Search"
                 title="Search"
               >
@@ -546,9 +526,9 @@ export function Navbar({
               <>
                 <button
                   type="button"
-                  className="h-10 w-10 rounded-2xl border border-slate-200 bg-white p-2 text-slate-400 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                  aria-label="Theme"
+                  className="h-10 w-10 rounded-full border border-white/20 bg-white/10 p-2 text-white/70"
                   disabled
+                  aria-label="Theme"
                   title="Toggle theme"
                 >
                   <Moon className="h-5 w-5" />
@@ -556,15 +536,15 @@ export function Navbar({
 
                 <button
                   type="button"
-                  className="relative h-10 w-10 rounded-2xl border border-slate-200 bg-white p-2 text-slate-400 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                  aria-label="Notifications"
+                  className="relative h-10 w-10 rounded-full border border-white/20 bg-white/10 p-2 text-white/70"
                   disabled
+                  aria-label="Notifications"
                   title="Notifications"
                 >
                   <BellOff className="h-5 w-5" />
                 </button>
 
-                <Button variant="ghost" className="relative h-10 w-10 rounded-2xl" disabled>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full" disabled>
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="text-xs">CD</AvatarFallback>
                   </Avatar>
@@ -579,7 +559,7 @@ export function Navbar({
                     setTheme(next);
                     localStorage.setItem("theme-preference", next);
                   }}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-sm transition hover:bg-white/20"
                   title="Toggle theme"
                   aria-label="Toggle theme"
                 >
@@ -590,14 +570,14 @@ export function Navbar({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+                      className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-sm transition hover:bg-white/20"
                       title="Notifications"
                       aria-label="Notifications"
                     >
                       {unreadCount > 0 ? (
                         <>
                           <Bell className="h-5 w-5" />
-                          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-black text-white dark:border-slate-950">
+                          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-slate-900 bg-red-500 px-1 text-[10px] font-black text-white">
                             {unreadCount > 9 ? "9+" : unreadCount}
                           </span>
                         </>
@@ -607,15 +587,12 @@ export function Navbar({
                     </button>
                   </DropdownMenuTrigger>
 
-                  <DropdownMenuContent
-                    className="w-86 max-w-[calc(100vw-1rem)] rounded-2xl p-2 shadow-xl sm:w-96"
-                    align="end"
-                  >
+                  <DropdownMenuContent className="w-[22rem] rounded-2xl p-2 shadow-xl" align="end">
                     <DropdownMenuLabel className="flex items-center justify-between gap-3 px-3 py-2">
                       <span>
                         <span className="block text-sm font-black">Notifications</span>
-                        <span className="block text-[11px] font-normal text-muted-foreground">
-                          {unreadCount > 0 ? `${unreadCount} unread update(s)` : "All caught up"}
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
                         </span>
                       </span>
 
@@ -623,7 +600,7 @@ export function Navbar({
                         <button
                           type="button"
                           onClick={markAllRead}
-                          className="inline-flex items-center gap-1 rounded-xl bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/15"
+                          className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/15"
                         >
                           <CheckCheck className="h-3.5 w-3.5" />
                           Mark read
@@ -638,39 +615,31 @@ export function Navbar({
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                       </div>
                     ) : notifications.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-900">
-                          <BellOff className="h-5 w-5" />
-                        </div>
-                        <p className="text-sm font-semibold">No new notifications</p>
-                        <p className="text-xs text-muted-foreground">You are up to date.</p>
+                      <div className="py-8 text-center text-sm text-muted-foreground">
+                        No new notifications
                       </div>
                     ) : (
                       <div className="max-h-80 overflow-y-auto py-1">
-                        {notifications.slice(0, 5).map((notification) => (
+                        {notifications.slice(0, 5).map((n) => (
                           <DropdownMenuItem
-                            key={notification.id}
+                            key={n.id}
                             className="flex cursor-pointer flex-col items-start gap-1 rounded-xl px-3 py-3"
-                            onClick={() => markRead(notification.id, notification.link)}
+                            onClick={() => markRead(n.id, n.link)}
                           >
-                            <div className="flex w-full items-start gap-2">
-                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-bold">
-                                  {notification.title}
-                                </span>
-
-                                {notification.message && (
-                                  <span className="line-clamp-2 text-xs text-muted-foreground">
-                                    {notification.message}
-                                  </span>
-                                )}
-
-                                <span className="mt-1 block text-[10px] font-semibold text-muted-foreground">
-                                  {timeAgo(notification.createdAt)}
-                                </span>
-                              </span>
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                              <span className="text-sm font-bold">{n.title}</span>
                             </div>
+
+                            {n.message && (
+                              <span className="pl-4 text-xs text-muted-foreground">
+                                {n.message}
+                              </span>
+                            )}
+
+                            <span className="pl-4 text-[10px] font-semibold text-muted-foreground">
+                              {timeAgo(n.createdAt)}
+                            </span>
                           </DropdownMenuItem>
                         ))}
                       </div>
@@ -680,7 +649,7 @@ export function Navbar({
 
                     <DropdownMenuItem
                       className="cursor-pointer justify-center rounded-xl py-2 text-xs font-bold text-muted-foreground"
-                      onClick={() => router.push(tenantHref("/notifications"))}
+                      onClick={() => navigateTo("/notifications")}
                     >
                       View all notifications
                     </DropdownMenuItem>
@@ -691,18 +660,18 @@ export function Navbar({
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="relative h-10 rounded-2xl border border-slate-200 bg-white px-1.5 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary/5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                      className="relative h-10 rounded-full border border-white/20 bg-white/10 px-1.5 text-white shadow-sm hover:bg-white/20"
                     >
                       <Avatar className="h-8 w-8">
                         <AvatarImage
                           src={session?.user?.image || ""}
                           alt={session?.user?.name || "User"}
                         />
-                        <AvatarFallback className="bg-slate-950 text-xs font-black text-white dark:bg-white dark:text-slate-950">
+                        <AvatarFallback className="bg-white text-xs font-black text-slate-950">
                           {initials}
                         </AvatarFallback>
                       </Avatar>
-                      <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
+                      <ChevronDown className="hidden h-3.5 w-3.5 text-white/80 sm:block" />
                     </Button>
                   </DropdownMenuTrigger>
 
@@ -714,7 +683,7 @@ export function Navbar({
                             src={session?.user?.image || ""}
                             alt={session?.user?.name || "User"}
                           />
-                          <AvatarFallback className="bg-slate-950 text-xs font-black text-white dark:bg-white dark:text-slate-950">
+                          <AvatarFallback className="bg-slate-950 text-xs font-black text-white">
                             {initials}
                           </AvatarFallback>
                         </Avatar>
@@ -733,7 +702,7 @@ export function Navbar({
                     <DropdownMenuSeparator />
 
                     <DropdownMenuItem
-                      onClick={() => router.push(tenantHref("/profile"))}
+                      onClick={() => navigateTo("/profile")}
                       className="cursor-pointer rounded-xl px-3 py-2.5 font-semibold"
                     >
                       <User className="mr-2 h-4 w-4" />
@@ -741,7 +710,7 @@ export function Navbar({
                     </DropdownMenuItem>
 
                     <DropdownMenuItem
-                      onClick={() => router.push(tenantHref("/settings"))}
+                      onClick={() => navigateTo("/settings")}
                       className="cursor-pointer rounded-xl px-3 py-2.5 font-semibold"
                     >
                       <Settings className="mr-2 h-4 w-4" />
@@ -749,7 +718,7 @@ export function Navbar({
                     </DropdownMenuItem>
 
                     <DropdownMenuItem
-                      onClick={() => router.push(tenantHref("/billing"))}
+                      onClick={() => navigateTo("/billing")}
                       className="cursor-pointer rounded-xl px-3 py-2.5 font-semibold"
                     >
                       <CreditCard className="mr-2 h-4 w-4" />
@@ -757,7 +726,7 @@ export function Navbar({
                     </DropdownMenuItem>
 
                     <DropdownMenuItem
-                      onClick={() => router.push(tenantHref("/profile"))}
+                      onClick={() => navigateTo("/profile")}
                       className="cursor-pointer rounded-xl px-3 py-2.5 font-semibold"
                     >
                       <Lock className="mr-2 h-4 w-4" />
@@ -765,7 +734,7 @@ export function Navbar({
                     </DropdownMenuItem>
 
                     <DropdownMenuItem
-                      onClick={() => router.push(tenantHref("/settings?tab=theme"))}
+                      onClick={() => navigateTo("/settings?tab=theme")}
                       className="cursor-pointer rounded-xl px-3 py-2.5 font-semibold"
                     >
                       <Palette className="mr-2 h-4 w-4" />
@@ -776,7 +745,7 @@ export function Navbar({
 
                     <DropdownMenuItem
                       onClick={() => setLogoutConfirmOpen(true)}
-                      className="cursor-pointer rounded-xl px-3 py-2.5 font-bold text-red-600 focus:text-red-600 dark:text-red-400"
+                      className="cursor-pointer rounded-xl px-3 py-2.5 font-bold text-red-600 focus:text-red-600"
                     >
                       <LogOut className="mr-2 h-4 w-4" />
                       Logout
@@ -787,10 +756,37 @@ export function Navbar({
             )}
           </div>
         </div>
+
+        {mounted && showModuleMenus && mobileMenuOpen && (
+          <div className="absolute left-0 right-0 top-[4.75rem] mx-auto w-[92vw] max-w-md overflow-hidden rounded-[2rem] border border-white/20 bg-slate-950/85 p-3 text-white shadow-2xl backdrop-blur-xl md:hidden">
+            <div className="max-h-[70vh] overflow-y-auto">
+              {moduleMenus.map((group) => (
+                <div key={group.label} className="py-2">
+                  <div className="px-3 pb-2 text-xs font-black uppercase tracking-wide text-white/50">
+                    {group.label}
+                  </div>
+
+                  <div className="grid gap-1">
+                    {group.items.map((item) => (
+                      <button
+                        key={item.href}
+                        type="button"
+                        onClick={() => navigateTo(item.href)}
+                        className="rounded-full px-4 py-2.5 text-left text-sm font-bold text-white/85 transition hover:bg-emerald-200 hover:text-slate-950"
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       {mounted && searchOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6">
+        <div className="fixed inset-0 z-50 bg-slate-950/50 p-4 backdrop-blur-sm">
           <button
             type="button"
             className="absolute inset-0 h-full w-full cursor-default"
@@ -798,23 +794,21 @@ export function Navbar({
             onClick={() => setSearchOpen(false)}
           />
 
-          <div className="relative mx-auto mt-12 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl shadow-slate-950/30 dark:border-slate-800 dark:bg-slate-950">
-            <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Command className="h-5 w-5" />
-              </div>
+          <div className="relative mx-auto mt-20 w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/20 bg-white shadow-2xl dark:bg-slate-950">
+            <div className="flex items-center gap-3 border-b px-4 py-3">
+              <Search className="h-5 w-5 text-muted-foreground" />
 
               <input
                 autoFocus
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search invoices, inventory, reports, settings..."
+                placeholder="Search modules, reports, actions..."
                 className="h-11 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-muted-foreground"
               />
 
               <button
                 type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-900"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => setSearchOpen(false)}
                 aria-label="Close search"
               >
@@ -838,9 +832,9 @@ export function Navbar({
                     onClick={() => {
                       setSearchOpen(false);
                       setSearchQuery("");
-                      router.push(tenantHref(item.href));
+                      navigateTo(item.href);
                     }}
-                    className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-900"
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-muted"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-black">{item.label}</span>
@@ -849,17 +843,12 @@ export function Navbar({
                       </span>
                     </span>
 
-                    <span className="hidden shrink-0 rounded-xl bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-muted-foreground dark:bg-slate-900 sm:block">
+                    <span className="hidden shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground sm:block">
                       {item.href}
                     </span>
                   </button>
                 ))
               )}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-[11px] font-semibold text-muted-foreground dark:border-slate-800">
-              <span>Press Enter by clicking a result</span>
-              <span>Esc to close</span>
             </div>
           </div>
         </div>
