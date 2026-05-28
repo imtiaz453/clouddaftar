@@ -23,9 +23,9 @@ export async function InventoryPage() {
 
   return (
     <InventoryClient
-      products={serialize(products)}
-      categories={serialize(categories)}
-      overview={serialize(overview)}
+      products={products}
+      categories={categories}
+      overview={overview}
     />
   );
 }

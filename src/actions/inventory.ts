@@ -100,20 +100,56 @@ export async function getProducts(params?: {
     where.stock = 0;
   }
 
-  if (params?.locationId) {
-    where.stockBalances = { some: { locationId: params.locationId, qtyOnHand: { gt: 0 } } };
-  }
-
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where: where as any,
-      include: { category: { select: { name: true } } },
+      include: { 
+        category: { select: { name: true } },
+        ...(params?.locationId ? {
+          stockBalances: {
+            where: { locationId: params.locationId },
+            take: 1,
+          },
+        } : {}),
+      },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
     prisma.product.count({ where: where as any }),
   ]);
+
+  // If locationId is provided, we need to filter products that have stock at that location
+  // and add the per-location stock info to each product
+  if (params?.locationId) {
+    const filteredProducts = products.data.filter(product => {
+      const balance = product.stockBalances?.[0];
+      return balance && balance.qtyOnHand > 0;
+    });
+
+    // Map the products to include per-location stock in the stock field for compatibility
+    const mappedProducts = filteredProducts.map(product => {
+      const balance = product.stockBalances?.[0];
+      return {
+        ...product,
+        stock: balance ? balance.qtyOnHand : 0, // Override the stock field with location-specific stock
+        _locationStock: {
+          locationId: params.locationId,
+          qtyOnHand: balance ? balance.qtyOnHand : 0,
+          qtyReserved: balance ? balance.qtyReserved : 0,
+          qtyAvailable: balance ? Number(balance.qtyOnHand) - Number(balance.qtyReserved) : 0,
+        }
+      };
+    });
+
+    return {
+      data: serialize(mappedProducts),
+      total: filteredProducts.length,
+      page,
+      pageSize,
+      totalPages: Math.ceil(filteredProducts.length / pageSize),
+    };
+  }
 
   return {
     data: serialize(products),
@@ -569,10 +605,12 @@ export async function getCategories() {
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
-  return prisma.category.findMany({
+  const categories = await prisma.category.findMany({
     where: { companyId, deletedAt: null },
     orderBy: { name: "asc" },
   });
+
+  return serialize(categories);
 }
 
 export async function createCategory(data: { name: string; description?: string; color?: string }) {

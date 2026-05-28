@@ -147,11 +147,12 @@ export function InventoryClient({
     setPage(newPage);
     setLoading(true);
     try {
-      const res = await fetch(`/api/inventory?search=${search}&page=${newPage}&pageSize=50`);
+      const res = await fetch(`/api/inventory?search=${encodeURIComponent(search)}&page=${newPage}&pageSize=50`);
       const data = await res.json();
       if (data.success) setProducts(data.data);
+      else toast.error("Failed to load products");
     } catch {
-      // ignore
+      toast.error("Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -162,11 +163,12 @@ export function InventoryClient({
     setPage(1);
     setLoading(true);
     try {
-      const res = await fetch(`/api/inventory?search=${value}&page=1&pageSize=50`);
+      const res = await fetch(`/api/inventory?search=${encodeURIComponent(value)}&page=1&pageSize=50`);
       const data = await res.json();
       if (data.success) setProducts(data.data);
+      else toast.error("Failed to search products");
     } catch {
-      // ignore
+      toast.error("Failed to search products");
     } finally {
       setLoading(false);
     }

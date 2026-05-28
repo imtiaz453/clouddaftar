@@ -39,6 +39,8 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, taxLabel } from "@/lib/utils";
 import { dashboardHref } from "@/lib/dashboard-href";
+import { getStockLocations } from "@/actions/inventory";
+import { useState } from "react";
 import {
   type LineItem,
   type ProductOption,
@@ -149,31 +151,82 @@ export function NewSaleClient({
   const [keypadBuffer, setKeypadBuffer] = useState("1");
   const [refundMode, setRefundMode] = useState(false);
 
-  const [mobileTab, setMobileTab] = useState<"cart" | "products">("cart");
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fullscreenPrintSaleId, setFullscreenPrintSaleId] = useState<string | null>(null);
-  const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null);
-  const posShellRef = useRef<HTMLDivElement>(null);
-  const barcodeRef = useRef<HTMLInputElement>(null);
-  const receiptFrameRef = useRef<HTMLIFrameElement>(null);
-  const autoPaid = useRef(true);
-  const keypadModeRef = useRef(keypadMode);
-  keypadModeRef.current = keypadMode;
-  const activeLineIdRef = useRef(activeLineId);
-  activeLineIdRef.current = activeLineId;
+   const [mobileTab, setMobileTab] = useState<"cart" | "products">("cart");
+   const [isFullscreen, setIsFullscreen] = useState(false);
+   const [fullscreenPrintSaleId, setFullscreenPrintSaleId] = useState<string | null>(null);
+   const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null);
+   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
+   const [locations, setLocations] = useState<Array<{id: string; name: string; code: string; type: string}>>([]);
+   const [productsWithLocation, setProductsWithLocation] = useState<ProductOption[]>([]);
+   const [productsLoading, setProductsLoading] = useState<boolean>(true);
+   const posShellRef = useRef<HTMLDivElement>(null);
+   const barcodeRef = useRef<HTMLInputElement>(null);
+   const receiptFrameRef = useRef<HTMLIFrameElement>(null);
+   const autoPaid = useRef(true);
+   const keypadModeRef = useRef(keypadMode);
+   keypadModeRef.current = keypadMode;
+   const activeLineIdRef = useRef(activeLineId);
+   activeLineIdRef.current = activeLineId;
 
-  useEffect(() => {
-    barcodeRef.current?.focus();
-  }, []);
+   useEffect(() => {
+     barcodeRef.current?.focus();
+   }, []);
 
-  useEffect(() => {
-    function handleFullscreenChange() {
-      setIsFullscreen(document.fullscreenElement === posShellRef.current);
-      requestAnimationFrame(() => barcodeRef.current?.focus());
-    }
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
+   // Fetch stock locations for the location selector
+   useEffect(() => {
+     async function fetchLocations() {
+       try {
+         const data = await getStockLocations();
+         setLocations(data.data || []);
+         // Set default selected location to the first one if none is selected
+         if (data.data && data.data.length > 0 && !selectedLocationId) {
+           setSelectedLocationId(data.data[0].id);
+         }
+       } catch (error) {
+         console.error("Failed to fetch stock locations:", error);
+       }
+     }
+     fetchLocations();
+   }, []);
+
+   // Fetch products with stock information for the selected location
+   useEffect(() => {
+     async function fetchProducts() {
+       if (!selectedLocationId) return;
+       
+       setProductsLoading(true);
+       try {
+         const data = await getProducts({ 
+           pageSize: 9999,
+           locationId: selectedLocationId
+         });
+         setProductsWithLocation(data.data || []);
+       } catch (error) {
+         console.error("Failed to fetch products:", error);
+         // Fallback to all products if location-specific fetch fails
+         try {
+           const allData = await getProducts({ pageSize: 9999 });
+           setProductsWithLocation(allData.data || []);
+         } catch (fallbackError) {
+           console.error("Failed to fetch all products:", fallbackError);
+           setProductsWithLocation([]);
+         }
+       } finally {
+         setProductsLoading(false);
+       }
+     }
+     
+     fetchProducts();
+   }, [selectedLocationId]);
+
+   useEffect(() => {
+     function handleFullscreenChange() {
+       setIsFullscreen(document.fullscreenElement === posShellRef.current);
+       requestAnimationFrame(() => barcodeRef.current?.focus());
+     }
+     document.addEventListener("fullscreenchange", handleFullscreenChange);
+     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+   }, []);
 
   useEffect(() => {
     if (!fullscreenNotice) return;
@@ -200,22 +253,22 @@ export function NewSaleClient({
     if (invoiceFullyPaid && dueDate) setDueDate("");
   }, [invoiceFullyPaid, dueDate]);
 
-  const filteredProducts = useMemo(() => {
-    let filtered = products;
-    if (activeCategory) {
-      filtered = filtered.filter((p) => p.categoryId === activeCategory);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.sku && p.sku.toLowerCase().includes(q)) ||
-          (p.barcode && p.barcode.toLowerCase().includes(q)),
-      );
-    }
-    return filtered;
-  }, [products, activeCategory, searchQuery]);
+   const filteredProducts = useMemo(() => {
+     let filtered = productsWithLocation.length > 0 ? productsWithLocation : products;
+     if (activeCategory) {
+       filtered = filtered.filter((p) => p.categoryId === activeCategory);
+     }
+     if (searchQuery.trim()) {
+       const q = searchQuery.toLowerCase();
+       filtered = filtered.filter(
+         (p) =>
+           p.name.toLowerCase().includes(q) ||
+           (p.sku && p.sku.toLowerCase().includes(q)) ||
+           (p.barcode && p.barcode.toLowerCase().includes(q)),
+       );
+     }
+     return filtered;
+   }, [products, productsWithLocation, activeCategory, searchQuery]);
 
   const uniqueCategories = useMemo(() => {
     const catMap = new Map<string, { id: string; name: string; color?: string | null }>();
@@ -624,47 +677,68 @@ export function NewSaleClient({
         </div>
       )}
 
-      <div className="flex h-14 items-center gap-2 border-b bg-white/95 px-3 sm:h-16 sm:gap-4 sm:px-4">
-        <div className="min-w-0">
-          <div className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-            {refundMode ? "Point of Sale — Refund Mode" : "Point of Sale"}
-          </div>
-          <div className="hidden text-xs text-muted-foreground sm:block">
-            {refundMode
-              ? "Processing returns and refunds"
-              : "Invoice checkout, customer, tax, notes, and terms"}
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="rounded-lg border bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700">
-            Lines {validItems.length}
-          </span>
-          <span className="rounded-lg border bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700">
-            {taxLabel()} {formatCurrency(totals.vatTotal)}
-          </span>
-          <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
-            Total {formatCurrency(totals.grandTotal)}
-          </span>
-        </div>
-        <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
-          <Wifi className="h-4 w-4 text-emerald-600" />
-          <UserCircle className="h-6 w-6 text-primary" />
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-primary transition hover:bg-primary/10"
-            title={isFullscreen ? "Exit full screen" : "Full screen"}
-            aria-label={isFullscreen ? "Exit full screen" : "Open full screen"}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="h-4 w-4" />
-            ) : (
-              <Maximize2 className="h-4 w-4" />
-            )}
-          </button>
-          <Menu className="h-5 w-5" />
-        </div>
-      </div>
+       <div className="flex h-14 items-center gap-2 border-b bg-white/95 px-3 sm:h-16 sm:gap-4 sm:px-4">
+         <div className="min-w-0">
+           <div className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+             {refundMode ? "Point of Sale — Refund Mode" : "Point of Sale"}
+           </div>
+           <div className="hidden text-xs text-muted-foreground sm:block">
+             {refundMode
+               ? "Processing returns and refunds"
+               : "Invoice checkout, customer, tax, notes, and terms"}
+           </div>
+         </div>
+         <div className="flex items-center gap-1.5 sm:gap-2">
+           <span className="rounded-lg border bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700">
+             Lines {validItems.length}
+           </span>
+           <span className="rounded-lg border bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700">
+             {taxLabel()} {formatCurrency(totals.vatTotal)}
+           </span>
+           <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+             Total {formatCurrency(totals.grandTotal)}
+           </span>
+         </div>
+         <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
+           <div className="relative">
+             <div className="pointer-events-none absolute inset-y-0 left-3 flex h-4 w-4 items-center -translate-y-1/2">
+               <MapPin className="h-4 w-4 text-muted-foreground" />
+             </div>
+             <Select
+               value={selectedLocationId}
+               onValueChange={setSelectedLocationId}
+               className="w-48"
+             >
+               <SelectTrigger className="h-9 rounded border border-input bg-background px-3 text-sm">
+                 <SelectValue placeholder="Select location" />
+               </SelectTrigger>
+               <SelectContent>
+                 {locations.map((location) => (
+                   <SelectItem key={location.id} value={location.id}>
+                     {location.name} ({location.code})
+                   </SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+           </div>
+           <Wifi className="h-4 w-4 text-emerald-600" />
+           <UserCircle className="h-6 w-6 text-primary" />
+           <button
+             type="button"
+             onClick={toggleFullscreen}
+             className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-primary transition hover:bg-primary/10"
+             title={isFullscreen ? "Exit full screen" : "Full screen"}
+             aria-label={isFullscreen ? "Exit full screen" : "Open full screen"}
+           >
+             {isFullscreen ? (
+               <Minimize2 className="h-4 w-4" />
+             ) : (
+               <Maximize2 className="h-4 w-4" />
+             )}
+           </button>
+           <Menu className="h-5 w-5" />
+         </div>
+       </div>
 
       <div className="flex h-10 shrink-0 border-b bg-white md:hidden">
         <button
