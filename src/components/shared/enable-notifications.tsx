@@ -13,6 +13,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export function EnableNotifications() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
 
@@ -24,12 +25,28 @@ export function EnableNotifications() {
     setPermission(Notification.permission);
   }, []);
 
+  useEffect(() => {
+    if (Notification.permission !== "granted") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!cancelled) setSubscribed(!!sub);
+      } catch {
+        // service worker not ready yet
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [permission]);
+
   const subscribe = useCallback(async () => {
     if (permission === "unsupported") return;
     setLoading(true);
 
     try {
       if (permission === "denied") {
+        addToast({ title: "Notifications blocked", description: "Update your browser settings to enable notifications.", variant: "error" });
         return;
       }
 
@@ -46,7 +63,10 @@ export function EnableNotifications() {
       const vapidRes = await fetch("/api/push/vapid-key");
       const vapidData = await vapidRes.json();
       const publicKey = vapidData.data?.publicKey;
-      if (!publicKey) return;
+      if (!publicKey) {
+        addToast({ title: "VAPID key not configured", variant: "error" });
+        return;
+      }
 
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -67,6 +87,7 @@ export function EnableNotifications() {
         }),
       });
       if (res.ok) {
+        setSubscribed(true);
         addToast({ title: "Notifications enabled", variant: "success" });
       }
     } catch (err) {
@@ -75,27 +96,61 @@ export function EnableNotifications() {
     } finally {
       setLoading(false);
     }
-  }, [permission]);
+  }, [permission, addToast]);
+
+  const unsubscribe = useCallback(async () => {
+    setLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const endpoint = sub.endpoint;
+        await sub.unsubscribe();
+        await fetch("/api/push/subscribe", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint }),
+        });
+      }
+      setSubscribed(false);
+      addToast({ title: "Notifications disabled", variant: "success" });
+    } catch (err) {
+      console.error("Failed to unsubscribe:", err);
+      addToast({ title: "Failed to disable notifications", description: String(err), variant: "error" });
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  const toggle = useCallback(() => {
+    if (subscribed) {
+      unsubscribe();
+    } else {
+      subscribe();
+    }
+  }, [subscribed, subscribe, unsubscribe]);
 
   if (permission === "unsupported") return null;
+
+  const isDenied = permission === "denied";
 
   return (
     <button
       type="button"
-      onClick={subscribe}
-      disabled={loading || permission === "granted"}
+      onClick={isDenied ? undefined : toggle}
+      disabled={loading || isDenied}
       className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
       title={
-        permission === "granted"
-          ? "Notifications are enabled"
-          : permission === "denied"
-            ? "Notifications are blocked"
-            : "Enable notifications"
+        isDenied
+          ? "Notifications blocked in browser settings"
+          : subscribed
+            ? "Turn off notifications"
+            : "Turn on notifications"
       }
     >
-      {permission === "granted" ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+      {subscribed ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
       <span className="hidden lg:inline">
-        {loading ? "Enabling..." : permission === "granted" ? "Notifications On" : permission === "denied" ? "Blocked" : "Notify Me"}
+        {loading ? "..." : isDenied ? "Blocked" : subscribed ? "Notifications On" : "Notify Me"}
       </span>
     </button>
   );

@@ -63,7 +63,9 @@ export async function getProducts(params?: {
   categoryId?: string;
   page?: number;
   pageSize?: number;
-  lowStock?: boolean;
+  isActive?: boolean;
+  stockStatus?: "all" | "low" | "out";
+  locationId?: string;
 }) {
   const user = await requireCompanyAuth();
   const { companyId } = user;
@@ -74,6 +76,10 @@ export async function getProducts(params?: {
     companyId,
     deletedAt: null,
   };
+
+  if (params?.isActive !== undefined) {
+    where.isActive = params.isActive;
+  }
 
   if (params?.search) {
     const q = params.search.toLowerCase();
@@ -88,8 +94,14 @@ export async function getProducts(params?: {
     where.categoryId = params.categoryId;
   }
 
-  if (params?.lowStock) {
+  if (params?.stockStatus === "low") {
     where.stock = { lte: prisma.product.fields.minStock };
+  } else if (params?.stockStatus === "out") {
+    where.stock = 0;
+  }
+
+  if (params?.locationId) {
+    where.stockBalances = { some: { locationId: params.locationId, qtyOnHand: { gt: 0 } } };
   }
 
   const [products, total] = await Promise.all([
@@ -989,4 +1001,17 @@ export async function getLowStockProducts() {
   });
 
   return serialize(products);
+}
+
+export async function getStockLocations() {
+  const user = await requireCompanyAuth();
+  const { companyId } = user;
+
+  const locations = await prisma.stockLocation.findMany({
+    where: { companyId, isActive: true, deletedAt: null },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, code: true, type: true },
+  });
+
+  return serialize(locations);
 }

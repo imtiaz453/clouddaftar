@@ -21,6 +21,30 @@ enum StoreType {
   EMPLOYEE_STORE
 }
 
+enum StockLocationType {
+  MAIN_WAREHOUSE
+  BRANCH_STORE
+  POS_STORE
+  EMPLOYEE_STORE
+  DAMAGED_STORE
+  RETURN_STORE
+}
+
+enum StockMovementType {
+  OPENING_BALANCE
+  PURCHASE_RECEIVE
+  PURCHASE_RETURN
+  SALE
+  SALE_RETURN
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  RESERVATION
+  RESERVATION_RELEASE
+  WRITE_OFF
+}
+
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -209,6 +233,8 @@ model User {
   createdInventoryLogs       InventoryLog[]          @relation("InventoryLogCreatedBy")
   employeeRecord             EmployeeRecord?
   assignedStores             Warehouse[]             @relation("WarehouseAssignedEmployee")
+  assignedStockLocations     StockLocation[]          @relation("StockLocationAssignedEmployee")
+  createdStockLedgers        StockLedger[]            @relation("StockLedgerCreatedBy")
   pushSubscriptions          PushSubscription[]
 
   @@index([email])
@@ -290,6 +316,9 @@ model Company {
   zatcaInvoiceLogs        ZatcaInvoiceLog[]
   employeeRecords         EmployeeRecord[]
   pushSubscriptions       PushSubscription[]
+  stockLocations          StockLocation[]
+  stockBalances           StockBalance[]
+  stockLedgers            StockLedger[]
 
   @@index([slug])
   @@index([isActive])
@@ -369,6 +398,7 @@ model Branch {
   sales           Sale[]
   purchases       Purchase[]
   inventoryLogs   InventoryLog[]
+  stockLocations  StockLocation[]
 
   @@unique([code, companyId])
   @@index([companyId])
@@ -437,6 +467,90 @@ model WarehouseLocation {
   @@index([parentId])
   @@index([type])
   @@map("warehouse_locations")
+}
+
+model StockLocation {
+  id                 String           @id @default(cuid())
+  name               String
+  code               String
+  type               StockLocationType @default(MAIN_WAREHOUSE)
+  branchId           String?
+  assignedEmployeeId String?
+  companyId          String
+  isDefault          Boolean          @default(false)
+  isActive           Boolean          @default(true)
+  notes              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch           Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  assignedEmployee User?          @relation("StockLocationAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  stockBalances    StockBalance[]
+  stockLedgers     StockLedger[]
+
+  @@unique([code, companyId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([assignedEmployeeId])
+  @@index([isActive])
+  @@map("stock_locations")
+}
+
+model StockBalance {
+  id            String   @id @default(cuid())
+  productId     String
+  locationId    String
+  companyId     String
+  qtyOnHand     Decimal  @default(0) @db.Decimal(18, 4)
+  qtyReserved   Decimal  @default(0) @db.Decimal(18, 4)
+  qtyAvailable  Decimal  @default(0) @db.Decimal(18, 4)
+  reorderPoint  Decimal  @default(0) @db.Decimal(18, 4)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  product  Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, locationId])
+  @@index([companyId])
+  @@index([productId])
+  @@index([locationId])
+  @@map("stock_balances")
+}
+
+model StockLedger {
+  id              String            @id @default(cuid())
+  productId       String
+  locationId      String
+  companyId       String
+  movementType    StockMovementType
+  quantity        Decimal           @db.Decimal(18, 4)
+  qtyOnHandBefore Decimal           @db.Decimal(18, 4)
+  qtyOnHandAfter  Decimal           @db.Decimal(18, 4)
+  qtyReservedBefore Decimal         @db.Decimal(18, 4)
+  qtyReservedAfter  Decimal         @db.Decimal(18, 4)
+  reference       String?
+  referenceId     String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime          @default(now())
+
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location  StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy User?         @relation("StockLedgerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([productId])
+  @@index([locationId])
+  @@index([movementType])
+  @@index([createdAt])
+  @@index([reference])
+  @@index([referenceId])
+  @@map("stock_ledgers")
 }
 
 model Invitation {
@@ -535,6 +649,8 @@ model Product {
   lots           ProductLot[]
   lotStocks      ProductLotStock[]
   quotationItems QuotationItem[]
+  stockBalances  StockBalance[]
+  stockLedgers   StockLedger[]
 
   @@unique([sku, companyId])
   @@index([companyId])

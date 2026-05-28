@@ -16,12 +16,17 @@ const deleteProductSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    const searchParams = req.nextUrl.searchParams;
+    const sp = req.nextUrl.searchParams;
+    const isActive = sp.get("isActive");
+    const stockStatus = sp.get("stockStatus") as "all" | "low" | "out" | null;
     const products = await getProducts({
-      search: searchParams.get("search") || undefined,
-      categoryId: searchParams.get("categoryId") || undefined,
-      page: Number(searchParams.get("page")) || 1,
-      pageSize: Number(searchParams.get("pageSize")) || 50,
+      search: sp.get("search") || undefined,
+      categoryId: sp.get("categoryId") || undefined,
+      page: Number(sp.get("page")) || 1,
+      pageSize: Number(sp.get("pageSize")) || 50,
+      isActive: isActive === "true" ? true : isActive === "false" ? false : undefined,
+      stockStatus: stockStatus || undefined,
+      locationId: sp.get("locationId") || undefined,
     });
     return successResponse(products);
   } catch (error) {
