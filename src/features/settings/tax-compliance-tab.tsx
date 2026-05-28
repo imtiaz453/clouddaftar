@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CompanySettings, ZatcaEgsUnit, ZatcaSetting } from "@prisma/client";
-import { Cable, KeyRound, Loader2, Save, ShieldCheck } from "lucide-react";
+import { Cable, KeyRound, Save, ShieldCheck } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -216,17 +217,17 @@ export function TaxComplianceTab({
 
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" disabled={Boolean(zatcaAction)} onClick={() => runZatcaAction("generate-csr")}>
-                  {zatcaAction === "generate-csr" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+                  {zatcaAction === "generate-csr" ? <LoadingSpinner size={4} className="mr-2" /> : <KeyRound className="mr-2 h-4 w-4" />}
                   Generate CSR
                 </Button>
                 {form.zatcaMode !== "LOCAL" && (
                   <Button type="button" variant="outline" disabled={Boolean(zatcaAction)} onClick={() => runZatcaAction("onboard-device")}>
-                    {zatcaAction === "onboard-device" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                    {zatcaAction === "onboard-device" ? <LoadingSpinner size={4} className="mr-2" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                     Onboard Device
                   </Button>
                 )}
                 <Button type="button" variant="outline" disabled={Boolean(zatcaAction)} onClick={() => runZatcaAction("test-connection")}>
-                  {zatcaAction === "test-connection" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Cable className="mr-2 h-4 w-4" />}
+                  {zatcaAction === "test-connection" ? <LoadingSpinner size={4} className="mr-2" /> : <Cable className="mr-2 h-4 w-4" />}
                   Test Connection
                 </Button>
               </div>
@@ -240,7 +241,7 @@ export function TaxComplianceTab({
           )}
 
           <Button type="submit" disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {saving ? <LoadingSpinner size={4} className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
             Save Tax Compliance Settings
           </Button>
         </form>

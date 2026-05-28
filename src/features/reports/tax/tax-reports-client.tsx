@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, FileText, Loader2, Percent, TrendingDown, TrendingUp } from "lucide-react";
+import { Download, FileText, Percent, TrendingDown, TrendingUp } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Bar, BarChart, CartesianGrid,
   Line, LineChart,
@@ -116,7 +117,7 @@ export function TaxReportsClient() {
           <Input id="to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 w-40" />
         </div>
         <Button variant="outline" size="sm" onClick={fetchReport} disabled={loading}>
-          <Loader2 className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+          {loading && <LoadingSpinner size={4} className="mr-2" />} Refresh
         </Button>
         <Button variant="outline" size="sm" onClick={exportReport} disabled={!report}>
           <Download className="mr-2 h-4 w-4" /> Export
@@ -140,7 +141,7 @@ export function TaxReportsClient() {
       {loading ? (
         <Card>
           <CardContent className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <LoadingSpinner size={6} />
           </CardContent>
         </Card>
       ) : !report ? (

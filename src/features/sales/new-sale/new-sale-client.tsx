@@ -3,12 +3,12 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useToast } from "@/providers/toast-provider";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Search,
   Plus,
   Trash2,
   Barcode,
-  Loader2,
   Save,
   Check,
   ShoppingCart,
@@ -929,9 +929,7 @@ export function NewSaleClient({
                     }
                     className="flex min-h-[80px] flex-1 items-center justify-center bg-[#7c4d72] px-3 text-lg font-bold text-white transition hover:bg-[#6d4364] disabled:opacity-50 sm:min-h-[100px]"
                   >
-                    {loading ? (
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : null}
+                    {loading && <LoadingSpinner size={5} className="mr-2" />}
                     Complete Sale
                   </button>
                 </div>

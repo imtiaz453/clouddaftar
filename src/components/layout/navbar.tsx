@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +24,6 @@ import {
   CreditCard,
   Moon,
   Sun,
-  Loader2,
   CheckCheck,
   Lock,
   Palette,
@@ -612,7 +612,7 @@ export function Navbar({
 
                     {notifLoading ? (
                       <div className="flex justify-center py-8">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <LoadingSpinner size={5} />
                       </div>
                     ) : notifications.length === 0 ? (
                       <div className="py-8 text-center text-sm text-muted-foreground">

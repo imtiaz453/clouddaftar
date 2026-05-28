@@ -11,7 +11,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, Lock } from "lucide-react";
+import { Save, Lock } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ROLE_LABELS } from "@/lib/constants";
 
 interface ProfileData {
@@ -166,7 +167,7 @@ export function ProfileClient({ profile }: ProfileClientProps) {
                   />
                 </div>
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Save className="mr-2 h-4 w-4" />
                   Save Changes
                 </Button>
@@ -248,7 +249,7 @@ export function ProfileClient({ profile }: ProfileClientProps) {
                   />
                 </div>
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Lock className="mr-2 h-4 w-4" />
                   Change Password
                 </Button>

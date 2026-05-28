@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, RotateCcw, ShieldCheck } from "lucide-react";
+import { ArrowLeft, RotateCcw, ShieldCheck } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -145,7 +146,7 @@ function VerifyResetCodeForm() {
             className="h-14 w-full rounded-xl bg-blue-600 text-base font-black text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700"
             disabled={loading || code.length !== 6}
           >
-            {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+            {loading && <LoadingSpinner size={5} className="mr-2" />}
             Verify code
           </Button>
         </form>
@@ -159,7 +160,7 @@ function VerifyResetCodeForm() {
             disabled={resending || resendAfter > 0 || !email}
           >
             {resending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <LoadingSpinner size={4} className="mr-2" />
             ) : (
               <RotateCcw className="mr-2 h-4 w-4" />
             )}
@@ -181,7 +182,7 @@ export default function VerifyResetCodePage() {
       fallback={
         <Card className="shadow-slate-950/16 overflow-hidden rounded-[1.75rem] border-white/80 bg-white/95 shadow-2xl ring-1 ring-slate-950/5 backdrop-blur">
           <CardContent className="flex items-center justify-center py-14">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <LoadingSpinner size={8} />
           </CardContent>
         </Card>
       }

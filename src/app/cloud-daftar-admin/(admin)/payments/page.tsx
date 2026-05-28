@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Check, X, ChevronLeft, ChevronRight, Eye, Search, ExternalLink, FileImage, Trash2 } from "lucide-react";
+import { Check, X, ChevronLeft, ChevronRight, Eye, Search, ExternalLink, FileImage, Trash2 } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatCurrency } from "@/lib/utils";
 
 interface Payment {
@@ -119,7 +120,7 @@ export default function AdminPaymentsPage() {
           <Card>
             <CardContent className="p-0">
               {loading ? (
-                <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                <div className="flex justify-center py-12"><LoadingSpinner size={8} /></div>
               ) : payments.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">No payments found</div>
               ) : (
@@ -298,7 +299,7 @@ export default function AdminPaymentsPage() {
                     variant={actionDialog.action === "confirm" ? "default" : "destructive"}
                     disabled={processing}
                   >
-                    {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {processing && <LoadingSpinner size={4} className="mr-2" />}
                     {actionDialog.action === "confirm" ? (
                       <><Check className="mr-2 h-4 w-4" /> Confirm Payment</>
                     ) : (

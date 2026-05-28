@@ -15,7 +15,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Loader2, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Save } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface Unit {
   id: string;
@@ -137,7 +138,7 @@ export function UnitsTab() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <LoadingSpinner size={6} />
             </div>
           ) : units.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
@@ -208,7 +209,7 @@ export function UnitsTab() {
                 Cancel
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving && <LoadingSpinner size={4} className="mr-2" />}
                 <Save className="mr-2 h-4 w-4" />
                 {editingUnit ? "Update" : "Create"}
               </Button>

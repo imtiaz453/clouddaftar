@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Save, Upload, Image as ImageIcon, FileText, Printer } from "lucide-react";
+import { Save, Upload, Image as ImageIcon, FileText, Printer } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type {
   Company,
   CompanySettings,
@@ -425,7 +426,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                     <Button variant="outline" type="button" disabled={uploadingLogo} asChild>
                       <span>
                         {uploadingLogo ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <LoadingSpinner size={4} className="mr-2" />
                         ) : (
                           <Upload className="mr-2 h-4 w-4" />
                         )}
@@ -521,7 +522,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                   />
                 </div>
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Save className="mr-2 h-4 w-4" />
                   Save Changes
                 </Button>
@@ -608,7 +609,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                   </div>
                 </div>
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Save className="mr-2 h-4 w-4" />
                   Save Business Settings
                 </Button>
@@ -690,7 +691,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                   />
                 </div>
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Save className="mr-2 h-4 w-4" />
                   Save Formatting
                 </Button>
@@ -883,7 +884,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                   </div>
                 </div>
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Save className="mr-2 h-4 w-4" />
                   Save Invoice Settings
                 </Button>
@@ -1033,7 +1034,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                   </div>
                 </div>
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Save className="mr-2 h-4 w-4" />
                   Save Preferences
                 </Button>
@@ -1191,7 +1192,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                 </div>
 
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Save className="mr-2 h-4 w-4" />
                   Save Printer Settings
                 </Button>
@@ -1386,7 +1387,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
                   />
                 </div>
                 <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving && <LoadingSpinner size={4} className="mr-2" />}
                   <Save className="mr-2 h-4 w-4" />
                   Save Theme
                 </Button>

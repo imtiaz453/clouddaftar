@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/providers/toast-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,7 +25,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Loader2,
   Check,
   FileText,
   Eye,
@@ -278,7 +278,7 @@ export function BillingClient() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <LoadingSpinner size={8} />
       </div>
     );
   }
@@ -355,7 +355,7 @@ export function BillingClient() {
               disabled={subscribing || isCurrent || planChangeLocked}
               variant={plan.code === "free" || isCurrent ? "outline" : "default"}
             >
-              {subscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {subscribing ? <LoadingSpinner size={4} className="mr-2" /> : null}
               {isCurrent
                 ? "Current Plan"
                 : planChangeLocked
@@ -710,7 +710,7 @@ export function BillingClient() {
                   className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-xs file:font-medium file:text-primary hover:file:bg-primary/20"
                 />
                 {screenshotUploading && (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <LoadingSpinner size={4} />
                 )}
                 {payForm.screenshotData && (
                   <Button
@@ -746,7 +746,7 @@ export function BillingClient() {
               placeholder="Optional notes..."
             />
             <Button type="submit" className="w-full" disabled={paying || screenshotUploading}>
-              {paying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {paying && <LoadingSpinner size={4} className="mr-2" />}
               <Upload className="mr-2 h-4 w-4" />
               Submit for Verification
             </Button>

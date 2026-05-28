@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface AuditLog {
   id: string; action: string; entity: string | null; entityId: string | null;
@@ -56,7 +57,7 @@ export default function AdminAuditPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            <div className="flex justify-center py-12"><LoadingSpinner size={8} /></div>
           ) : logs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No audit logs yet</div>
           ) : (

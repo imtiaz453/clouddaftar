@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Brain,
   Check,
   CheckCircle2,
   EyeOff,
-  Loader2,
   MoreHorizontal,
   Pin,
   Sparkles,
@@ -263,7 +263,7 @@ export function AiInsightsWidget() {
           <div className="max-h-[60vh] space-y-2 overflow-y-auto p-3">
             {loading ? (
               <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <LoadingSpinner size={4} className="mr-2" />
                 Checking workspace signals...
               </div>
             ) : (

@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Product, Category } from "@prisma/client";
-import { ImageUp, Loader2, Plus, X } from "lucide-react";
+import { ImageUp, Plus, X } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { taxLabel } from "@/lib/utils";
 
 interface ProductDialogProps {
@@ -203,7 +204,7 @@ export function ProductDialog({
                   )}
                   <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent">
                     {imageUploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <LoadingSpinner size={4} />
                     ) : (
                       <ImageUp className="h-4 w-4" />
                     )}
@@ -409,7 +410,7 @@ export function ProductDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <LoadingSpinner size={4} className="mr-2" />}
               {product ? "Update" : "Create"}
             </Button>
           </div>

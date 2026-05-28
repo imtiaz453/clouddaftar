@@ -8,8 +8,8 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Loader2,
 } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -234,7 +234,7 @@ export function ReconciliationClient({
             </Button>
             <Button onClick={handleCreate} disabled={creating}>
               {creating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <LoadingSpinner size={4} className="mr-2" />
               ) : (
                 <Plus className="mr-2 h-4 w-4" />
               )}

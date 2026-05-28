@@ -14,7 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Product, Supplier } from "@prisma/client";
-import { Loader2, Plus, Minus, Trash2, Search, Save, Check, Printer } from "lucide-react";
+import { Plus, Minus, Trash2, Search, Save, Check, Printer } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatCurrency, taxLabel } from "@/lib/utils";
 import { dashboardHref } from "@/lib/dashboard-href";
 import {
@@ -576,7 +577,7 @@ export function PurchaseDialog({
               disabled={loading || cart.length === 0}
             >
               {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <LoadingSpinner size={4} className="mr-2" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
@@ -588,7 +589,7 @@ export function PurchaseDialog({
               disabled={loading || cart.length === 0}
             >
               {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <LoadingSpinner size={4} className="mr-2" />
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}

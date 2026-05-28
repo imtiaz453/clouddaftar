@@ -2,7 +2,8 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Download, FileSpreadsheet, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -168,7 +169,7 @@ export function ImportDialog({ open, onOpenChange, type, title, description }: I
             </Button>
             {!result && (
               <Button onClick={handleImport} disabled={!file || importing}>
-                {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {importing && <LoadingSpinner size={4} className="mr-2" />}
                 {importing ? "Importing..." : "Import"}
               </Button>
             )}

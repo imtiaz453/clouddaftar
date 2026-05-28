@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Download, Loader2, Package, PackageX, TrendingUp, DollarSign } from "lucide-react";
+import { AlertTriangle, Download, Package, PackageX, TrendingUp, DollarSign } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Bar, BarChart, CartesianGrid, Cell,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -84,7 +85,7 @@ export function InventoryReportsClient() {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <LoadingSpinner size={6} />
         </CardContent>
       </Card>
     );
@@ -115,7 +116,7 @@ export function InventoryReportsClient() {
         </p>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={fetchReport} disabled={loading}>
-            <Loader2 className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            {loading && <LoadingSpinner size={4} className="mr-2" />} Refresh
           </Button>
           <Button variant="outline" size="sm" onClick={exportReport} disabled={report.lowStockAlerts.length === 0}>
             <Download className="mr-2 h-4 w-4" /> Export

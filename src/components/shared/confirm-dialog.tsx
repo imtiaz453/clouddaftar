@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { LinesLoader } from "@/components/ui/lines-loader";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { TriangleAlert } from "lucide-react";
 
 interface ConfirmDialogProps {
@@ -56,7 +56,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={loading}
           >
-            {loading ? <LinesLoader size="sm" label="Processing..." /> : confirmText}
+            {loading ? <LoadingSpinner size={4} className="mr-2" /> : confirmText}
           </Button>
         </DialogFooter>
       </DialogContent>

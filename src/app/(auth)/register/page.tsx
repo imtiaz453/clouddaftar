@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Building, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useToast } from "@/providers/toast-provider";
 
 export default function RegisterPage() {
@@ -154,7 +155,7 @@ export default function RegisterPage() {
             size="xl"
             disabled={loading}
           >
-            {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+            {loading && <LoadingSpinner size={5} className="mr-2" />}
             {loading ? "Creating account..." : "Create workspace"}
           </Button>
         </form>

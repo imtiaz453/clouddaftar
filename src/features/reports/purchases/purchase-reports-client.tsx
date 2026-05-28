@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, DollarSign, Download, Loader2, ShoppingBag, Truck } from "lucide-react";
+import { Building2, DollarSign, Download, ShoppingBag, Truck } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Bar,
   BarChart,
@@ -209,7 +210,7 @@ export function PurchaseReportsClient() {
             </div>
             <div className="flex items-end gap-2">
               <Button variant="outline" className="w-full" onClick={fetchReport} disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {loading && <LoadingSpinner size={4} className="mr-2" />}
                 Refresh
               </Button>
               <Button
@@ -247,7 +248,7 @@ export function PurchaseReportsClient() {
       {loading ? (
         <Card>
           <CardContent className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <LoadingSpinner size={4} />
             Loading purchase report...
           </CardContent>
         </Card>

@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, ChevronLeft, ChevronRight, Search, Building, Users, Package, ShoppingCart, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Building, Users, Package, ShoppingCart, FileText } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface Tenant {
   id: string; name: string; slug: string; email: string | null; phone: string | null;
@@ -76,7 +77,7 @@ export default function AdminTenantsPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            <div className="flex justify-center py-12"><LoadingSpinner size={8} /></div>
           ) : tenants.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No tenants found</div>
           ) : (

@@ -13,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Check, Save, Plus } from "lucide-react";
+import { Check, Save, Plus } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatCurrency, taxLabel } from "@/lib/utils";
 import { dashboardHref } from "@/lib/dashboard-href";
 import {
@@ -436,7 +437,7 @@ export function POSDialog({
               disabled={loading || validItems.length === 0}
             >
               {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <LoadingSpinner size={4} className="mr-2" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
@@ -449,7 +450,7 @@ export function POSDialog({
               disabled={loading || validItems.length === 0}
             >
               {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <LoadingSpinner size={4} className="mr-2" />
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}

@@ -1,8 +1,6 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
-import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface Toast {
   id: string;
@@ -19,36 +17,76 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-const toastVariantStyles = {
+const variants = {
   default: {
-    icon: Info,
-    iconClass: "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200",
-    cardClass:
-      "border-slate-200/80 bg-white/95 text-slate-950 shadow-slate-900/12 dark:border-white/10 dark:bg-slate-950/95 dark:text-slate-100",
-    accentClass: "bg-slate-400",
+    border: "border-slate-400",
+    bg: "bg-slate-50",
+    icon: "text-slate-600",
+    title: "text-slate-800",
+    desc: "text-slate-600",
+    darkBorder: "dark:border-slate-500",
+    darkBg: "dark:bg-slate-800",
+    darkIcon: "dark:text-slate-300",
+    darkTitle: "dark:text-slate-100",
+    darkDesc: "dark:text-slate-300",
+    svg: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="-mt-0.5 size-6 shrink-0">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+    ),
   },
   success: {
-    icon: CheckCircle2,
-    iconClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200",
-    cardClass:
-      "border-emerald-200/90 bg-white/95 text-slate-950 shadow-emerald-900/12 dark:border-emerald-400/20 dark:bg-slate-950/95 dark:text-slate-100",
-    accentClass: "bg-emerald-500",
+    border: "border-green-500",
+    bg: "bg-green-50",
+    icon: "text-green-700",
+    title: "text-green-800",
+    desc: "text-green-700",
+    darkBorder: "dark:border-green-400",
+    darkBg: "dark:bg-green-800",
+    darkIcon: "dark:text-green-200",
+    darkTitle: "dark:text-green-100",
+    darkDesc: "dark:text-green-200",
+    svg: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="-mt-0.5 size-6 shrink-0">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
   },
   error: {
-    icon: AlertCircle,
-    iconClass: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-200",
-    cardClass:
-      "border-red-200/90 bg-white/95 text-slate-950 shadow-red-900/12 dark:border-red-400/20 dark:bg-slate-950/95 dark:text-slate-100",
-    accentClass: "bg-red-500",
+    border: "border-red-500",
+    bg: "bg-red-50",
+    icon: "text-red-700",
+    title: "text-red-800",
+    desc: "text-red-700",
+    darkBorder: "dark:border-red-400",
+    darkBg: "dark:bg-red-800",
+    darkIcon: "dark:text-red-200",
+    darkTitle: "dark:text-red-100",
+    darkDesc: "dark:text-red-200",
+    svg: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="-mt-0.5 size-6 shrink-0">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+    ),
   },
   warning: {
-    icon: TriangleAlert,
-    iconClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200",
-    cardClass:
-      "border-amber-200/90 bg-white/95 text-slate-950 shadow-amber-900/12 dark:border-amber-400/20 dark:bg-slate-950/95 dark:text-slate-100",
-    accentClass: "bg-amber-500",
+    border: "border-amber-500",
+    bg: "bg-amber-50",
+    icon: "text-amber-700",
+    title: "text-amber-800",
+    desc: "text-amber-700",
+    darkBorder: "dark:border-amber-400",
+    darkBg: "dark:bg-amber-800",
+    darkIcon: "dark:text-amber-200",
+    darkTitle: "dark:text-amber-100",
+    darkDesc: "dark:text-amber-200",
+    svg: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="-mt-0.5 size-6 shrink-0">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+    ),
   },
-} as const;
+};
 
 export function useToast() {
   const context = useContext(ToastContext);
@@ -76,45 +114,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="fixed bottom-4 right-4 z-[9999] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3 sm:bottom-5 sm:right-5">
         {toasts.map((toast) => {
-          const variant = toast.variant || "default";
-          const styles = toastVariantStyles[variant];
-          const Icon = styles.icon;
+          const v = variants[toast.variant || "default"];
 
           return (
             <div
               key={toast.id}
-              className={cn(
-                "relative overflow-hidden rounded-xl border px-4 py-3 shadow-2xl backdrop-blur-xl transition-all",
-                styles.cardClass,
-              )}
               role="alert"
+              className={`rounded-md border p-4 shadow-sm ${v.border} ${v.bg} ${v.darkBorder} ${v.darkBg}`}
             >
-              <span className={cn("absolute inset-y-0 left-0 w-1", styles.accentClass)} />
-              <div className="flex items-start gap-3 pl-1">
-                <span
-                  className={cn(
-                    "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                    styles.iconClass,
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1 pr-2">
-                  <p className="text-sm font-semibold leading-5">{toast.title}</p>
+              <div className="flex items-start gap-4">
+                <div className={`${v.icon} ${v.darkIcon}`}>
+                  {v.svg}
+                </div>
+                <div className="flex-1">
+                  <strong className={`block leading-tight font-medium ${v.title} ${v.darkTitle}`}>
+                    {toast.title}
+                  </strong>
                   {toast.description && (
-                    <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                    <p className={`mt-0.5 text-sm ${v.desc} ${v.darkDesc}`}>
                       {toast.description}
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeToast(toast.id)}
-                  className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition hover:bg-slate-100 hover:text-foreground dark:hover:bg-white/10"
-                  aria-label="Dismiss notification"
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
             </div>
           );

@@ -6,7 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertCircle, Eye, EyeOff, Loader2, Building } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Building } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useToast } from "@/providers/toast-provider";
 
 const LOGIN_UNAVAILABLE_MESSAGE =
@@ -295,7 +296,7 @@ function LoginForm() {
               size="xl"
               disabled={loading}
             >
-              {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+              {loading && <LoadingSpinner size={5} className="mr-2" />}
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
@@ -322,7 +323,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-slate-50">
-          <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+          <LoadingSpinner size={5} />
         </div>
       }
     >

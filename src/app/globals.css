@@ -960,69 +960,6 @@
       -4px 4px 7px hsl(220 35% 5% / 0.18);
   }
 
-  .lines-loader-wrap {
-    --lines-loader-width: 0.625rem;
-    --lines-loader-height: 4.375rem;
-    --lines-loader-gap: 0.625rem;
-    --lines-loader-jump: 1.875rem;
-    --lines-loader-hop: 0.9375rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: calc(var(--lines-loader-height) + var(--lines-loader-jump));
-  }
-
-  .lines-loader-wrap[data-size="sm"] {
-    --lines-loader-width: 0.25rem;
-    --lines-loader-height: 1rem;
-    --lines-loader-gap: 0.22rem;
-    --lines-loader-jump: 0.45rem;
-    --lines-loader-hop: 0.22rem;
-    min-height: 1.6rem;
-  }
-
-  .lines-loader-wrap[data-size="lg"] {
-    --lines-loader-width: 0.75rem;
-    --lines-loader-height: 5.25rem;
-    --lines-loader-gap: 0.75rem;
-    --lines-loader-jump: 2.25rem;
-    --lines-loader-hop: 1.125rem;
-  }
-
-  .lines-loader {
-    display: flex;
-    align-items: center;
-    gap: var(--lines-loader-gap);
-  }
-
-  .lines-loader .line {
-    width: var(--lines-loader-width);
-    height: var(--lines-loader-height);
-    border-radius: 999px;
-    background: linear-gradient(180deg, hsl(0 0% 100%), hsl(var(--primary) / 0.82)), #ffffff;
-    animation: lines-loader-bounce 1.5s infinite ease-in-out;
-    box-shadow:
-      inset 0 1px 0 hsl(0 0% 100% / 0.8),
-      0 4px 8px rgb(0 0 0 / 0.3),
-      0 0 18px hsl(var(--primary) / 0.28);
-  }
-
-  .lines-loader .line:nth-child(2) {
-    animation-delay: 0.3s;
-  }
-
-  .lines-loader .line:nth-child(3) {
-    animation-delay: 0.6s;
-  }
-
-  .lines-loader .line:nth-child(4) {
-    animation-delay: 0.9s;
-  }
-
-  .lines-loader .line:nth-child(5) {
-    animation-delay: 1.2s;
-  }
-
   .route-loading-overlay {
     position: fixed;
     inset: 0;
@@ -1063,24 +1000,6 @@
       0 20px 48px hsl(220 14% 8% / 0.16),
       0 0 34px hsl(0 0% 100% / 0.24);
     backdrop-filter: blur(28px) saturate(1.35);
-  }
-
-  @keyframes lines-loader-bounce {
-    0%,
-    20%,
-    50%,
-    80%,
-    100% {
-      transform: translateY(0);
-    }
-
-    40% {
-      transform: translateY(calc(var(--lines-loader-jump) * -1));
-    }
-
-    60% {
-      transform: translateY(calc(var(--lines-loader-hop) * -1));
-    }
   }
 
   .theme-glass .topbar-glass-search,

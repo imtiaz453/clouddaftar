@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, Shield, ShieldAlert, ShieldCheck, UserCog } from "lucide-react";
+import { Plus, Shield, ShieldAlert, ShieldCheck, UserCog } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface Admin {
   id: string; name: string; email: string; role: string;
@@ -111,7 +112,7 @@ export default function AdminAdminsPage() {
   }
 
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    return <div className="flex justify-center py-12"><LoadingSpinner size={8} /></div>;
   }
 
   return (
@@ -226,7 +227,7 @@ export default function AdminAdminsPage() {
               </Select>
             </div>
             <Button type="submit" className="w-full" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saving && <LoadingSpinner size={4} className="mr-2" />}
               {dialog.mode === "create" ? "Create Admin" : "Update Admin"}
             </Button>
           </form>

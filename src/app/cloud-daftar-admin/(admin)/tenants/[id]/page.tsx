@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, ArrowLeft, Building, Mail, Phone, MapPin, Calendar, Users, Package, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Building, Mail, Phone, MapPin, Calendar, Users, Package, ShoppingCart } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useToast } from "@/providers/toast-provider";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
@@ -67,7 +68,7 @@ export default function AdminTenantDetailPage() {
   }
 
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    return <div className="flex justify-center py-12"><LoadingSpinner size={8} /></div>;
   }
 
   if (!company) {
@@ -230,7 +231,7 @@ export default function AdminTenantDetailPage() {
               onClick={() => handleAction(confirmAction.action!)}
               disabled={processing}
             >
-              {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {processing && <LoadingSpinner size={4} className="mr-2" />}
               Confirm
             </Button>
           </div>
@@ -246,7 +247,7 @@ export default function AdminTenantDetailPage() {
           </DialogHeader>
           <Input label="Days to extend" type="number" value={days} onChange={(e) => setDays(e.target.value)} required />
           <Button onClick={() => handleAction("extend", { days: Number(days) })} disabled={processing} className="w-full">
-            {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {processing && <LoadingSpinner size={4} className="mr-2" />}
             Extend by {days} days
           </Button>
         </DialogContent>
@@ -271,7 +272,7 @@ export default function AdminTenantDetailPage() {
             ))}
           </div>
           <Button onClick={() => handleAction("change-plan", { planId: selectedPlanId })} disabled={processing || !selectedPlanId} className="w-full">
-            {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {processing && <LoadingSpinner size={4} className="mr-2" />}
             Change Plan
           </Button>
         </DialogContent>

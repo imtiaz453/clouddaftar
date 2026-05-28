@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DollarSign, Loader2 } from "lucide-react";
+import { DollarSign } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -118,7 +119,7 @@ export function SupplierPaymentDialog({ open, onOpenChange, purchaseId, supplier
             <div>
               <Label>Select Invoices</Label>
               {loading ? (
-                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                <div className="flex justify-center py-4"><LoadingSpinner size={5} /></div>
               ) : invoices.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">No unpaid invoices found</p>
               ) : (
@@ -189,7 +190,7 @@ export function SupplierPaymentDialog({ open, onOpenChange, purchaseId, supplier
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={submitting || loading || payAmount <= 0 || selectedIds.length === 0 || amountExceedsDue}>
-            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DollarSign className="mr-2 h-4 w-4" />}
+            {submitting ? <LoadingSpinner size={4} className="mr-2" /> : <DollarSign className="mr-2 h-4 w-4" />}
             Record Payment
           </Button>
         </DialogFooter>

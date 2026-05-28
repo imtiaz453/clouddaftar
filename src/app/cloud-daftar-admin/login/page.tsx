@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Shield, Loader2, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Shield, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { adminLogin } from "@/actions/admin";
 
 export default function AdminLoginPage() {
@@ -77,7 +78,7 @@ export default function AdminLoginPage() {
               </button>
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <LoadingSpinner size={4} className="mr-2" />}
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>

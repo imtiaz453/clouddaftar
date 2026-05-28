@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, X, Image, FileText, Brain } from "lucide-react";
+import { X, Image, FileText, Brain } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function AdminSettingsPage() {
   const { addToast } = useToast();
@@ -146,7 +147,7 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <LoadingSpinner size={8} />
       </div>
     );
   }
@@ -231,7 +232,7 @@ export default function AdminSettingsPage() {
             />
           </div>
           <Button onClick={handleSaveAi} disabled={aiSaving}>
-            {aiSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {aiSaving && <LoadingSpinner size={4} className="mr-2" />}
             Save AI Settings
           </Button>
         </CardContent>
@@ -276,7 +277,7 @@ export default function AdminSettingsPage() {
                 className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-xs file:font-medium file:text-primary hover:file:bg-primary/20"
               />
               {assetUploading === "logo" && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <LoadingSpinner size={4} />
               )}
               {logoUrl && (
                 <Button
@@ -330,7 +331,7 @@ export default function AdminSettingsPage() {
                 className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-xs file:font-medium file:text-primary hover:file:bg-primary/20"
               />
               {assetUploading === "favicon" && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <LoadingSpinner size={4} />
               )}
               {faviconUrl && (
                 <Button
@@ -361,7 +362,7 @@ export default function AdminSettingsPage() {
       </Card>
 
       <Button onClick={handleSave} disabled={saving} size="lg">
-        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {saving && <LoadingSpinner size={4} className="mr-2" />}
         Save Branding
       </Button>
     </div>

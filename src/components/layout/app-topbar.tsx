@@ -4,6 +4,7 @@ import { signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { CSSProperties } from "react";
 import {
   Search,
@@ -15,7 +16,6 @@ import {
   CreditCard,
   Moon,
   Sun,
-  Loader2,
   CheckCheck,
   Lock,
   Palette,
@@ -364,7 +364,7 @@ export function AppTopbar({
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/80 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 sm:px-5">
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/95 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-background/95 sm:px-5">
         <button
           type="button"
           onClick={onMenuClick}
@@ -424,13 +424,13 @@ export function AppTopbar({
                     <DropdownMenuContent
                       align="start"
                       style={moduleGlowStyle(group.label)}
-                      className="topbar-glass-menu-content w-64 rounded-2xl border-border bg-popover p-2 shadow-md"
+                      className="topbar-glass-menu-content w-64 border-border bg-popover p-2 shadow-md"
                     >
                       {group.items.map((item) => (
                         <DropdownMenuItem
                           key={item.href}
                           onClick={() => router.push(tenantHref(item.href))}
-                          className="topbar-glass-menu-item rounded-xl py-2.5 text-sm transition-colors"
+                          className="topbar-glass-menu-item py-2.5 text-sm transition-colors"
                         >
                           {item.label}
                         </DropdownMenuItem>
@@ -501,7 +501,7 @@ export function AppTopbar({
                   <DropdownMenuSeparator />
                   {notifLoading ? (
                     <div className="flex justify-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <LoadingSpinner size={5} />
                     </div>
                   ) : notifications.length === 0 ? (
                     <div className="py-8 text-center text-sm text-muted-foreground">No new notifications</div>
