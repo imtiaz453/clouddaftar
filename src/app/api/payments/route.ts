@@ -11,7 +11,7 @@ import {
   postSupplierPaymentJournal,
 } from "@/lib/operational-journals";
 import { createAuditLog } from "@/lib/audit";
-import { sendPushNotification } from "@/lib/push";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import { paymentCreateSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
@@ -277,9 +277,17 @@ export async function POST(req: NextRequest) {
       metadata: { amount, customerId, supplierId, allocationsCount: allocations.length },
     });
 
-    await sendPushNotification(companyId, userId, {
+    let partyName = "";
+    if (customerId) {
+      const c = await prisma.customer.findUnique({ where: { id: customerId }, select: { name: true } });
+      partyName = c?.name || "";
+    } else if (supplierId) {
+      const s = await prisma.supplier.findUnique({ where: { id: supplierId }, select: { name: true } });
+      partyName = s?.name || "";
+    }
+    await sendPushNotificationWithAdmins(companyId, userId, {
       title: "Payment Received",
-      body: `Payment of ${amount} received`,
+      body: `Rs ${amount} received${partyName ? ` from ${partyName}` : ""} — ${paymentMethod} — by ${user.name || userId}`,
       url: "/accounting/receivables",
     });
 

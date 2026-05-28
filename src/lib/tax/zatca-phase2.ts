@@ -8,6 +8,7 @@ import {
 } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import os from "os";
 import { buildZatcaPhase2Payload, formatZatcaTimestamp, formatZatcaTotal } from "./zatca-qr";
 import { ZATCA_PRODUCTION_ENDPOINTS, ZATCA_SIMULATION_ENDPOINTS } from "./zatca-endpoints";
 
@@ -385,7 +386,8 @@ export async function writeZatcaInvoiceXml(
   saleId: string,
   signedXml: string,
 ): Promise<string> {
-  const dir = path.join(process.cwd(), "storage", "zatca", companyId);
+  const baseDir = process.env.ZATCA_STORAGE_DIR || path.join(os.tmpdir(), "clouddaftar", "zatca");
+  const dir = path.join(baseDir, companyId);
   await mkdir(dir, { recursive: true });
   const filePath = path.join(dir, `${saleId}.xml`);
   await writeFile(filePath, signedXml, "utf8");

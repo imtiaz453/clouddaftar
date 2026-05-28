@@ -30,17 +30,7 @@ interface PushPayload {
   tag?: string;
 }
 
-export async function sendPushNotification(
-  companyId: string,
-  userId: string,
-  payload: PushPayload,
-): Promise<void> {
-  if (!ensureVapidSetup()) return;
-
-  const subscriptions = await prisma.pushSubscription.findMany({
-    where: { companyId, userId },
-  });
-
+async function sendToSubscriptions(subscriptions: { id: string; endpoint: string; p256dh: string; auth: string }[], payload: PushPayload): Promise<void> {
   if (subscriptions.length === 0) return;
 
   const results = await Promise.allSettled(
@@ -56,7 +46,6 @@ export async function sendPushNotification(
   );
 
   const expiredIds: string[] = [];
-
   results.forEach((result, index) => {
     if (result.status === "rejected") {
       const err = result.reason as { statusCode?: number };
@@ -73,48 +62,62 @@ export async function sendPushNotification(
   }
 }
 
+export async function sendPushNotification(
+  companyId: string,
+  userId: string,
+  payload: PushPayload,
+): Promise<void> {
+  if (!ensureVapidSetup()) return;
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { companyId, userId },
+  });
+  await sendToSubscriptions(subscriptions, payload);
+}
+
 export async function sendPushNotificationToCompany(
   companyId: string,
   payload: PushPayload,
   excludeUserId?: string,
 ): Promise<void> {
   if (!ensureVapidSetup()) return;
-
   const subscriptions = await prisma.pushSubscription.findMany({
     where: {
       companyId,
       ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
     },
   });
+  await sendToSubscriptions(subscriptions, payload);
+}
 
-  if (subscriptions.length === 0) return;
+/** Sends to the acting user AND all OWNER/ADMIN members of the company */
+export async function sendPushNotificationWithAdmins(
+  companyId: string,
+  userId: string,
+  payload: PushPayload,
+): Promise<void> {
+  if (!ensureVapidSetup()) return;
 
-  const results = await Promise.allSettled(
-    subscriptions.map((sub) =>
-      webpush.sendNotification(
-        {
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        },
-        JSON.stringify(payload),
-      ),
-    ),
-  );
-
-  const expiredIds: string[] = [];
-
-  results.forEach((result, index) => {
-    if (result.status === "rejected") {
-      const err = result.reason as { statusCode?: number };
-      if (err.statusCode === 404 || err.statusCode === 410) {
-        expiredIds.push(subscriptions[index].id);
-      }
-    }
+  const adminMemberships = await prisma.companyMembership.findMany({
+    where: {
+      companyId,
+      isActive: true,
+      role: { in: ["OWNER", "ADMIN"] },
+      userId: { not: userId },
+    },
+    select: { userId: true },
   });
 
-  if (expiredIds.length > 0) {
-    await prisma.pushSubscription.deleteMany({
-      where: { id: { in: expiredIds } },
-    });
-  }
+  const adminIds = adminMemberships.map((m) => m.userId);
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: {
+      companyId,
+      OR: [
+        { userId },
+        ...(adminIds.length > 0 ? [{ userId: { in: adminIds } }] : []),
+      ],
+    },
+  });
+
+  await sendToSubscriptions(subscriptions, payload);
 }

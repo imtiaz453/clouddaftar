@@ -6,7 +6,7 @@ import { requireCompanyAuth } from "@/lib/auth-helper";
 import { generateSku, slugify } from "@/lib/utils";
 import { serialize } from "@/lib/serialize";
 import { createAuditLog, createNotification } from "@/lib/audit";
-import { sendPushNotification } from "@/lib/push";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import {
   adjustWarehouseStock,
   getProductStockAtWarehouse,
@@ -606,10 +606,10 @@ export async function adjustStock(data: {
       type: "WARNING",
       link: "/inventory",
     });
-    await sendPushNotification(companyId, userId, {
+    await sendPushNotificationWithAdmins(companyId, userId, {
       title: "Low Stock Alert",
-      body: `${product.name} (${product.sku || "N/A"}) has only ${afterStock} units remaining`,
-      url: "/inventory",
+      body: `${product.name} (${product.sku || "N/A"}) — only ${afterStock} left (min: ${product.minStock}) — adjusted by ${user.name || userId}`,
+      url: `/inventory?productId=${product.id}`,
     });
   }
 

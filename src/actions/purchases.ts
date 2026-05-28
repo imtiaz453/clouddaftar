@@ -6,7 +6,7 @@ import { requireCompanyAuth, checkPermission } from "@/lib/auth-helper";
 import { PERMISSIONS } from "@/lib/constants";
 import { isLegacyDraftDocumentNumber, reserveNextDocumentNumber } from "@/lib/document-numbers";
 import { createAuditLog, createNotification } from "@/lib/audit";
-import { sendPushNotification } from "@/lib/push";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import {
   computePaymentStatus,
   createLedgerEntry,
@@ -314,9 +314,9 @@ export async function createPurchase(data: {
       message: `Purchase ${refNumber} has pending payment of ${due}`,
       type: "WARNING",
     });
-    await sendPushNotification(companyId, userId, {
+    await sendPushNotificationWithAdmins(companyId, userId, {
       title: "Pending Payment",
-      body: `Purchase ${refNumber} has pending payment of ${due}`,
+      body: `Purchase ${refNumber} from ${purchase.supplier?.name || "Unknown"} — Rs ${total} total, Rs ${due} due — by ${user.name || userId}`,
       url: `/purchases/${purchase.id}`,
     });
   }

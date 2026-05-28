@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth } from "@/lib/auth-helper";
 import { createAuditLog, createNotification } from "@/lib/audit";
-import { sendPushNotification } from "@/lib/push";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import {
   computePaymentStatus,
   createLedgerEntry,
@@ -841,9 +841,12 @@ export async function receivePayment(data: {
     },
   });
 
-  await sendPushNotification(companyId, userId, {
+  const customerName = data.customerId
+    ? (await prisma.customer.findUnique({ where: { id: data.customerId }, select: { name: true } }))?.name || null
+    : null;
+  await sendPushNotificationWithAdmins(companyId, userId, {
     title: "Payment Received",
-    body: `Payment of ${data.amount} received`,
+    body: `Rs ${data.amount} received${customerName ? ` from ${customerName}` : ""} — ${data.paymentMethod} — by ${user.name || userId}`,
     url: "/accounting/receivables",
   });
 
@@ -2128,9 +2131,12 @@ export async function paySupplier(data: {
     },
   });
 
-  await sendPushNotification(companyId, userId, {
+  const supplierName = data.supplierId
+    ? (await prisma.supplier.findUnique({ where: { id: data.supplierId }, select: { name: true } }))?.name || null
+    : null;
+  await sendPushNotificationWithAdmins(companyId, userId, {
     title: "Payment Sent",
-    body: `Payment of ${data.amount} sent to supplier`,
+    body: `Rs ${data.amount} paid${supplierName ? ` to ${supplierName}` : ""} — ${data.paymentMethod} — by ${user.name || userId}`,
     url: "/accounting/payables",
   });
 
@@ -3170,10 +3176,10 @@ export async function checkOverduePayments() {
         type: "WARNING",
         link: `/accounts-receivable`,
       });
-      await sendPushNotification(companyId, userId, {
+      await sendPushNotificationWithAdmins(companyId, userId, {
         title: "Overdue Payment",
-        body: `${sale.invoiceNumber} from ${sale.customer?.name || "Unknown"} is ${daysOverdue}d overdue`,
-        url: "/accounts-receivable",
+        body: `${sale.invoiceNumber} from ${sale.customer?.name || "Unknown"} — Rs ${toNumber(sale.due).toFixed(0)} due — ${daysOverdue}d overdue`,
+        url: `/accounts-receivable?saleId=${sale.id}`,
       });
       created++;
     }
@@ -3201,10 +3207,10 @@ export async function checkOverduePayments() {
         type: "WARNING",
         link: `/accounts-payable`,
       });
-      await sendPushNotification(companyId, userId, {
+      await sendPushNotificationWithAdmins(companyId, userId, {
         title: "Overdue Payable",
-        body: `${purchase.referenceNumber} to ${purchase.supplier?.name || "Unknown"} is ${daysOverdue}d overdue`,
-        url: "/accounts-payable",
+        body: `${purchase.referenceNumber} to ${purchase.supplier?.name || "Unknown"} — Rs ${toNumber(purchase.due).toFixed(0)} due — ${daysOverdue}d overdue`,
+        url: `/accounts-payable?purchaseId=${purchase.id}`,
       });
       created++;
     }

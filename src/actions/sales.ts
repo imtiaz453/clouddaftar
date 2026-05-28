@@ -10,7 +10,7 @@ import {
   reserveNextDocumentNumber,
 } from "@/lib/document-numbers";
 import { createAuditLog, createNotification } from "@/lib/audit";
-import { sendPushNotification } from "@/lib/push";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import {
   computePaymentStatus,
   createLedgerEntry,
@@ -273,13 +273,13 @@ async function generateTaxComplianceForPostedSale(params: {
         error: error instanceof Error ? error.message : "ZATCA processing failed",
       };
       taxComplianceStatus = "FAILED";
-      try {
-        await sendPushNotification(companyId, userId, {
-          title: "ZATCA Sync Failed",
-          body: `Invoice ${sale.invoiceNumber} - ${error instanceof Error ? error.message : "ZATCA processing failed"}`,
-          url: `/sales/${sale.id}`,
-        });
-      } catch {}
+        try {
+          await sendPushNotificationWithAdmins(companyId, userId, {
+            title: "ZATCA Sync Failed",
+            body: `Invoice ${sale.invoiceNumber} for ${sale.customer?.name || "Walk-in"} — Rs ${sale.total} — ${error instanceof Error ? error.message : "ZATCA processing failed"}`,
+            url: `/sales/${sale.id}`,
+          });
+        } catch {}
     }
 
     if (!zatcaQrPayload) {
@@ -324,9 +324,9 @@ async function generateTaxComplianceForPostedSale(params: {
     message: `Invoice ${sale.invoiceNumber} - ${modeLabel} QR code generated`,
     type: "INFO",
   });
-  await sendPushNotification(companyId, userId, {
+  await sendPushNotificationWithAdmins(companyId, userId, {
     title: `${modeLabel} QR Generated`,
-    body: `Invoice ${sale.invoiceNumber} - ${modeLabel} QR code generated`,
+    body: `Invoice ${sale.invoiceNumber} for ${sale.customer?.name || "Walk-in"} — Rs ${sale.total} — ${modeLabel} compliance`,
     url: `/sales/${sale.id}`,
   });
 }
@@ -708,9 +708,9 @@ export async function createSale(data: {
           error: error instanceof Error ? error.message : "ZATCA processing failed",
         };
         taxComplianceStatus = "FAILED";
-        await sendPushNotification(companyId, userId, {
+        await sendPushNotificationWithAdmins(companyId, userId, {
           title: "ZATCA Sync Failed",
-          body: `Invoice ${invoiceNumber} - ${error instanceof Error ? error.message : "ZATCA processing failed"}`,
+          body: `Invoice ${invoiceNumber} for ${customerName} — Rs ${total} — ${error instanceof Error ? error.message : "ZATCA processing failed"} — by ${user.name || userId}`,
           url: `/sales/${sale.id}`,
         });
       }
@@ -757,9 +757,9 @@ export async function createSale(data: {
       message: `Invoice ${invoiceNumber} - ${modeLabel} QR code generated at ${now}`,
       type: "INFO",
     });
-    await sendPushNotification(companyId, userId, {
+    await sendPushNotificationWithAdmins(companyId, userId, {
       title: `${modeLabel} QR Generated`,
-      body: `Invoice ${invoiceNumber} - ${modeLabel} QR code generated`,
+      body: `Invoice ${invoiceNumber} for ${customerName} — Rs ${total} — ${modeLabel} compliance — by ${user.name || userId}`,
       url: `/sales/${sale.id}`,
     });
   }
@@ -788,9 +788,9 @@ export async function createSale(data: {
       message: `Invoice ${invoiceNumber} has pending payment of ${due}`,
       type: "WARNING",
     });
-    await sendPushNotification(companyId, userId, {
+    await sendPushNotificationWithAdmins(companyId, userId, {
       title: "Pending Payment",
-      body: `Invoice ${invoiceNumber} has pending payment of ${due}`,
+      body: `Invoice ${invoiceNumber} for ${sale.customer?.name || "Walk-in"} — Rs ${total} total, Rs ${due} due — by ${user.name || userId}`,
       url: `/sales/${sale.id}`,
     });
   }
