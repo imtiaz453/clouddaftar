@@ -102,7 +102,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => [...prev, { ...toast, id }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 60000);
+    }, 10000);
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -120,7 +120,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={toast.id}
               role="alert"
-              className={`rounded-md border p-4 shadow-sm ${v.border} ${v.bg} ${v.darkBorder} ${v.darkBg}`}
+              className={`group rounded-md border p-4 shadow-sm ${v.border} ${v.bg} ${v.darkBorder} ${v.darkBg}`}
             >
               <div className="flex items-start gap-4">
                 <div className={`${v.icon} ${v.darkIcon}`}>
@@ -136,6 +136,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     </p>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => removeToast(toast.id)}
+                  className="shrink-0 rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-muted-foreground group-hover:opacity-100"
+                  aria-label="Close"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="size-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             </div>
           );
