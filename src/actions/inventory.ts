@@ -352,6 +352,59 @@ export async function getProduct(id: string) {
   });
 }
 
+export async function getProductDetail(id: string) {
+  const user = await requireCompanyAuth();
+  const { companyId, id: userId } = user;
+
+  const product = await prisma.product.findFirst({
+    where: { id, companyId, deletedAt: null },
+    include: { category: true },
+  });
+  if (!product) return null;
+
+  const [stockBalances, recentLedger, recentSales, recentPurchases] = await Promise.all([
+    prisma.stockBalance.findMany({
+      where: { productId: id, companyId },
+      include: { location: { select: { id: true, name: true, code: true, type: true } } },
+      orderBy: { qtyOnHand: "desc" },
+    }),
+    prisma.stockLedger.findMany({
+      where: { productId: id, companyId },
+      include: { location: { select: { name: true } }, createdBy: { select: { name: true, email: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    prisma.saleItem.findMany({
+      where: { productId: id, sale: { companyId, deletedAt: null } },
+      include: {
+        sale: {
+          select: { id: true, invoiceNumber: true, createdAt: true, status: true, total: true, customer: { select: { name: true } } },
+        },
+      },
+      orderBy: { sale: { createdAt: "desc" } },
+      take: 20,
+    }),
+    prisma.purchaseItem.findMany({
+      where: { productId: id, purchase: { companyId, deletedAt: null } },
+      include: {
+        purchase: {
+          select: { id: true, referenceNumber: true, createdAt: true, status: true, total: true, supplier: { select: { name: true } } },
+        },
+      },
+      orderBy: { purchase: { createdAt: "desc" } },
+      take: 20,
+    }),
+  ]);
+
+  return serialize({
+    product,
+    stockBalances,
+    ledger: recentLedger,
+    sales: recentSales,
+    purchases: recentPurchases,
+  });
+}
+
 export async function createProduct(data: {
   name: string;
   sku?: string;
@@ -1014,4 +1067,142 @@ export async function getStockLocations() {
   });
 
   return serialize(locations);
+}
+
+export async function getStockLocationsWithSummary() {
+  const user = await requireCompanyAuth();
+  const { companyId } = user;
+
+  const locations = await prisma.stockLocation.findMany({
+    where: { companyId, deletedAt: null },
+    include: {
+      stockBalances: {
+        select: { qtyOnHand: true, qtyReserved: true, productId: true },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return serialize(
+    locations.map((l) => ({
+      id: l.id,
+      name: l.name,
+      code: l.code,
+      type: l.type,
+      isDefault: l.isDefault,
+      isActive: l.isActive,
+      totalProducts: l.stockBalances.filter((b) => Number(b.qtyOnHand) > 0).length,
+      totalQty: l.stockBalances.reduce((s, b) => s + Number(b.qtyOnHand), 0),
+    })),
+  );
+}
+
+export async function getStockLocationDetail(locationId: string) {
+  const user = await requireCompanyAuth();
+  const { companyId } = user;
+
+  const location = await prisma.stockLocation.findFirst({
+    where: { id: locationId, companyId, deletedAt: null },
+  });
+  if (!location) return null;
+
+  const [balances, recentLedger] = await Promise.all([
+    prisma.stockBalance.findMany({
+      where: { locationId, companyId },
+      include: { product: { select: { id: true, name: true, sku: true, sellingPrice: true, purchasePrice: true, unit: true } } },
+      orderBy: { qtyOnHand: "desc" },
+    }),
+    prisma.stockLedger.findMany({
+      where: { locationId, companyId },
+      include: {
+        product: { select: { name: true } },
+        createdBy: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
+  ]);
+
+  return serialize({ location, balances, recentLedger });
+}
+
+export async function getProductsForSelect() {
+  const user = await requireCompanyAuth();
+  const { companyId } = user;
+
+  const products = await prisma.product.findMany({
+    where: { companyId, deletedAt: null, isActive: true },
+    select: { id: true, name: true, sku: true },
+    orderBy: { name: "asc" },
+    take: 500,
+  });
+
+  return serialize(products);
+}
+
+export async function getStockLedgerV2(params?: {
+  productId?: string;
+  locationId?: string;
+  movementType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  reference?: string;
+  referenceId?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const user = await requireCompanyAuth();
+  const { companyId } = user;
+  const page = params?.page || 1;
+  const pageSize = params?.pageSize || 50;
+
+  const where: Record<string, unknown> = { companyId };
+  if (params?.productId) where.productId = params.productId;
+  if (params?.locationId) where.locationId = params.locationId;
+  if (params?.movementType) where.movementType = params.movementType;
+  if (params?.reference) where.reference = { contains: params.reference, mode: "insensitive" };
+  if (params?.referenceId) where.referenceId = params.referenceId;
+  if (params?.dateFrom || params?.dateTo) {
+    const filter: Record<string, Date> = {};
+    if (params.dateFrom) filter.gte = new Date(params.dateFrom);
+    if (params.dateTo) filter.lte = new Date(params.dateTo);
+    where.createdAt = filter;
+  }
+
+  const [entries, total] = await Promise.all([
+    prisma.stockLedger.findMany({
+      where: where as any,
+      include: {
+        product: { select: { id: true, name: true, sku: true } },
+        location: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.stockLedger.count({ where: where as any }),
+  ]);
+
+  return {
+    data: serialize(entries),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  };
+}
+
+export async function getStockMovementTypes() {
+  const user = await requireCompanyAuth();
+  const { companyId } = user;
+
+  const types = await prisma.stockLedger.findMany({
+    where: { companyId },
+    distinct: ["movementType"],
+    select: { movementType: true },
+    orderBy: { movementType: "asc" },
+  });
+
+  return types.map((t) => t.movementType);
 }

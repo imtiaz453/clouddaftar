@@ -95,9 +95,9 @@ function LoginForm() {
         setError(message);
         addToast({ title: "Sign in unsuccessful", description: message, variant: "error" });
       } else {
+        const displayName = form.email.split("@")[0];
         addToast({
-          title: "Welcome back",
-          description: "Signed in successfully.",
+          title: `Welcome ${displayName}`,
           variant: "success",
         });
         const callbackUrl = searchParams?.get("callbackUrl");

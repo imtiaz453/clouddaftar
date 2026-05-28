@@ -14,6 +14,7 @@ import {
 } from "@/lib/accounting";
 import { deleteOperationalJournal, postPurchaseJournal } from "@/lib/operational-journals";
 import { adjustWarehouseStock, resolveOperationalLocation } from "@/lib/locations";
+import { receiveStockForPurchaseTx, resolveLocationIdFromWarehouseId } from "@/lib/inventory";
 
 type PurchaseLineInput = {
   productId: string;
@@ -233,6 +234,19 @@ export async function createPurchase(data: {
               createdById: userId,
             },
           });
+          const stockLocationId = await resolveLocationIdFromWarehouseId(location.warehouseId, companyId);
+          if (stockLocationId) {
+            await receiveStockForPurchaseTx(tx, {
+              locationId: stockLocationId,
+              productId: item.productId,
+              companyId,
+              quantity: item.quantity,
+              reference: refNumber,
+              referenceId: purchase.id,
+              notes: null,
+              createdById: userId,
+            });
+          }
         }
       }
     }

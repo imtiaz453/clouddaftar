@@ -310,7 +310,8 @@ export async function releaseReservedStock(
   });
 }
 
-export async function consumeStockForSale(
+export async function consumeStockForSaleTx(
+  tx: Tx,
   params: {
     locationId: string;
     productId: string;
@@ -323,42 +324,49 @@ export async function consumeStockForSale(
 ): Promise<void> {
   if (params.quantity <= 0) throw new Error("Quantity must be positive");
 
-  await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
-    const qtyOnHandAfter = before.qtyOnHand - params.quantity;
-    if (qtyOnHandAfter < 0) throw new Error("Insufficient stock for sale");
+  const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
+  const qtyOnHandAfter = before.qtyOnHand - params.quantity;
+  if (qtyOnHandAfter < 0) throw new Error("Insufficient stock for sale");
 
-    const reserveRelease = Math.min(params.quantity, before.qtyReserved);
-    const qtyReservedAfter = before.qtyReserved - reserveRelease;
-    const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, qtyReservedAfter);
+  const reserveRelease = Math.min(params.quantity, before.qtyReserved);
+  const qtyReservedAfter = before.qtyReserved - reserveRelease;
+  const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, qtyReservedAfter);
 
-    await tx.stockBalance.update({
-      where: { id: before.id },
-      data: {
-        qtyOnHand: qtyOnHandAfter,
-        qtyReserved: qtyReservedAfter,
-        qtyAvailable: qtyAvailableAfter,
-      },
-    });
+  await tx.stockBalance.update({
+    where: { id: before.id },
+    data: {
+      qtyOnHand: qtyOnHandAfter,
+      qtyReserved: qtyReservedAfter,
+      qtyAvailable: qtyAvailableAfter,
+    },
+  });
 
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType: "SALE",
-      quantity: params.quantity,
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter,
-      reference: params.reference ?? null,
-      referenceId: params.referenceId ?? null,
-      createdById: params.createdById,
-    });
+  await createLedger(tx, {
+    productId: params.productId,
+    locationId: params.locationId,
+    companyId: params.companyId,
+    movementType: "SALE",
+    quantity: params.quantity,
+    qtyOnHandBefore: before.qtyOnHand,
+    qtyOnHandAfter,
+    qtyReservedBefore: before.qtyReserved,
+    qtyReservedAfter,
+    reference: params.reference ?? null,
+    referenceId: params.referenceId ?? null,
+    createdById: params.createdById,
   });
 }
 
-export async function receiveStockForPurchase(
+export async function consumeStockForSale(
+  params: Parameters<typeof consumeStockForSaleTx>[1] & { locationId: string; productId: string; companyId: string },
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await consumeStockForSaleTx(tx, params);
+  });
+}
+
+export async function receiveStockForPurchaseTx(
+  tx: Tx,
   params: {
     locationId: string;
     productId: string;
@@ -372,30 +380,53 @@ export async function receiveStockForPurchase(
 ): Promise<void> {
   if (params.quantity <= 0) throw new Error("Quantity must be positive");
 
-  await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
-    const qtyOnHandAfter = before.qtyOnHand + params.quantity;
-    const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
+  const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
+  const qtyOnHandAfter = before.qtyOnHand + params.quantity;
+  const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
 
-    await tx.stockBalance.update({
-      where: { id: before.id },
-      data: { qtyOnHand: qtyOnHandAfter, qtyAvailable: qtyAvailableAfter },
-    });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType: "PURCHASE_RECEIVE",
-      quantity: params.quantity,
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter: before.qtyReserved,
-      reference: params.reference ?? null,
-      referenceId: params.referenceId ?? null,
-      notes: params.notes ?? null,
-      createdById: params.createdById,
-    });
+  await tx.stockBalance.update({
+    where: { id: before.id },
+    data: { qtyOnHand: qtyOnHandAfter, qtyAvailable: qtyAvailableAfter },
   });
+
+  await createLedger(tx, {
+    productId: params.productId,
+    locationId: params.locationId,
+    companyId: params.companyId,
+    movementType: "PURCHASE_RECEIVE",
+    quantity: params.quantity,
+    qtyOnHandBefore: before.qtyOnHand,
+    qtyOnHandAfter,
+    qtyReservedBefore: before.qtyReserved,
+    qtyReservedAfter: before.qtyReserved,
+    reference: params.reference ?? null,
+    referenceId: params.referenceId ?? null,
+    notes: params.notes ?? null,
+    createdById: params.createdById,
+  });
+}
+
+export async function receiveStockForPurchase(
+  params: Parameters<typeof receiveStockForPurchaseTx>[1] & { locationId: string; productId: string; companyId: string },
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await receiveStockForPurchaseTx(tx, params);
+  });
+}
+
+export async function resolveLocationIdFromWarehouseId(
+  warehouseId: string,
+  companyId: string,
+): Promise<string | null> {
+  const warehouse = await prisma.warehouse.findUnique({
+    where: { id: warehouseId },
+    select: { code: true },
+  });
+  if (!warehouse) return null;
+
+  const location = await prisma.stockLocation.findFirst({
+    where: { companyId, code: warehouse.code },
+    select: { id: true },
+  });
+  return location?.id || null;
 }

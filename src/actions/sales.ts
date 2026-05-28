@@ -30,6 +30,7 @@ import {
   getProductStockAtWarehouse,
   resolveOperationalLocation,
 } from "@/lib/locations";
+import { consumeStockForSaleTx, receiveStockForPurchaseTx, resolveLocationIdFromWarehouseId } from "@/lib/inventory";
 
 type SaleLineInput = {
   productId: string;
@@ -555,6 +556,18 @@ export async function createSale(data: {
               createdById: userId,
             },
           });
+          const stockLocationId = await resolveLocationIdFromWarehouseId(location.warehouseId, companyId);
+          if (stockLocationId) {
+            await consumeStockForSaleTx(tx, {
+              locationId: stockLocationId,
+              productId: item.productId,
+              companyId,
+              quantity: item.quantity,
+              reference: invoiceNumber,
+              referenceId: sale.id,
+              createdById: userId,
+            });
+          }
         }
       }
     }
@@ -899,6 +912,19 @@ export async function updateSale(
               createdById: userId,
             },
           });
+          const restoreLocId = await resolveLocationIdFromWarehouseId(existing.warehouseId, companyId);
+          if (restoreLocId) {
+            await receiveStockForPurchaseTx(tx, {
+              locationId: restoreLocId,
+              productId: oldItem.productId,
+              companyId,
+              quantity: oldItem.quantity,
+              reference: invoiceNumber,
+              referenceId: existing.id,
+              notes: data.items ? "Invoice items edited - stock restored" : "Invoice converted to non-posting - stock restored",
+              createdById: userId,
+            });
+          }
         }
       }
     }
@@ -937,6 +963,18 @@ export async function updateSale(
             createdById: userId,
           },
         });
+        const issueLocId = await resolveLocationIdFromWarehouseId(existing.warehouseId, companyId);
+        if (issueLocId) {
+          await consumeStockForSaleTx(tx, {
+            locationId: issueLocId,
+            productId: item.productId,
+            companyId,
+            quantity: item.quantity,
+            reference: invoiceNumber,
+            referenceId: existing.id,
+            createdById: userId,
+          });
+        }
       }
     }
 
