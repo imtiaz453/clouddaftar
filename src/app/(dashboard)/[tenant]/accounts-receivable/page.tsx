@@ -15,7 +15,7 @@ export default async function TenantAccountsReceivablePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Accounts Receivable" description="Manage customer receivables, collections, and aging" />
+      
       {dashboardData && <ReceivableDashboardClient dashboardData={dashboardData} />}
       <ReceivableTableClient initialData={receivablesData} customers={customers} />
     </div>
