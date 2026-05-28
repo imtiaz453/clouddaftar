@@ -139,7 +139,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => removeToast(toast.id)}
-                  className="shrink-0 rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-muted-foreground group-hover:opacity-100"
+                  className="shrink-0 rounded p-0.5 text-muted-foreground/60 hover:text-muted-foreground"
                   aria-label="Close"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="size-4">
