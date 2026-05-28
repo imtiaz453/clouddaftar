@@ -11,6 +11,7 @@ import {
   postSupplierPaymentJournal,
 } from "@/lib/operational-journals";
 import { createAuditLog } from "@/lib/audit";
+import { sendPushNotification } from "@/lib/push";
 import { paymentCreateSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
@@ -274,6 +275,12 @@ export async function POST(req: NextRequest) {
       entity: "Payment",
       entityId: payment.id,
       metadata: { amount, customerId, supplierId, allocationsCount: allocations.length },
+    });
+
+    await sendPushNotification(companyId, userId, {
+      title: "Payment Received",
+      body: `Payment of ${amount} received`,
+      url: "/accounting/receivables",
     });
 
     return NextResponse.json({ success: true, data: payment }, { status: 201 });

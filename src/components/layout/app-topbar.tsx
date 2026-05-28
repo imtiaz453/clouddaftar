@@ -34,6 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EnableNotifications } from "@/components/shared/enable-notifications";
 import { useToast } from "@/providers/toast-provider";
 import {
   NAV_GROUPS,
@@ -488,15 +489,18 @@ export function AppTopbar({
                 <DropdownMenuContent className="w-80" align="end">
                   <DropdownMenuLabel className="flex items-center justify-between">
                     <span>Notifications</span>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={markAllRead}
-                        className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        <CheckCheck className="h-3 w-3" />
-                        Mark all read
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <EnableNotifications />
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllRead}
+                          className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          <CheckCheck className="h-3 w-3" />
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {notifLoading ? (

@@ -5,6 +5,7 @@ import { requireAdmin, logAdminAction } from "@/lib/admin-auth";
 import { getPendingPayments, getInvoicePayments } from "@/actions/admin";
 import { successResponse, errorResponse } from "@/lib/api";
 import { createCompanyNotification } from "@/lib/audit";
+import { sendPushNotificationToCompany } from "@/lib/push";
 
 export async function GET(req: NextRequest) {
   try {
@@ -86,6 +87,15 @@ export async function POST(req: Request) {
           : notes || `Payment for invoice ${invoice.invoiceNumber} was rejected. Please review and resubmit.`,
       type: action === "confirm" ? "SUCCESS" : "ERROR",
       link: "/billing",
+    });
+
+    await sendPushNotificationToCompany(invoice.companyId, {
+      title: action === "confirm" ? "Subscription payment approved" : "Subscription payment rejected",
+      body:
+        action === "confirm"
+          ? `${invoice.plan.name} plan is now active`
+          : `Payment for invoice ${invoice.invoiceNumber} was rejected`,
+      url: "/billing",
     });
 
     revalidatePath("/cloud-daftar-admin", "layout");

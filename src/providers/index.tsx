@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/providers/theme-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import { IdleLogoutProvider } from "@/providers/idle-logout-provider";
 import { ThemeApplier } from "@/components/shared/theme-applier";
+import { ServiceWorkerRegistration } from "@/components/shared/service-worker-registration";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -136,6 +137,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
+          <ServiceWorkerRegistration />
           <IdleLogoutProvider />
           <ThemeSettingsFetcher>{children}</ThemeSettingsFetcher>
         </ToastProvider>

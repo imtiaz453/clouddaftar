@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth } from "@/lib/auth-helper";
 import { createAuditLog, createNotification } from "@/lib/audit";
+import { sendPushNotification } from "@/lib/push";
 import {
   computePaymentStatus,
   createLedgerEntry,
@@ -838,6 +839,12 @@ export async function receivePayment(data: {
       saleCount: data.saleIds.length,
       paymentMethod: data.paymentMethod,
     },
+  });
+
+  await sendPushNotification(companyId, userId, {
+    title: "Payment Received",
+    body: `Payment of ${data.amount} received`,
+    url: "/accounting/receivables",
   });
 
   revalidatePath("/accounting/receivables");
@@ -2121,6 +2128,12 @@ export async function paySupplier(data: {
     },
   });
 
+  await sendPushNotification(companyId, userId, {
+    title: "Payment Sent",
+    body: `Payment of ${data.amount} sent to supplier`,
+    url: "/accounting/payables",
+  });
+
   revalidatePath("/accounting/payables");
   revalidatePath("/suppliers");
   return payment;
@@ -3157,6 +3170,11 @@ export async function checkOverduePayments() {
         type: "WARNING",
         link: `/accounts-receivable`,
       });
+      await sendPushNotification(companyId, userId, {
+        title: "Overdue Payment",
+        body: `${sale.invoiceNumber} from ${sale.customer?.name || "Unknown"} is ${daysOverdue}d overdue`,
+        url: "/accounts-receivable",
+      });
       created++;
     }
   }
@@ -3182,6 +3200,11 @@ export async function checkOverduePayments() {
         message: `${purchase.referenceNumber} to ${purchase.supplier?.name || "Unknown"} is ${daysOverdue}d overdue (Rs ${toNumber(purchase.due).toFixed(0)})`,
         type: "WARNING",
         link: `/accounts-payable`,
+      });
+      await sendPushNotification(companyId, userId, {
+        title: "Overdue Payable",
+        body: `${purchase.referenceNumber} to ${purchase.supplier?.name || "Unknown"} is ${daysOverdue}d overdue`,
+        url: "/accounts-payable",
       });
       created++;
     }

@@ -209,6 +209,7 @@ model User {
   createdInventoryLogs       InventoryLog[]          @relation("InventoryLogCreatedBy")
   employeeRecord             EmployeeRecord?
   assignedStores             Warehouse[]             @relation("WarehouseAssignedEmployee")
+  pushSubscriptions          PushSubscription[]
 
   @@index([email])
   @@map("users")
@@ -288,6 +289,7 @@ model Company {
   zatcaSetting            ZatcaSetting?
   zatcaInvoiceLogs        ZatcaInvoiceLog[]
   employeeRecords         EmployeeRecord[]
+  pushSubscriptions       PushSubscription[]
 
   @@index([slug])
   @@index([isActive])
@@ -1274,6 +1276,26 @@ model Notification {
   @@index([userId, isRead])
   @@index([companyId])
   @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([endpoint, companyId])
+  @@index([companyId])
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model AuditLog {

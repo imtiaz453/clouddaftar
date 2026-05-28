@@ -10,6 +10,7 @@ import {
   reserveNextDocumentNumber,
 } from "@/lib/document-numbers";
 import { createAuditLog, createNotification } from "@/lib/audit";
+import { sendPushNotification } from "@/lib/push";
 import {
   computePaymentStatus,
   createLedgerEntry,
@@ -272,6 +273,13 @@ async function generateTaxComplianceForPostedSale(params: {
         error: error instanceof Error ? error.message : "ZATCA processing failed",
       };
       taxComplianceStatus = "FAILED";
+      try {
+        await sendPushNotification(companyId, userId, {
+          title: "ZATCA Sync Failed",
+          body: `Invoice ${sale.invoiceNumber} - ${error instanceof Error ? error.message : "ZATCA processing failed"}`,
+          url: `/sales/${sale.id}`,
+        });
+      } catch {}
     }
 
     if (!zatcaQrPayload) {
@@ -315,6 +323,11 @@ async function generateTaxComplianceForPostedSale(params: {
     title: `${modeLabel} QR Generated`,
     message: `Invoice ${sale.invoiceNumber} - ${modeLabel} QR code generated`,
     type: "INFO",
+  });
+  await sendPushNotification(companyId, userId, {
+    title: `${modeLabel} QR Generated`,
+    body: `Invoice ${sale.invoiceNumber} - ${modeLabel} QR code generated`,
+    url: `/sales/${sale.id}`,
   });
 }
 
@@ -695,6 +708,11 @@ export async function createSale(data: {
           error: error instanceof Error ? error.message : "ZATCA processing failed",
         };
         taxComplianceStatus = "FAILED";
+        await sendPushNotification(companyId, userId, {
+          title: "ZATCA Sync Failed",
+          body: `Invoice ${invoiceNumber} - ${error instanceof Error ? error.message : "ZATCA processing failed"}`,
+          url: `/sales/${sale.id}`,
+        });
       }
 
       if (!zatcaQrPayload) {
@@ -739,6 +757,11 @@ export async function createSale(data: {
       message: `Invoice ${invoiceNumber} - ${modeLabel} QR code generated at ${now}`,
       type: "INFO",
     });
+    await sendPushNotification(companyId, userId, {
+      title: `${modeLabel} QR Generated`,
+      body: `Invoice ${invoiceNumber} - ${modeLabel} QR code generated`,
+      url: `/sales/${sale.id}`,
+    });
   }
 
   await createAuditLog({
@@ -764,6 +787,11 @@ export async function createSale(data: {
       title: "Pending Payment",
       message: `Invoice ${invoiceNumber} has pending payment of ${due}`,
       type: "WARNING",
+    });
+    await sendPushNotification(companyId, userId, {
+      title: "Pending Payment",
+      body: `Invoice ${invoiceNumber} has pending payment of ${due}`,
+      url: `/sales/${sale.id}`,
     });
   }
 
