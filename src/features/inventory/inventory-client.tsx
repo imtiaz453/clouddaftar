@@ -507,7 +507,7 @@ export function InventoryClient({
                           </div>
                           <ActionsMenu compact items={productActions(product)} />
                         </div>
-                        <div className="mt-2 flex items-center gap-3 text-sm">
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                           <span>
                             Stock:{" "}
                             <strong
@@ -517,11 +517,20 @@ export function InventoryClient({
                             </strong>
                           </span>
                           <span>Price: {formatCurrency(Number(product.sellingPrice))}</span>
-                          {product.expiryDate &&
-                            new Date(product.expiryDate) <
-                              new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
-                              <AlertTriangle className="h-4 w-4 text-amber-500" />
-                            )}
+                          {(product as any).mfgDate && (
+                            <span className="text-xs text-muted-foreground">
+                              MFG: {formatDate((product as any).mfgDate)}
+                            </span>
+                          )}
+                          {product.expiryDate && (
+                            <span className="text-xs text-muted-foreground">
+                              EXP: {formatDate(product.expiryDate)}
+                              {new Date(product.expiryDate) <
+                                new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
+                                <AlertTriangle className="ml-1 inline h-3 w-3 text-amber-500" />
+                              )}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -537,6 +546,7 @@ export function InventoryClient({
                         <TableHead>Stock</TableHead>
                         <TableHead>Price</TableHead>
                         <TableHead>Value</TableHead>
+                        <TableHead>MFG</TableHead>
                         <TableHead>Expiry</TableHead>
                         <TableHead className="w-[80px]">Actions</TableHead>
                       </TableRow>
@@ -602,6 +612,15 @@ export function InventoryClient({
                             <TableCell>{formatCurrency(Number(product.sellingPrice))}</TableCell>
                             <TableCell className="text-muted-foreground">
                               {formatCurrency(stockValue)}
+                            </TableCell>
+                            <TableCell>
+                              {(product as any).mfgDate ? (
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate((product as any).mfgDate)}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
                             </TableCell>
                             <TableCell>
                               {product.expiryDate ? (

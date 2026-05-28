@@ -388,6 +388,7 @@ export async function createProduct(data: {
       categoryId: data.categoryId || null,
       isService: data.isService ?? false,
       trackingMode: data.trackingMode || "NONE",
+      mfgDate: data.mfgDate ? new Date(data.mfgDate) : null,
       expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
       image: data.image,
       companyId,
@@ -436,6 +437,7 @@ export async function updateProduct(id: string, data: Record<string, unknown>) {
     data: {
       ...data,
       image: data.image ? String(data.image) : null,
+      mfgDate: data.mfgDate ? new Date(data.mfgDate as string) : undefined,
       expiryDate: data.expiryDate ? new Date(data.expiryDate as string) : undefined,
     },
   });
@@ -817,7 +819,7 @@ export async function createProductLot(data: {
     });
 
     const nextTrackingMode = isSerial ? "SERIAL" : "LOT";
-    if (product.trackingMode === "NONE" || product.trackingMode !== nextTrackingMode) {
+    if (product.trackingMode === "NONE" || (product.trackingMode !== nextTrackingMode && product.trackingMode !== "BATCH")) {
       await tx.product.update({
         where: { id: product.id },
         data: { trackingMode: nextTrackingMode },
