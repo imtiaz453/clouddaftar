@@ -1,14 +1,24 @@
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
 
-const vapidKeys = {
-  subject: process.env.VAPID_SUBJECT || "mailto:admin@clouddaftar.com",
-  publicKey: process.env.VAPID_PUBLIC_KEY || "",
-  privateKey: process.env.VAPID_PRIVATE_KEY || "",
-};
+function getVapidSubject(): string {
+  const subject = process.env.VAPID_SUBJECT || "mailto:admin@clouddaftar.com";
+  if (subject.startsWith("mailto:") || subject.startsWith("http://") || subject.startsWith("https://")) {
+    return subject;
+  }
+  return `mailto:${subject}`;
+}
 
-if (vapidKeys.publicKey && vapidKeys.privateKey) {
-  webpush.setVapidDetails(vapidKeys.subject, vapidKeys.publicKey, vapidKeys.privateKey);
+function ensureVapidSetup(): boolean {
+  const publicKey = process.env.VAPID_PUBLIC_KEY || "";
+  const privateKey = process.env.VAPID_PRIVATE_KEY || "";
+  if (!publicKey || !privateKey) return false;
+  try {
+    webpush.setVapidDetails(getVapidSubject(), publicKey, privateKey);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 interface PushPayload {
@@ -25,7 +35,7 @@ export async function sendPushNotification(
   userId: string,
   payload: PushPayload,
 ): Promise<void> {
-  if (!vapidKeys.publicKey || !vapidKeys.privateKey) return;
+  if (!ensureVapidSetup()) return;
 
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { companyId, userId },
@@ -68,7 +78,7 @@ export async function sendPushNotificationToCompany(
   payload: PushPayload,
   excludeUserId?: string,
 ): Promise<void> {
-  if (!vapidKeys.publicKey || !vapidKeys.privateKey) return;
+  if (!ensureVapidSetup()) return;
 
   const subscriptions = await prisma.pushSubscription.findMany({
     where: {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Bell, BellOff } from "lucide-react";
+import { useToast } from "@/providers/toast-provider";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -13,6 +14,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function EnableNotifications() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [loading, setLoading] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -54,7 +56,7 @@ export function EnableNotifications() {
       const subJSON = sub.toJSON();
       if (!subJSON.endpoint || !subJSON.keys) return;
 
-      await fetch("/api/push/subscribe", {
+      const res = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -64,8 +66,12 @@ export function EnableNotifications() {
           userAgent: navigator.userAgent,
         }),
       });
-    } catch {
-      // silently fail
+      if (res.ok) {
+        addToast({ title: "Notifications enabled", variant: "success" });
+      }
+    } catch (err) {
+      console.error("Push subscription failed:", err);
+      addToast({ title: "Failed to enable notifications", description: String(err), variant: "error" });
     } finally {
       setLoading(false);
     }
