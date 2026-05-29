@@ -476,7 +476,7 @@ export async function getReceivableDashboard() {
   const agingBuckets = { ...EMPTY_AGING_BUCKETS };
   for (const r of agingRecords) {
     const amt = toNumber(r.due);
-    const bucket = agingBucketFromDueDate(r.dueDate, amt, now);
+    const bucket = agingBucketFromDate(r.dueDate, amt, now);
     agingBuckets[bucket] += amt;
   }
 
@@ -1149,7 +1149,7 @@ export async function getCustomerAging(params?: {
     for (const s of customerSales) {
       const amt = toNumber(s.due);
       buckets.totalDue += amt;
-      const bucket = agingBucketFromDueDate(s.dueDate, amt, now);
+      const bucket = agingBucketFromDate(s.dueDate, amt, now);
       buckets[bucket] += amt;
     }
     return { customer, ...buckets };
