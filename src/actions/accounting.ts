@@ -22,13 +22,14 @@ function toNumber(val: any): number {
   return Number(val) || 0;
 }
 
+type AgingBucket = keyof typeof EMPTY_AGING_BUCKETS;
+
 function agingBucketFromDate(
   agingDate: Date | null | undefined,
   amount: number,
   now: Date,
-): keyof typeof EMPTY_AGING_BUCKETS {
+): AgingBucket {
   if (amount <= 0) return "current";
-
   if (!agingDate) return "current";
 
   const baseDay = new Date(
@@ -38,7 +39,6 @@ function agingBucketFromDate(
   );
 
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
   const daysOld = Math.floor((today.getTime() - baseDay.getTime()) / 86400000);
 
   if (daysOld <= 0) return "current";
@@ -446,6 +446,7 @@ export async function getReceivableDashboard() {
       },
       select: {
         dueDate: true,
+        createdAt: true,
         due: true,
         customerId: true,
         customer: { select: { id: true, name: true } },
@@ -476,7 +477,7 @@ export async function getReceivableDashboard() {
   const agingBuckets = { ...EMPTY_AGING_BUCKETS };
   for (const r of agingRecords) {
     const amt = toNumber(r.due);
-    const bucket = agingBucketFromDate(r.dueDate, amt, now);
+    const bucket = agingBucketFromDate(r.createdAt, amt, now);
     agingBuckets[bucket] += amt;
   }
 
@@ -1110,15 +1111,23 @@ export async function getCustomerAging(params?: {
 }) {
   const user = await requireCompanyAuth();
   const { companyId } = user;
+
   const now = new Date();
   const page = params?.page || 1;
   const pageSize = params?.pageSize || 20;
 
-  const where: Record<string, unknown> = { companyId, isActive: true, deletedAt: null };
+  const where: Record<string, unknown> = {
+    companyId,
+    isActive: true,
+    deletedAt: null,
+  };
+
   if (params?.search) {
     where.OR = [
       { name: { contains: params.search, mode: "insensitive" } },
       { phone: { contains: params.search, mode: "insensitive" } },
+      { email: { contains: params.search, mode: "insensitive" } },
+      { companyName: { contains: params.search, mode: "insensitive" } },
     ];
   }
 
@@ -1128,31 +1137,78 @@ export async function getCustomerAging(params?: {
       orderBy: { name: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        companyName: true,
+      },
     }),
     prisma.customer.count({ where: where as any }),
   ]);
 
-  const sales = await prisma.sale.findMany({
-    where: {
-      companyId,
-      deletedAt: null,
-      status: { in: POSTED_RECEIVABLE_STATUSES } as any,
-      paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
-      customerId: { in: customers.map((c) => c.id) },
-    },
-    select: { customerId: true, dueDate: true, due: true },
-  });
+  const customerIds = customers.map((customer) => customer.id);
+
+  const sales =
+    customerIds.length > 0
+      ? await prisma.sale.findMany({
+          where: {
+            companyId,
+            deletedAt: null,
+            status: { in: POSTED_RECEIVABLE_STATUSES } as any,
+            paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
+            customerId: { in: customerIds },
+            due: { gt: 0 },
+          },
+          select: {
+            customerId: true,
+            createdAt: true,
+            dueDate: true,
+            due: true,
+          },
+        })
+      : [];
+
+  const salesByCustomer = new Map<string, typeof sales>();
+
+  for (const sale of sales) {
+    if (!sale.customerId) continue;
+
+    const existing = salesByCustomer.get(sale.customerId) || [];
+    existing.push(sale);
+    salesByCustomer.set(sale.customerId, existing);
+  }
 
   const agingData = customers.map((customer) => {
-    const customerSales = sales.filter((s) => s.customerId === customer.id);
-    const buckets = { ...EMPTY_AGING_BUCKETS, totalDue: 0 };
-    for (const s of customerSales) {
-      const amt = toNumber(s.due);
-      buckets.totalDue += amt;
-      const bucket = agingBucketFromDate(s.dueDate, amt, now);
-      buckets[bucket] += amt;
+    const customerSales = salesByCustomer.get(customer.id) || [];
+
+    const buckets = {
+      current: 0,
+      days1to30: 0,
+      days31to60: 0,
+      days61to90: 0,
+      days90plus: 0,
+      totalDue: 0,
+    };
+
+    for (const sale of customerSales) {
+      const amount = toNumber(sale.due);
+      if (amount <= 0) continue;
+
+      buckets.totalDue += amount;
+
+      // Aging by invoice date, not due date.
+      // This prevents old unpaid invoices from staying in Current.
+      const bucket = agingBucketFromDate(sale.createdAt, amount, now);
+
+      buckets[bucket] += amount;
     }
-    return { customer, ...buckets };
+
+    return {
+      customer,
+      ...buckets,
+    };
   });
 
   const summary = agingData.reduce(
@@ -1162,7 +1218,12 @@ export async function getCustomerAging(params?: {
       total31to60: acc.total31to60 + curr.days31to60,
       total61to90: acc.total61to90 + curr.days61to90,
       total90plus: acc.total90plus + curr.days90plus,
-      totalOverdue: acc.totalOverdue + curr.totalDue - curr.current,
+      totalOverdue:
+        acc.totalOverdue +
+        curr.days1to30 +
+        curr.days31to60 +
+        curr.days61to90 +
+        curr.days90plus,
     }),
     {
       totalCurrent: 0,
@@ -1174,7 +1235,14 @@ export async function getCustomerAging(params?: {
     },
   );
 
-  return { agingData, summary, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  return {
+    agingData,
+    summary,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  };
 }
 
 export async function getCustomerLedger(
@@ -1774,6 +1842,7 @@ export async function getPayableDashboard() {
       },
       select: {
         dueDate: true,
+        createdAt: true,
         due: true,
         supplierId: true,
         supplier: { select: { id: true, name: true } },
@@ -1804,7 +1873,7 @@ export async function getPayableDashboard() {
   const agingBuckets = { ...EMPTY_AGING_BUCKETS };
   for (const r of agingRecords) {
     const amt = toNumber(r.due);
-    const bucket = agingBucketFromDate(r.dueDate, amt, now);
+    const bucket = agingBucketFromDate(r.createdAt, amt, now);
     agingBuckets[bucket] += amt;
   }
 
@@ -2235,7 +2304,7 @@ export async function getSupplierAging(params?: {
       paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
       supplierId: { in: suppliers.map((s) => s.id) },
     },
-    select: { supplierId: true, dueDate: true, due: true },
+    select: { supplierId: true, dueDate: true, createdAt: true, due: true },
   });
 
   const agingData = suppliers.map((supplier) => {
@@ -2244,7 +2313,7 @@ export async function getSupplierAging(params?: {
     for (const p of supplierPurchases) {
       const amt = toNumber(p.due);
       buckets.totalDue += amt;
-      const bucket = agingBucketFromDate(p.dueDate, amt, now);
+      const bucket = agingBucketFromDate(p.createdAt, amt, now);
       buckets[bucket] += amt;
     }
     return { supplierId: supplier.id, supplierName: supplier.name, ...buckets };
