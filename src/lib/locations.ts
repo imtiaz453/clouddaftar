@@ -173,6 +173,43 @@ export async function resolveOperationalLocation(
   return { branchId, warehouseId };
 }
 
+export async function getUserAccessibleLocationIds(
+  prismaClient: typeof prisma,
+  companyId: string,
+  userId: string,
+  role: string,
+): Promise<string[]> {
+  if (role === "OWNER" || role === "ADMIN") {
+    const locations = await prismaClient.stockLocation.findMany({
+      where: { companyId, deletedAt: null },
+      select: { id: true },
+    });
+    return locations.map((l) => l.id);
+  }
+
+  const ids = new Set<string>();
+  const membership = await prismaClient.companyMembership.findFirst({
+    where: { companyId, userId, isActive: true },
+    select: { branchId: true },
+  });
+
+  if (membership?.branchId) {
+    const branchLocations = await prismaClient.stockLocation.findMany({
+      where: { companyId, branchId: membership.branchId, deletedAt: null },
+      select: { id: true },
+    });
+    branchLocations.forEach((l) => ids.add(l.id));
+  }
+
+  const assigned = await prismaClient.stockLocation.findMany({
+    where: { companyId, assignedEmployeeId: userId, deletedAt: null },
+    select: { id: true },
+  });
+  assigned.forEach((l) => ids.add(l.id));
+
+  return Array.from(ids);
+}
+
 export async function getProductStockAtWarehouse(
   tx: Tx,
   product: { id: string; stock: number | null },

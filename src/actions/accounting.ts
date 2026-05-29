@@ -22,6 +22,20 @@ function toNumber(val: any): number {
   return Number(val) || 0;
 }
 
+function agingBucketFromDueDate(dueDate: Date | null, amount: number, now: Date): keyof typeof EMPTY_AGING_BUCKETS {
+  if (!dueDate) return "current";
+  const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysOverdue = Math.floor((today.getTime() - dueDay.getTime()) / 86400000);
+  if (daysOverdue <= 0) return "current";
+  if (daysOverdue <= 30) return "days1to30";
+  if (daysOverdue <= 60) return "days31to60";
+  if (daysOverdue <= 90) return "days61to90";
+  return "days90plus";
+}
+
+const EMPTY_AGING_BUCKETS = { current: 0, days1to30: 0, days31to60: 0, days61to90: 0, days90plus: 0 };
+
 const POSTED_RECEIVABLE_STATUSES = ["COMPLETED", "PARTIALLY_REFUNDED"];
 
 function parseLocalDay(value: string, boundary: "start" | "end") {
@@ -96,6 +110,7 @@ export async function getAccountingDashboard() {
   const user = await requireCompanyAuth();
   const { companyId } = user;
   const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   await seedDefaultAccounts(companyId);
@@ -146,7 +161,7 @@ export async function getAccountingDashboard() {
         companyId,
         deletedAt: null,
         status: { in: POSTED_RECEIVABLE_STATUSES } as any,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
       },
       _sum: { due: true },
@@ -156,7 +171,7 @@ export async function getAccountingDashboard() {
         companyId,
         deletedAt: null,
         status: { in: POSTED_RECEIVABLE_STATUSES } as any,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
       },
     }),
@@ -182,7 +197,7 @@ export async function getAccountingDashboard() {
       where: {
         companyId,
         deletedAt: null,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
       },
       _sum: { due: true },
@@ -191,7 +206,7 @@ export async function getAccountingDashboard() {
       where: {
         companyId,
         deletedAt: null,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
       },
     }),
@@ -371,7 +386,7 @@ export async function getReceivableDashboard() {
       where: {
         companyId,
         deletedAt: null,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
       },
       _sum: { due: true },
@@ -400,7 +415,7 @@ export async function getReceivableDashboard() {
         companyId,
         deletedAt: null,
         status: { in: POSTED_RECEIVABLE_STATUSES } as any,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
         customerId: { not: null },
       },
@@ -443,18 +458,11 @@ export async function getReceivableDashboard() {
   const totalReceivables = toNumber(totalAgg._sum.due);
   const overdueReceivables = toNumber(overdueAgg._sum.due);
 
-  const agingBuckets = { current: 0, days1to30: 0, days31to60: 0, days61to90: 0, days90plus: 0 };
+  const agingBuckets = { ...EMPTY_AGING_BUCKETS };
   for (const r of agingRecords) {
     const amt = toNumber(r.due);
-    if (!r.dueDate || r.dueDate >= now) {
-      agingBuckets.current += amt;
-    } else {
-      const days = Math.floor((now.getTime() - r.dueDate.getTime()) / 86400000);
-      if (days <= 30) agingBuckets.days1to30 += amt;
-      else if (days <= 60) agingBuckets.days31to60 += amt;
-      else if (days <= 90) agingBuckets.days61to90 += amt;
-      else agingBuckets.days90plus += amt;
-    }
+    const bucket = agingBucketFromDueDate(r.dueDate, amt, now);
+    agingBuckets[bucket] += amt;
   }
 
   const monthlyMap = new Map<string, number>();
@@ -1109,26 +1117,12 @@ export async function getCustomerAging(params?: {
 
   const agingData = customers.map((customer) => {
     const customerSales = sales.filter((s) => s.customerId === customer.id);
-    const buckets = {
-      current: 0,
-      days1to30: 0,
-      days31to60: 0,
-      days61to90: 0,
-      days90plus: 0,
-      totalDue: 0,
-    };
+    const buckets = { ...EMPTY_AGING_BUCKETS, totalDue: 0 };
     for (const s of customerSales) {
       const amt = toNumber(s.due);
       buckets.totalDue += amt;
-      if (!s.dueDate || s.dueDate >= now) {
-        buckets.current += amt;
-      } else {
-        const days = Math.floor((now.getTime() - s.dueDate.getTime()) / 86400000);
-        if (days <= 30) buckets.days1to30 += amt;
-        else if (days <= 60) buckets.days31to60 += amt;
-        else if (days <= 90) buckets.days61to90 += amt;
-        else buckets.days90plus += amt;
-      }
+      const bucket = agingBucketFromDueDate(s.dueDate, amt, now);
+      buckets[bucket] += amt;
     }
     return { customer, ...buckets };
   });
@@ -1670,7 +1664,7 @@ export async function getPayableDashboard() {
       where: {
         companyId,
         deletedAt: null,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
       },
       _sum: { due: true },
@@ -1698,7 +1692,7 @@ export async function getPayableDashboard() {
       where: {
         companyId,
         deletedAt: null,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] } as any,
         supplierId: { not: null },
       },
@@ -1740,18 +1734,11 @@ export async function getPayableDashboard() {
   const totalPayables = toNumber(totalAgg._sum.due);
   const overduePayables = toNumber(overdueAgg._sum.due);
 
-  const agingBuckets = { current: 0, days1to30: 0, days31to60: 0, days61to90: 0, days90plus: 0 };
+  const agingBuckets = { ...EMPTY_AGING_BUCKETS };
   for (const r of agingRecords) {
     const amt = toNumber(r.due);
-    if (!r.dueDate || r.dueDate >= now) {
-      agingBuckets.current += amt;
-    } else {
-      const days = Math.floor((now.getTime() - r.dueDate.getTime()) / 86400000);
-      if (days <= 30) agingBuckets.days1to30 += amt;
-      else if (days <= 60) agingBuckets.days31to60 += amt;
-      else if (days <= 90) agingBuckets.days61to90 += amt;
-      else agingBuckets.days90plus += amt;
-    }
+    const bucket = agingBucketFromDueDate(r.dueDate, amt, now);
+    agingBuckets[bucket] += amt;
   }
 
   const monthlyMap = new Map<string, number>();
@@ -2186,26 +2173,12 @@ export async function getSupplierAging(params?: {
 
   const agingData = suppliers.map((supplier) => {
     const supplierPurchases = purchases.filter((p) => p.supplierId === supplier.id);
-    const buckets = {
-      current: 0,
-      days1to30: 0,
-      days31to60: 0,
-      days61to90: 0,
-      days90plus: 0,
-      totalDue: 0,
-    };
+    const buckets = { ...EMPTY_AGING_BUCKETS, totalDue: 0 };
     for (const p of supplierPurchases) {
       const amt = toNumber(p.due);
       buckets.totalDue += amt;
-      if (!p.dueDate || p.dueDate >= now) {
-        buckets.current += amt;
-      } else {
-        const days = Math.floor((now.getTime() - p.dueDate.getTime()) / 86400000);
-        if (days <= 30) buckets.days1to30 += amt;
-        else if (days <= 60) buckets.days31to60 += amt;
-        else if (days <= 90) buckets.days61to90 += amt;
-        else buckets.days90plus += amt;
-      }
+      const bucket = agingBucketFromDueDate(p.dueDate, amt, now);
+      buckets[bucket] += amt;
     }
     return { supplierId: supplier.id, supplierName: supplier.name, ...buckets };
   });
@@ -3128,13 +3101,14 @@ export async function checkOverduePayments() {
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const [overdueSales, overduePurchases] = await Promise.all([
     prisma.sale.findMany({
       where: {
         companyId,
         deletedAt: null,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] },
         status: { notIn: ["DRAFT", "CANCELLED", "REFUNDED"] },
       },
@@ -3144,7 +3118,7 @@ export async function checkOverduePayments() {
       where: {
         companyId,
         deletedAt: null,
-        dueDate: { lt: now },
+        dueDate: { lt: todayStart },
         paymentStatus: { notIn: ["PAID", "CANCELLED", "RETURNED"] },
         status: { notIn: ["DRAFT", "CANCELLED"] },
       },

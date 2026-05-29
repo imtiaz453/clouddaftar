@@ -28,6 +28,7 @@ import {
   Printer,
   X,
   Minus,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,8 +40,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, taxLabel } from "@/lib/utils";
 import { dashboardHref } from "@/lib/dashboard-href";
-import { getStockLocations } from "@/actions/inventory";
-import { useState } from "react";
+import { getStockLocations, getProducts } from "@/actions/inventory";
 import {
   type LineItem,
   type ProductOption,
@@ -151,73 +151,71 @@ export function NewSaleClient({
   const [keypadBuffer, setKeypadBuffer] = useState("1");
   const [refundMode, setRefundMode] = useState(false);
 
-   const [mobileTab, setMobileTab] = useState<"cart" | "products">("cart");
-   const [isFullscreen, setIsFullscreen] = useState(false);
-   const [fullscreenPrintSaleId, setFullscreenPrintSaleId] = useState<string | null>(null);
-   const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null);
-   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
-   const [locations, setLocations] = useState<Array<{id: string; name: string; code: string; type: string}>>([]);
-   const [productsWithLocation, setProductsWithLocation] = useState<ProductOption[]>([]);
-   const [productsLoading, setProductsLoading] = useState<boolean>(true);
-   const posShellRef = useRef<HTMLDivElement>(null);
-   const barcodeRef = useRef<HTMLInputElement>(null);
-   const receiptFrameRef = useRef<HTMLIFrameElement>(null);
-   const autoPaid = useRef(true);
-   const keypadModeRef = useRef(keypadMode);
-   keypadModeRef.current = keypadMode;
-   const activeLineIdRef = useRef(activeLineId);
-   activeLineIdRef.current = activeLineId;
+	const [mobileTab, setMobileTab] = useState<"cart" | "products">("cart");
+	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [fullscreenPrintSaleId, setFullscreenPrintSaleId] = useState<string | null>(null);
+	const [fullscreenNotice, setFullscreenNotice] = useState<string | null>(null);
+	const [selectedLocationId, setSelectedLocationId] = useState<string>("");
+	const [locations, setLocations] = useState<Array<{ id: string; name: string; code: string; type: string }>>([]);
+	const [productsWithLocation, setProductsWithLocation] = useState<ProductOption[]>([]);
+	const [productsLoading, setProductsLoading] = useState<boolean>(true);
+	const posShellRef = useRef<HTMLDivElement>(null);
+	const barcodeRef = useRef<HTMLInputElement>(null);
+	const receiptFrameRef = useRef<HTMLIFrameElement>(null);
+	const autoPaid = useRef(true);
+	const keypadModeRef = useRef(keypadMode);
+	keypadModeRef.current = keypadMode;
+	const activeLineIdRef = useRef(activeLineId);
+	activeLineIdRef.current = activeLineId;
 
    useEffect(() => {
      barcodeRef.current?.focus();
    }, []);
 
-   // Fetch stock locations for the location selector
-   useEffect(() => {
-     async function fetchLocations() {
-       try {
-         const data = await getStockLocations();
-         setLocations(data.data || []);
-         // Set default selected location to the first one if none is selected
-         if (data.data && data.data.length > 0 && !selectedLocationId) {
-           setSelectedLocationId(data.data[0].id);
-         }
-       } catch (error) {
-         console.error("Failed to fetch stock locations:", error);
-       }
-     }
-     fetchLocations();
-   }, []);
+	// Fetch stock locations for the location selector
+	useEffect(() => {
+		async function fetchLocations() {
+			try {
+				const data = await getStockLocations();
+				setLocations(data || []);
+				if (data && data.length > 0 && !selectedLocationId) {
+					setSelectedLocationId(data[0].id);
+				}
+			} catch (error) {
+				console.error("Failed to fetch stock locations:", error);
+			}
+		}
+		fetchLocations();
+	}, []);
 
-   // Fetch products with stock information for the selected location
-   useEffect(() => {
-     async function fetchProducts() {
-       if (!selectedLocationId) return;
-       
-       setProductsLoading(true);
-       try {
-         const data = await getProducts({ 
-           pageSize: 9999,
-           locationId: selectedLocationId
-         });
-         setProductsWithLocation(data.data || []);
-       } catch (error) {
-         console.error("Failed to fetch products:", error);
-         // Fallback to all products if location-specific fetch fails
-         try {
-           const allData = await getProducts({ pageSize: 9999 });
-           setProductsWithLocation(allData.data || []);
-         } catch (fallbackError) {
-           console.error("Failed to fetch all products:", fallbackError);
-           setProductsWithLocation([]);
-         }
-       } finally {
-         setProductsLoading(false);
-       }
-     }
-     
-     fetchProducts();
-   }, [selectedLocationId]);
+	// Fetch products with stock information for the selected location
+	useEffect(() => {
+		async function fetchProducts() {
+			if (!selectedLocationId) return;
+
+			setProductsLoading(true);
+			try {
+				const data = await getProducts({
+					pageSize: 9999,
+					locationId: selectedLocationId,
+				});
+				setProductsWithLocation(data.data as unknown as ProductOption[]);
+			} catch (error) {
+				console.error("Failed to fetch products:", error);
+				try {
+					const allData = await getProducts({ pageSize: 9999 });
+					setProductsWithLocation(allData.data as unknown as ProductOption[]);
+				} catch (fallbackError) {
+					console.error("Failed to fetch all products:", fallbackError);
+					setProductsWithLocation([]);
+				}
+			} finally {
+				setProductsLoading(false);
+			}
+		}
+
+		fetchProducts();
+	}, [selectedLocationId]);
 
    useEffect(() => {
      function handleFullscreenChange() {
@@ -250,25 +248,29 @@ export function NewSaleClient({
   const validItems = items.filter((i) => i.productId && i.quantity > 0);
 
   useEffect(() => {
-    if (invoiceFullyPaid && dueDate) setDueDate("");
+    if (invoiceFullyPaid) {
+      if (dueDate) setDueDate("");
+    } else if (!dueDate) {
+      setDueDate(new Date().toISOString().slice(0, 10));
+    }
   }, [invoiceFullyPaid, dueDate]);
 
-   const filteredProducts = useMemo(() => {
-     let filtered = productsWithLocation.length > 0 ? productsWithLocation : products;
-     if (activeCategory) {
-       filtered = filtered.filter((p) => p.categoryId === activeCategory);
-     }
-     if (searchQuery.trim()) {
-       const q = searchQuery.toLowerCase();
-       filtered = filtered.filter(
-         (p) =>
-           p.name.toLowerCase().includes(q) ||
-           (p.sku && p.sku.toLowerCase().includes(q)) ||
-           (p.barcode && p.barcode.toLowerCase().includes(q)),
-       );
-     }
-     return filtered;
-   }, [products, productsWithLocation, activeCategory, searchQuery]);
+	const filteredProducts = useMemo(() => {
+		let filtered = productsWithLocation.length > 0 ? productsWithLocation : products;
+		if (activeCategory) {
+			filtered = filtered.filter((p) => p.categoryId === activeCategory);
+		}
+		if (searchQuery.trim()) {
+			const q = searchQuery.toLowerCase();
+			filtered = filtered.filter(
+				(p) =>
+					p.name.toLowerCase().includes(q) ||
+					(p.sku && p.sku.toLowerCase().includes(q)) ||
+					(p.barcode && p.barcode.toLowerCase().includes(q)),
+			);
+		}
+		return filtered;
+	}, [products, productsWithLocation, activeCategory, searchQuery]);
 
   const uniqueCategories = useMemo(() => {
     const catMap = new Map<string, { id: string; name: string; color?: string | null }>();
@@ -448,22 +450,22 @@ export function NewSaleClient({
     }
   }, [activeLineId, keypadMode, items, preloadBuffer]);
 
-  useEffect(() => {
-    const barcode = barcodeInput.trim();
-    if (barcode.length > 0) {
-      const product = products.find(
-        (p) =>
-          p.barcode?.trim().toLowerCase() === barcode.toLowerCase() &&
-          p.isActive !== false &&
-          p.isService !== true,
-      );
-      if (product) {
-        addProductToCart(product);
-        setBarcodeInput("");
-        requestAnimationFrame(() => barcodeRef.current?.focus());
-      }
-    }
-  }, [barcodeInput, products]);
+	useEffect(() => {
+		const barcode = barcodeInput.trim();
+		if (barcode.length > 0) {
+			const productSearchSource = productsWithLocation.length > 0 ? productsWithLocation : products;
+			const product = productSearchSource.find(
+				(p) =>
+					p.barcode?.trim().toLowerCase() === barcode.toLowerCase() &&
+					p.isActive !== false,
+			);
+			if (product) {
+				addProductToCart(product);
+				setBarcodeInput("");
+				requestAnimationFrame(() => barcodeRef.current?.focus());
+			}
+		}
+	}, [barcodeInput, products, productsWithLocation]);
 
   function removeCartItem(id: string) {
     setItems((prev) => prev.filter((item) => item.id !== id));
@@ -566,6 +568,7 @@ export function NewSaleClient({
           status,
           taxComplianceMode,
           buyerTaxNumber: buyerTaxNumber || undefined,
+          stockLocationId: selectedLocationId || undefined,
         }),
       });
 
@@ -700,16 +703,10 @@ export function NewSaleClient({
            </span>
          </div>
          <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
-           <div className="relative">
-             <div className="pointer-events-none absolute inset-y-0 left-3 flex h-4 w-4 items-center -translate-y-1/2">
-               <MapPin className="h-4 w-4 text-muted-foreground" />
-             </div>
-             <Select
-               value={selectedLocationId}
-               onValueChange={setSelectedLocationId}
-               className="w-48"
-             >
-               <SelectTrigger className="h-9 rounded border border-input bg-background px-3 text-sm">
+           <div className="hidden md:flex items-center gap-1.5">
+             <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+             <Select value={selectedLocationId} onValueChange={setSelectedLocationId}>
+               <SelectTrigger className="h-8 w-48 border border-input bg-background px-2 text-xs">
                  <SelectValue placeholder="Select location" />
                </SelectTrigger>
                <SelectContent>
@@ -1202,12 +1199,8 @@ export function NewSaleClient({
                     key={product.id}
                     type="button"
                     onClick={() => addProductToCart(product)}
-                    disabled={product.isService === true}
-                    className="group relative overflow-hidden rounded-md border bg-white text-left shadow-sm transition hover:border-[#714b67] hover:shadow-md active:scale-[0.98] disabled:opacity-40"
+                    className="group relative overflow-hidden rounded-md border bg-white text-left shadow-sm transition hover:border-[#714b67] hover:shadow-md active:scale-[0.98]"
                   >
-                    <span className="absolute right-0 top-0 z-10 flex h-5 w-5 items-center justify-center bg-slate-300 text-[10px] font-bold text-white">
-                      i
-                    </span>
                     <div className="aspect-[4/3] bg-muted">
                       {product.image ? (
                         <img
@@ -1228,9 +1221,13 @@ export function NewSaleClient({
                       <p className="text-sm font-bold text-[#714b67]">
                         {formatCurrency(Number(product.sellingPrice) || 0)}
                       </p>
-                      {Number(product.stock) <= 0 && (
+                      {selectedLocationId ? (
+                        <p className={`text-xs ${Number(product.stock) <= 0 ? 'text-red-600' : Number(product.stock) <= 5 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                          Stock: {Math.max(0, Number(product.stock))}
+                        </p>
+                      ) : Number(product.stock) <= 0 ? (
                         <p className="text-xs text-red-600">Out of stock</p>
-                      )}
+                      ) : null}
                     </div>
                   </button>
                 ))}

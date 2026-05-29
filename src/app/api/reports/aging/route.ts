@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
     const { companyId } = user;
 
     const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const [unpaidSales, unpaidPurchases] = await Promise.all([
       prisma.sale.findMany({
@@ -33,7 +34,8 @@ export async function GET(req: NextRequest) {
     ]);
 
     function daysOverdue(date: Date): number {
-      return Math.floor((now.getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
+      const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      return Math.floor((todayStart.getTime() - day.getTime()) / 86400000);
     }
 
     function getBucket(days: number): string {
@@ -54,7 +56,8 @@ export async function GET(req: NextRequest) {
     }
 
     for (const sale of unpaidSales) {
-      const days = daysOverdue(sale.createdAt);
+      const refDate = sale.dueDate ?? sale.createdAt;
+      const days = daysOverdue(refDate);
       const bucket = getBucket(days);
       receivableBuckets[bucket].total += Number(sale.due);
       receivableBuckets[bucket].count += 1;
@@ -70,7 +73,8 @@ export async function GET(req: NextRequest) {
     }
 
     for (const purchase of unpaidPurchases) {
-      const days = daysOverdue(purchase.createdAt);
+      const refDate = purchase.dueDate ?? purchase.createdAt;
+      const days = daysOverdue(refDate);
       const bucket = getBucket(days);
       payableBuckets[bucket].total += Number(purchase.due);
       payableBuckets[bucket].count += 1;

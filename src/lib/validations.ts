@@ -273,6 +273,7 @@ export const saleCreateSchema = saleSchema.extend({
     .optional(),
   taxComplianceMode: z.enum(["NONE", "FBR", "ZATCA"]).optional(),
   buyerTaxNumber: z.string().optional(),
+  stockLocationId: z.string().optional(),
 });
 
 export const saleUpdateSchema = saleCreateSchema.partial();

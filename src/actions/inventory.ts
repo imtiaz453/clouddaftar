@@ -11,6 +11,7 @@ import {
   adjustWarehouseStock,
   getProductStockAtWarehouse,
   resolveOperationalLocation,
+  getUserAccessibleLocationIds,
 } from "@/lib/locations";
 
 function toNumber(value: unknown) {
@@ -69,6 +70,14 @@ export async function getProducts(params?: {
 }) {
   const user = await requireCompanyAuth();
   const { companyId } = user;
+
+  if (params?.locationId) {
+    const accessibleIds = await getUserAccessibleLocationIds(prisma, companyId, user.id, user.role);
+    if (!accessibleIds.includes(params.locationId)) {
+      throw new Error("Access denied: you do not have access to this stock location");
+    }
+  }
+
   const page = params?.page || 1;
   const pageSize = params?.pageSize || 20;
 
@@ -100,18 +109,14 @@ export async function getProducts(params?: {
     where.stock = 0;
   }
 
+  if (params?.locationId) {
+    where.stockBalances = { some: { locationId: params.locationId } };
+  }
+
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where: where as any,
-      include: { 
-        category: { select: { name: true } },
-        ...(params?.locationId ? {
-          stockBalances: {
-            where: { locationId: params.locationId },
-            take: 1,
-          },
-        } : {}),
-      },
+      include: { category: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -119,40 +124,51 @@ export async function getProducts(params?: {
     prisma.product.count({ where: where as any }),
   ]);
 
-  // If locationId is provided, we need to filter products that have stock at that location
-  // and add the per-location stock info to each product
-  if (params?.locationId) {
-    const filteredProducts = products.data.filter(product => {
-      const balance = product.stockBalances?.[0];
-      return balance && balance.qtyOnHand > 0;
-    });
+  // Fetch per-location stock breakdown for all returned products
+  const productIds = products.map((p) => p.id);
+  const allBalances = productIds.length > 0
+    ? await prisma.stockBalance.findMany({
+        where: { productId: { in: productIds }, companyId },
+        select: { productId: true, qtyOnHand: true, qtyReserved: true, location: { select: { id: true, name: true } } },
+      })
+    : [];
 
-    // Map the products to include per-location stock in the stock field for compatibility
-    const mappedProducts = filteredProducts.map(product => {
-      const balance = product.stockBalances?.[0];
+  const balancesByProduct = new Map<string, Array<{ locationId: string; locationName: string; qtyOnHand: number }>>();
+  for (const b of allBalances) {
+    const existing = balancesByProduct.get(b.productId) || [];
+    existing.push({ locationId: b.location.id, locationName: b.location.name, qtyOnHand: Number(b.qtyOnHand) });
+    balancesByProduct.set(b.productId, existing);
+  }
+
+  // If locationId is provided, enhance products with per-location stock data
+  if (params?.locationId) {
+    const balanceMap = new Map(allBalances.filter((b) => b.location.id === params.locationId).map((b) => [b.productId, b]));
+
+    const enhancedProducts = products.map((product) => {
+      const bal = balanceMap.get(product.id);
       return {
         ...product,
-        stock: balance ? balance.qtyOnHand : 0, // Override the stock field with location-specific stock
-        _locationStock: {
-          locationId: params.locationId,
-          qtyOnHand: balance ? balance.qtyOnHand : 0,
-          qtyReserved: balance ? balance.qtyReserved : 0,
-          qtyAvailable: balance ? Number(balance.qtyOnHand) - Number(balance.qtyReserved) : 0,
-        }
+        stock: bal ? Number(bal.qtyOnHand) : 0,
+        stockByLocation: balancesByProduct.get(product.id) || [],
       };
     });
 
     return {
-      data: serialize(mappedProducts),
-      total: filteredProducts.length,
+      data: serialize(enhancedProducts),
+      total,
       page,
       pageSize,
-      totalPages: Math.ceil(filteredProducts.length / pageSize),
+      totalPages: Math.ceil(total / pageSize),
     };
   }
 
+  const enhancedProducts = products.map((product) => ({
+    ...product,
+    stockByLocation: balancesByProduct.get(product.id) || [],
+  }));
+
   return {
-    data: serialize(products),
+    data: serialize(enhancedProducts),
     total,
     page,
     pageSize,
@@ -1098,8 +1114,10 @@ export async function getStockLocations() {
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
+  const accessibleIds = await getUserAccessibleLocationIds(prisma, companyId, user.id, user.role);
+
   const locations = await prisma.stockLocation.findMany({
-    where: { companyId, isActive: true, deletedAt: null },
+    where: { id: { in: accessibleIds }, companyId, isActive: true, deletedAt: null },
     orderBy: { name: "asc" },
     select: { id: true, name: true, code: true, type: true },
   });
@@ -1111,8 +1129,10 @@ export async function getStockLocationsWithSummary() {
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
+  const accessibleIds = await getUserAccessibleLocationIds(prisma, companyId, user.id, user.role);
+
   const locations = await prisma.stockLocation.findMany({
-    where: { companyId, deletedAt: null },
+    where: { id: { in: accessibleIds }, companyId, deletedAt: null },
     include: {
       stockBalances: {
         select: { qtyOnHand: true, qtyReserved: true, productId: true },
@@ -1138,6 +1158,9 @@ export async function getStockLocationsWithSummary() {
 export async function getStockLocationDetail(locationId: string) {
   const user = await requireCompanyAuth();
   const { companyId } = user;
+
+  const accessibleIds = await getUserAccessibleLocationIds(prisma, companyId, user.id, user.role);
+  if (!accessibleIds.includes(locationId)) return null;
 
   const location = await prisma.stockLocation.findFirst({
     where: { id: locationId, companyId, deletedAt: null },

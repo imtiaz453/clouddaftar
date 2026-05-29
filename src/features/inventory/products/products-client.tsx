@@ -33,6 +33,12 @@ import { formatCurrency } from "@/lib/utils";
 import { dashboardHref } from "@/lib/dashboard-href";
 import type { PaginatedResponse } from "@/types";
 
+interface StockByLocation {
+  locationId: string;
+  locationName: string;
+  qtyOnHand: number;
+}
+
 interface ProductRow {
   id: string;
   name: string;
@@ -45,6 +51,7 @@ interface ProductRow {
   purchasePrice: number;
   isActive: boolean;
   category?: { name: string } | null;
+  stockByLocation?: StockByLocation[];
 }
 
 interface CategoryOption {
@@ -309,6 +316,21 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                     </Badge>
                   )}
                 </div>
+                {product.stockByLocation && product.stockByLocation.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {product.stockByLocation.map((sbl) => (
+                      <span
+                        key={sbl.locationId}
+                        className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] tabular-nums"
+                      >
+                        <span className="max-w-[60px] truncate text-muted-foreground">{sbl.locationName}:</span>
+                        <span className={sbl.qtyOnHand <= 0 ? "text-red-600 font-medium" : "font-medium"}>
+                          {sbl.qtyOnHand}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })
@@ -334,6 +356,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                   <TableHead>SKU</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Stock</TableHead>
+                  <TableHead>Stock by Location</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Value</TableHead>
                   <TableHead className="w-[80px]">Actions</TableHead>
@@ -382,6 +405,26 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                             <Badge variant="warning" className="text-[10px]">Low</Badge>
                           ) : null}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {product.stockByLocation && product.stockByLocation.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {product.stockByLocation.map((sbl) => (
+                              <span
+                                key={sbl.locationId}
+                                className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] tabular-nums"
+                                title={sbl.locationName}
+                              >
+                                <span className="max-w-[60px] truncate text-muted-foreground">{sbl.locationName}:</span>
+                                <span className={sbl.qtyOnHand <= 0 ? "text-red-600 font-medium" : "font-medium"}>
+                                  {sbl.qtyOnHand}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>{formatCurrency(Number(product.sellingPrice))}</TableCell>
                       <TableCell className="text-muted-foreground">{formatCurrency(stockValue)}</TableCell>

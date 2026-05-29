@@ -29,8 +29,9 @@ import {
   adjustWarehouseStock,
   getProductStockAtWarehouse,
   resolveOperationalLocation,
+  getUserAccessibleLocationIds,
 } from "@/lib/locations";
-import { consumeStockForSaleTx, receiveStockForPurchaseTx, resolveLocationIdFromWarehouseId } from "@/lib/inventory";
+import { consumeStockForSaleTx, receiveStockForPurchaseTx, resolveLocationIdFromWarehouseId, getProductStockByLocation } from "@/lib/inventory";
 
 type SaleLineInput = {
   productId: string;
@@ -432,9 +433,18 @@ export async function createSale(data: {
   warehouseId?: string;
   taxComplianceMode?: string;
   buyerTaxNumber?: string;
+  stockLocationId?: string;
 }) {
+  const effectiveStockLocationId = data.stockLocationId;
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
+
+  if (effectiveStockLocationId) {
+    const accessibleIds = await getUserAccessibleLocationIds(prisma, companyId, userId, user.role);
+    if (!accessibleIds.includes(effectiveStockLocationId)) {
+      throw new Error("You do not have access to the selected stock location");
+    }
+  }
 
   await requireTaxSetup();
 
@@ -454,6 +464,10 @@ export async function createSale(data: {
   const status = data.status || "COMPLETED";
   const postsToAccounting = salePostsToAccounting(status);
   const { paid, due, paymentStatus } = computeSalePaymentFields(status, total, data.paid);
+
+  // Default dueDate to today for non-paid sales, so they age properly
+  const effectiveDueDate = data.dueDate ?? (paymentStatus !== "PAID" ? new Date().toISOString().slice(0, 10) : undefined);
+
   let invoiceNumber = "";
 
   const sale = await prisma.$transaction(async (tx) => {
@@ -481,16 +495,26 @@ export async function createSale(data: {
         for (const [productId, quantity] of required) {
           const product = productsById.get(productId);
           if (!product?.isService) {
-            const available = await getProductStockAtWarehouse(
-              tx,
-              product,
-              companyId,
-              location.warehouseId,
-            );
-            if (available < quantity) {
-              throw new Error(
-                `Insufficient stock for ${product.name} at selected warehouse. Available: ${available}, requested: ${quantity}`,
+            if (effectiveStockLocationId) {
+              const stockInfo = await getProductStockByLocation(productId, effectiveStockLocationId, companyId);
+              const available = stockInfo?.qtyAvailable ?? 0;
+              if (available < quantity) {
+                throw new Error(
+                  `Insufficient stock for ${product.name} at selected location. Available: ${available}, requested: ${quantity}`,
+                );
+              }
+            } else {
+              const available = await getProductStockAtWarehouse(
+                tx,
+                product,
+                companyId,
+                location.warehouseId,
               );
+              if (available < quantity) {
+                throw new Error(
+                  `Insufficient stock for ${product.name} at selected warehouse. Available: ${available}, requested: ${quantity}`,
+                );
+              }
             }
           }
         }
@@ -511,7 +535,7 @@ export async function createSale(data: {
         paymentMethod: (data.paymentMethod || settings?.defaultPaymentMethod || "CASH") as any,
         notes: data.notes,
         terms: data.terms,
-        dueDate: parseOptionalDate(data.dueDate),
+        dueDate: parseOptionalDate(effectiveDueDate),
         customerId: data.customerId || null,
         companyId,
         branchId: location.branchId,
@@ -536,30 +560,9 @@ export async function createSale(data: {
       for (const item of data.items) {
         const product = productsById.get(item.productId);
         if (product && !product.isService) {
-          const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
-            companyId,
-            productId: item.productId,
-            warehouseId: location.warehouseId,
-            quantityDelta: -item.quantity,
-          });
-          await tx.inventoryLog.create({
-            data: {
-              productId: item.productId,
-              companyId,
-              branchId: location.branchId,
-              warehouseId: location.warehouseId,
-              type: "SALE",
-              quantity: -item.quantity,
-              beforeStock,
-              afterStock,
-              reference: invoiceNumber,
-              createdById: userId,
-            },
-          });
-          const stockLocationId = await resolveLocationIdFromWarehouseId(location.warehouseId, companyId);
-          if (stockLocationId) {
+          if (effectiveStockLocationId) {
             await consumeStockForSaleTx(tx, {
-              locationId: stockLocationId,
+              locationId: effectiveStockLocationId,
               productId: item.productId,
               companyId,
               quantity: item.quantity,
@@ -567,6 +570,39 @@ export async function createSale(data: {
               referenceId: sale.id,
               createdById: userId,
             });
+          } else {
+            const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
+              companyId,
+              productId: item.productId,
+              warehouseId: location.warehouseId,
+              quantityDelta: -item.quantity,
+            });
+            await tx.inventoryLog.create({
+              data: {
+                productId: item.productId,
+                companyId,
+                branchId: location.branchId,
+                warehouseId: location.warehouseId,
+                type: "SALE",
+                quantity: -item.quantity,
+                beforeStock,
+                afterStock,
+                reference: invoiceNumber,
+                createdById: userId,
+              },
+            });
+            const stockLocationId = await resolveLocationIdFromWarehouseId(location.warehouseId, companyId);
+            if (stockLocationId) {
+              await consumeStockForSaleTx(tx, {
+                locationId: stockLocationId,
+                productId: item.productId,
+                companyId,
+                quantity: item.quantity,
+                reference: invoiceNumber,
+                referenceId: sale.id,
+                createdById: userId,
+              });
+            }
           }
         }
       }
