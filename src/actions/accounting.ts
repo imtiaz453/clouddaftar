@@ -22,6 +22,21 @@ function toNumber(val: any): number {
   return Number(val) || 0;
 }
 
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function daysBetweenLocalDays(from: Date, to: Date) {
+  const fromDay = startOfLocalDay(from);
+  const toDay = startOfLocalDay(to);
+  return Math.floor((toDay.getTime() - fromDay.getTime()) / 86400000);
+}
+
+function isPastDueDate(dueDate: Date | null | undefined, now: Date) {
+  if (!dueDate) return false;
+  return daysBetweenLocalDays(dueDate, now) > 0;
+}
+
 function agingBucketFromDate(
   dueDate: Date | null | undefined,
   amount: number,
@@ -33,27 +48,18 @@ function agingBucketFromDate(
   // Keep it in Current until a real due date is saved.
   if (!dueDate) return "current";
 
-  const dueDay = new Date(
-    dueDate.getFullYear(),
-    dueDate.getMonth(),
-    dueDate.getDate(),
-  );
-
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
   /**
-   * This page is being used as a due-date bucket report.
-   * So we bucket by due-date distance from today:
+   * Due-date bucket report:
    * - due today = Current
    * - due in / overdue by 1-30 days = 1-30
    * - due in / overdue by 31-60 days = 31-60
    * - due in / overdue by 61-90 days = 61-90
    * - due in / overdue by more than 90 days = 90+
+   *
+   * Important: this is ONLY for bucket placement.
+   * totalOverdue is calculated separately and includes ONLY past due dates.
    */
-  const daysFromToday = Math.floor(
-    (dueDay.getTime() - today.getTime()) / 86400000,
-  );
-
+  const daysFromToday = daysBetweenLocalDays(now, dueDate);
   const absoluteDays = Math.abs(daysFromToday);
 
   if (absoluteDays === 0) return "current";
@@ -1160,10 +1166,17 @@ export async function getCustomerAging(params?: {
 
   const agingData = customers.map((customer) => {
     const customerSales = sales.filter((s) => s.customerId === customer.id);
-    const buckets = { ...EMPTY_AGING_BUCKETS, totalDue: 0 };
+    const buckets = { ...EMPTY_AGING_BUCKETS, totalDue: 0, overdueAmount: 0 };
     for (const s of customerSales) {
       const amt = toNumber(s.due);
+      if (amt <= 0) continue;
+
       buckets.totalDue += amt;
+
+      if (isPastDueDate(s.dueDate, now)) {
+        buckets.overdueAmount += amt;
+      }
+
       const bucket = agingBucketFromDate(s.dueDate, amt, now);
       buckets[bucket] += amt;
     }
@@ -1177,7 +1190,7 @@ export async function getCustomerAging(params?: {
       total31to60: acc.total31to60 + curr.days31to60,
       total61to90: acc.total61to90 + curr.days61to90,
       total90plus: acc.total90plus + curr.days90plus,
-      totalOverdue: acc.totalOverdue + curr.totalDue - curr.current,
+      totalOverdue: acc.totalOverdue + curr.overdueAmount,
     }),
     {
       totalCurrent: 0,
@@ -2255,10 +2268,17 @@ export async function getSupplierAging(params?: {
 
   const agingData = suppliers.map((supplier) => {
     const supplierPurchases = purchases.filter((p) => p.supplierId === supplier.id);
-    const buckets = { ...EMPTY_AGING_BUCKETS, totalDue: 0 };
+    const buckets = { ...EMPTY_AGING_BUCKETS, totalDue: 0, overdueAmount: 0 };
     for (const p of supplierPurchases) {
       const amt = toNumber(p.due);
+      if (amt <= 0) continue;
+
       buckets.totalDue += amt;
+
+      if (isPastDueDate(p.dueDate, now)) {
+        buckets.overdueAmount += amt;
+      }
+
       const bucket = agingBucketFromDate(p.dueDate, amt, now);
       buckets[bucket] += amt;
     }
@@ -2272,7 +2292,7 @@ export async function getSupplierAging(params?: {
       total31to60: acc.total31to60 + curr.days31to60,
       total61to90: acc.total61to90 + curr.days61to90,
       total90plus: acc.total90plus + curr.days90plus,
-      totalOverdue: acc.totalOverdue + curr.totalDue - curr.current,
+      totalOverdue: acc.totalOverdue + curr.overdueAmount,
     }),
     {
       totalCurrent: 0,
