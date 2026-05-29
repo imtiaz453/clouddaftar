@@ -69,7 +69,8 @@
     --spacing-scale: 1;
     --sidebar-style: gradient;
     --neutral-tertiary: 224 35% 16%;
-    --font-family-body: var(--font-sans), system-ui, -apple-system, sans-serif;
+     --font-system: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
   }
 
   .dark {
@@ -120,7 +121,7 @@
     @apply bg-background text-foreground antialiased;
     max-width: 100%;
     overflow-x: hidden;
-    font-family: var(--font-family-body);
+    font-family: var(--font-system);
     line-height: 1.5;
     text-rendering: optimizeLegibility;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";

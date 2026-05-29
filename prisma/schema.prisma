@@ -1236,7 +1236,7 @@ model ThemeSettings {
   sidebarStyle  String   @default("gradient") // gradient, solid, minimal
   primaryColor  String   @default("blue")
   borderRadius  String   @default("normal")
-  fontFamily    String   @default("inter")
+  fontFamily    String   @default("system")
   isDarkMode    Boolean  @default(false)
   layoutDensity String   @default("comfortable") // compact, comfortable, spacious
   accentColor   String?
