@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth, checkPermission, requireTaxSetup } from "@/lib/auth-helper";
 import { PERMISSIONS } from "@/lib/constants";
-import { createAuditLog } from "@/lib/audit";
+import { createAuditLog, createNotification } from "@/lib/audit";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import { createSale } from "@/actions/sales";
 import { reserveNextDocumentNumber } from "@/lib/document-numbers";
 
@@ -207,6 +208,19 @@ export async function createQuotation(data: {
     entity: "Quotation",
     entityId: quotation.id,
     metadata: { quoteNumber: quotation.quoteNumber },
+  });
+
+  await createNotification({
+    companyId,
+    userId,
+    title: "Quotation Created",
+    message: `Quotation ${quotation.quoteNumber} created`,
+    type: "SUCCESS",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Quotation Created",
+    body: `Quotation ${quotation.quoteNumber} — Rs ${quotation.total}${quotation.customer ? ` for ${quotation.customer.name}` : ""} — by ${user.name || userId}`,
+    url: `/quotations/${quotation.id}`,
   });
 
   revalidatePath("/quotations");

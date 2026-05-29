@@ -1,28 +1,7 @@
-import { getStockLocationsWithSummary, getStockLocationDetail, getProductsForSelect } from "@/actions/inventory";
-import { LocationsClient } from "./locations-client";
-import { serialize } from "@/lib/serialize";
+import { getInventoryLocations } from "@/actions/inventory-new";
+import { LocationsListClient } from "./locations-list-client";
 
-interface LocationsPageProps {
-  locationId?: string | null;
-}
-
-export async function LocationsPage({ locationId }: LocationsPageProps) {
-  const [locations, products] = await Promise.all([
-    getStockLocationsWithSummary(),
-    getProductsForSelect(),
-  ]);
-
-  let locationDetail = null;
-  if (locationId) {
-    locationDetail = await getStockLocationDetail(locationId);
-  }
-
-  return (
-    <LocationsClient
-      locations={serialize(locations) as any}
-      locationDetail={serialize(locationDetail) as any}
-      products={serialize(products) as any}
-      locationId={locationId || null}
-    />
-  );
+export async function LocationsPage({ locationId: _locationId }: { locationId?: string } = {}) {
+  const locations = await getInventoryLocations();
+  return <LocationsListClient locations={locations as any} />;
 }

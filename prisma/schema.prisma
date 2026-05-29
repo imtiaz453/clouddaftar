@@ -43,6 +43,38 @@ enum StockMovementType {
   RESERVATION
   RESERVATION_RELEASE
   WRITE_OFF
+  STOCK_COUNT_CORRECTION
+  DAMAGE
+  EXPIRY
+  LOST
+  FOUND
+  INTERNAL_USE
+}
+
+enum TransferStatus {
+  DRAFT
+  PENDING
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum AdjustmentReason {
+  OPENING_BALANCE
+  CORRECTION
+  DAMAGE
+  EXPIRED
+  LOST
+  FOUND
+  INTERNAL_USE
+}
+
+enum StockCountStatus {
+  DRAFT
+  IN_PROGRESS
+  REVIEWED
+  POSTED
+  CANCELLED
 }
 
 enum InvitationStatus {
@@ -235,6 +267,10 @@ model User {
   assignedStores             Warehouse[]             @relation("WarehouseAssignedEmployee")
   assignedStockLocations     StockLocation[]          @relation("StockLocationAssignedEmployee")
   createdStockLedgers        StockLedger[]            @relation("StockLedgerCreatedBy")
+  createdStockTransfers      StockTransfer[]          @relation("TransferCreatedBy")
+  createdStockAdjustments    StockAdjustment[]        @relation("StockAdjustmentCreatedBy")
+  createdStockCounts         StockCount[]             @relation("StockCountCreatedBy")
+  reviewedStockCounts        StockCount[]             @relation("StockCountReviewedBy")
   pushSubscriptions          PushSubscription[]
 
   @@index([email])
@@ -319,6 +355,9 @@ model Company {
   stockLocations          StockLocation[]
   stockBalances           StockBalance[]
   stockLedgers            StockLedger[]
+  stockTransfers          StockTransfer[]
+  stockAdjustments        StockAdjustment[]
+  stockCounts             StockCount[]
 
   @@index([slug])
   @@index([isActive])
@@ -479,16 +518,22 @@ model StockLocation {
   companyId          String
   isDefault          Boolean          @default(false)
   isActive           Boolean          @default(true)
+  isSellable         Boolean          @default(true)
+  address            String?
   notes              String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   deletedAt          DateTime?
 
-  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch           Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  assignedEmployee User?          @relation("StockLocationAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
-  stockBalances    StockBalance[]
-  stockLedgers     StockLedger[]
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch              Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  assignedEmployee    User?                @relation("StockLocationAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  stockBalances       StockBalance[]
+  stockLedgers        StockLedger[]
+  sourceTransfers      StockTransfer[]      @relation("TransferSource")
+  destinationTransfers StockTransfer[]      @relation("TransferDest")
+  stockAdjustments     StockAdjustment[]
+  stockCounts          StockCount[]
 
   @@unique([code, companyId])
   @@index([companyId])
@@ -499,16 +544,18 @@ model StockLocation {
 }
 
 model StockBalance {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   productId     String
   locationId    String
   companyId     String
-  qtyOnHand     Decimal  @default(0) @db.Decimal(18, 4)
-  qtyReserved   Decimal  @default(0) @db.Decimal(18, 4)
-  qtyAvailable  Decimal  @default(0) @db.Decimal(18, 4)
-  reorderPoint  Decimal  @default(0) @db.Decimal(18, 4)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  qtyOnHand     Decimal   @default(0) @db.Decimal(18, 4)
+  qtyReserved   Decimal   @default(0) @db.Decimal(18, 4)
+  qtyAvailable  Decimal   @default(0) @db.Decimal(18, 4)
+  reorderPoint  Decimal   @default(0) @db.Decimal(18, 4)
+  averageCost   Decimal   @default(0) @db.Decimal(18, 4)
+  lastMovementAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   product  Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   location StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
@@ -551,6 +598,125 @@ model StockLedger {
   @@index([reference])
   @@index([referenceId])
   @@map("stock_ledgers")
+}
+
+model StockTransfer {
+  id                    String         @id @default(cuid())
+  referenceNumber       String
+  sourceLocationId      String
+  destinationLocationId String
+  status                TransferStatus @default(DRAFT)
+  companyId             String
+  notes                 String?
+  createdById           String
+  issuedAt              DateTime?
+  receivedAt            DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  company              Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceLocation       StockLocation        @relation("TransferSource", fields: [sourceLocationId], references: [id])
+  destinationLocation  StockLocation        @relation("TransferDest", fields: [destinationLocationId], references: [id])
+  createdBy            User                 @relation("TransferCreatedBy", fields: [createdById], references: [id])
+  items                StockTransferItem[]
+
+  @@unique([referenceNumber, companyId])
+  @@index([companyId])
+  @@index([sourceLocationId])
+  @@index([destinationLocationId])
+  @@index([status])
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id         String  @id @default(cuid())
+  transferId String
+  productId  String
+  quantity   Decimal @db.Decimal(18, 4)
+
+  transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id])
+
+  @@index([transferId])
+  @@map("stock_transfer_items")
+}
+
+model StockAdjustment {
+  id              String           @id @default(cuid())
+  referenceNumber String
+  locationId      String
+  reason          AdjustmentReason @default(CORRECTION)
+  companyId       String
+  notes           String?
+  createdById     String
+  postedAt        DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  company   Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location  StockLocation        @relation(fields: [locationId], references: [id])
+  createdBy User                 @relation("StockAdjustmentCreatedBy", fields: [createdById], references: [id])
+  items     StockAdjustmentItem[]
+
+  @@index([companyId])
+  @@index([locationId])
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentItem {
+  id           String @id @default(cuid())
+  adjustmentId String
+  productId    String
+  direction    String @default("IN") // IN or OUT
+  quantity     Decimal @db.Decimal(18, 4)
+  unitCost     Decimal @default(0) @db.Decimal(18, 4)
+
+  adjustment StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  product    Product         @relation(fields: [productId], references: [id])
+
+  @@index([adjustmentId])
+  @@map("stock_adjustment_items")
+}
+
+model StockCount {
+  id              String           @id @default(cuid())
+  referenceNumber String
+  locationId      String
+  companyId       String
+  status          StockCountStatus @default(DRAFT)
+  notes           String?
+  frozenAt        DateTime
+  postedAt        DateTime?
+  createdById     String
+  reviewedById    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location   StockLocation    @relation(fields: [locationId], references: [id])
+  createdBy  User             @relation("StockCountCreatedBy", fields: [createdById], references: [id])
+  reviewedBy User?            @relation("StockCountReviewedBy", fields: [reviewedById], references: [id])
+  items      StockCountItem[]
+
+  @@index([companyId])
+  @@index([locationId])
+  @@index([status])
+  @@map("stock_counts")
+}
+
+model StockCountItem {
+  id          String  @id @default(cuid())
+  countId     String
+  productId   String
+  expectedQty Decimal @default(0) @db.Decimal(18, 4)
+  countedQty  Decimal @default(0) @db.Decimal(18, 4)
+  variance    Decimal @default(0) @db.Decimal(18, 4)
+
+  count   StockCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  product Product    @relation(fields: [productId], references: [id])
+
+  @@index([countId])
+  @@map("stock_count_items")
 }
 
 model Invitation {
@@ -649,8 +815,11 @@ model Product {
   lots           ProductLot[]
   lotStocks      ProductLotStock[]
   quotationItems QuotationItem[]
-  stockBalances  StockBalance[]
-  stockLedgers   StockLedger[]
+  stockBalances    StockBalance[]
+  stockLedgers     StockLedger[]
+  transferItems    StockTransferItem[]
+  adjustmentItems  StockAdjustmentItem[]
+  countItems       StockCountItem[]
 
   @@unique([sku, companyId])
   @@index([companyId])

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth } from "@/lib/auth-helper";
 import { createAuditLog, createNotification } from "@/lib/audit";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import { hashPassword } from "@/lib/auth";
 import { normalizeUserPermissionOverride } from "@/lib/constants";
 import crypto from "crypto";
@@ -91,6 +92,11 @@ export async function createUserDirectly(data: {
     message: `User account created for ${data.email}`,
     type: "SUCCESS",
   });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "User Created",
+    body: `User ${data.email} (${data.role}) created by ${user.name || userId}`,
+    url: "/users",
+  });
 
   revalidatePath("/users");
   const membership = newUser.companies[0];
@@ -134,6 +140,11 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
     message: `User account ${isActive ? "activated" : "deactivated"}`,
     type: isActive ? "SUCCESS" : "WARNING",
   });
+  await sendPushNotificationWithAdmins(companyId, currentUserId, {
+    title: isActive ? "User Activated" : "User Deactivated",
+    body: `User account ${isActive ? "activated" : "deactivated"} by ${user.name || currentUserId}`,
+    url: "/users",
+  });
 
   revalidatePath("/users");
 }
@@ -166,6 +177,11 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     title: "Password Reset",
     message: "User password has been reset by admin",
     type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, currentUserId, {
+    title: "Password Reset",
+    body: `User password reset by ${user.name || currentUserId}`,
+    url: "/users",
   });
 
   revalidatePath("/users");
@@ -212,6 +228,11 @@ export async function inviteUser(data: { email: string; role: string }) {
     message: `Invitation sent to ${data.email}`,
     type: "INFO",
   });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Invitation Sent",
+    body: `Invitation sent to ${data.email} (${data.role}) by ${user.name || userId}`,
+    url: "/users",
+  });
 
   revalidatePath("/users");
   return invitation;
@@ -233,6 +254,19 @@ export async function updateUserRole(membershipId: string, role: string) {
     entity: "CompanyMembership",
     entityId: membershipId,
     metadata: { type: "role_change", newRole: role },
+  });
+
+  await createNotification({
+    companyId,
+    userId,
+    title: "User Role Updated",
+    message: `User role changed to ${role}`,
+    type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "User Role Updated",
+    body: `User role changed to ${role} by ${user.name || userId}`,
+    url: "/users",
   });
 
   revalidatePath("/users");
@@ -262,6 +296,19 @@ export async function updateUserPermissions(membershipId: string, permissionOver
     entity: "CompanyMembership",
     entityId: membershipId,
     metadata: { type: "permission_override", mode: normalized.mode },
+  });
+
+  await createNotification({
+    companyId,
+    userId,
+    title: "Permissions Updated",
+    message: `User permissions overridden (${normalized.mode} mode)`,
+    type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Permissions Updated",
+    body: `Permissions updated for membership ${membershipId} by ${user.name || userId}`,
+    url: "/users",
   });
 
   revalidatePath("/users");
@@ -301,6 +348,11 @@ export async function removeUser(membershipId: string) {
     title: "Member Removed",
     message: "A team member has been removed from the company",
     type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Member Removed",
+    body: `A team member removed from company by ${user.name || userId}`,
+    url: "/users",
   });
 
   revalidatePath("/users");

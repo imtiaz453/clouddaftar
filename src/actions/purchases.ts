@@ -320,6 +320,19 @@ export async function createPurchase(data: {
     },
   });
 
+  await createNotification({
+    companyId,
+    userId,
+    title: "Purchase Order Created",
+    message: `Purchase order ${refNumber} created — Rs ${total} total`,
+    type: "SUCCESS",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Purchase Order Created",
+    body: `PO ${refNumber} — Rs ${total} from ${purchase.supplier?.name || "Unknown"} — by ${user.name || userId}`,
+    url: `/purchases/${purchase.id}`,
+  });
+
   if (due > 0 && data.status !== "DRAFT") {
     await createNotification({
       companyId,
@@ -904,6 +917,18 @@ export async function createSupplier(data: {
     entity: "Supplier",
     entityId: supplier.id,
     metadata: { name: supplier.name },
+  });
+  await createNotification({
+    companyId,
+    userId,
+    title: "Supplier Created",
+    message: `Supplier ${supplier.name} created`,
+    type: "SUCCESS",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Supplier Created",
+    body: `Supplier ${supplier.name} created by ${user.name || userId}`,
+    url: "/purchases/suppliers",
   });
   return supplier;
 }

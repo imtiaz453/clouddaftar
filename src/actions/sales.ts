@@ -1376,6 +1376,18 @@ export async function createCustomer(data: {
     entityId: customer.id,
     metadata: { name: customer.name },
   });
+  await createNotification({
+    companyId,
+    userId,
+    title: "Customer Created",
+    message: `Customer ${customer.name} created`,
+    type: "SUCCESS",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Customer Created",
+    body: `Customer ${customer.name} created by ${user.name || userId}`,
+    url: "/customers",
+  });
   return customer;
 }
 

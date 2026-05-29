@@ -1004,6 +1004,19 @@ export async function sendPaymentReminder(data: {
     metadata: { type: data.type, contactMethod: data.contactMethod },
   });
 
+  await createNotification({
+    companyId,
+    userId,
+    title: "Payment Reminder Sent",
+    message: `${data.type} reminder sent${data.customerId ? " to customer" : ""}${data.supplierId ? " to supplier" : ""}`,
+    type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Payment Reminder Sent",
+    body: `${data.type} reminder sent by ${user.name || userId}`,
+    url: "/accounting/receivables",
+  });
+
   revalidatePath("/accounting/receivables");
   return reminder;
 }
@@ -1301,17 +1314,30 @@ export async function setOpeningBalance(data: {
     companyId,
     action: "CREATE",
     entity: "BalanceAdjustment",
-    metadata: {
-      customerId: data.customerId,
-      supplierId: data.supplierId,
-      amount: data.amount,
-      direction: data.direction,
-    },
-  });
+      metadata: {
+        customerId: data.customerId,
+        supplierId: data.supplierId,
+        amount: data.amount,
+        direction: data.direction,
+      },
+    });
 
-  revalidatePath("/accounting/receivables");
-  revalidatePath("/customers");
-}
+    await createNotification({
+      companyId,
+      userId,
+      title: "Opening Balance Adjusted",
+      message: `Rs ${data.amount} ${data.direction} adjustment for ${data.customerId ? "customer" : "supplier"}`,
+      type: "INFO",
+    });
+    await sendPushNotificationWithAdmins(companyId, userId, {
+      title: "Opening Balance Adjusted",
+      body: `Rs ${data.amount} ${data.direction} — opening balance adjusted by ${user.name || userId}`,
+      url: "/accounting/receivables",
+    });
+
+    revalidatePath("/accounting/receivables");
+    revalidatePath("/customers");
+  }
 
 export async function getReconciliations(params?: {
   type?: string;
@@ -1387,6 +1413,19 @@ export async function createReconciliation(data: {
     entity: "Reconciliation",
     entityId: reconciliation.id,
     metadata: { type: data.type },
+  });
+
+  await createNotification({
+    companyId,
+    userId,
+    title: "Reconciliation Created",
+    message: `${data.type} reconciliation created`,
+    type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Reconciliation Created",
+    body: `${data.type} reconciliation created by ${user.name || userId}`,
+    url: "/accounting/reconciliation",
   });
 
   revalidatePath("/accounting/reconciliation");
@@ -1625,6 +1664,19 @@ export async function adjustBalance(data: {
     entity: "BalanceAdjustment",
     entityId: adjustment.id,
     metadata: { type: data.type, amount: data.amount, direction: data.direction },
+  });
+
+  await createNotification({
+    companyId,
+    userId,
+    title: "Balance Adjusted",
+    message: `Rs ${data.amount} ${data.direction} — ${data.type}`,
+    type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Balance Adjusted",
+    body: `Rs ${data.amount} ${data.direction} — ${data.type} — by ${user.name || userId}`,
+    url: "/accounting",
   });
 
   revalidatePath("/accounting");
@@ -2697,6 +2749,19 @@ export async function createPaymentCommitment(data: {
     metadata: { amount: data.amount, commitmentDate: data.commitmentDate },
   });
 
+  await createNotification({
+    companyId,
+    userId,
+    title: "Payment Commitment Created",
+    message: `Rs ${data.amount} commitment created`,
+    type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Payment Commitment Created",
+    body: `Rs ${data.amount} commitment created by ${user.name || userId}`,
+    url: "/accounting/commitments",
+  });
+
   revalidatePath("/accounting/commitments");
   return commitment;
 }
@@ -2739,6 +2804,20 @@ export async function updatePaymentCommitment(
     entity: "PaymentCommitment",
     entityId: id,
     metadata: data,
+  });
+
+  const commitmentStatus = data.status || "UPDATED";
+  await createNotification({
+    companyId,
+    userId,
+    title: `Payment Commitment ${commitmentStatus}`,
+    message: `Commitment ${commitmentStatus.toLowerCase()}${data.fulfilledAmount ? ` — Rs ${data.fulfilledAmount} fulfilled` : ""}`,
+    type: commitmentStatus === "FULFILLED" ? "SUCCESS" : "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: `Payment Commitment ${commitmentStatus}`,
+    body: `Commitment ${commitmentStatus.toLowerCase()} — ${data.fulfilledAmount ? `Rs ${data.fulfilledAmount} fulfilled` : ""} — by ${user.name || userId}`,
+    url: "/accounting/commitments",
   });
 
   revalidatePath("/accounting/commitments");

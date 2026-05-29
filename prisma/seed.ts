@@ -571,3 +571,245 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+// =========== INVENTORY SEED DATA ===========
+async function seedInventory() {
+  const company = await prisma.company.findFirst();
+  if (!company) {
+    console.log("No company found, skipping inventory seed.");
+    return;
+  }
+
+  const user = await prisma.user.findFirst();
+  if (!user) {
+    console.log("No user found, skipping inventory seed.");
+    return;
+  }
+
+  const products = await prisma.product.findMany({ where: { companyId: company.id } });
+  if (products.length === 0) {
+    console.log("No products found, skipping inventory seed.");
+    return;
+  }
+
+  const branch = await prisma.branch.upsert({
+    where: { code_companyId: { code: "MAIN", companyId: company.id } },
+    update: {},
+    create: {
+      name: "Main Branch",
+      code: "MAIN",
+      phone: "+92 300 1234567",
+      address: "123 Main Street",
+      city: "Karachi",
+      companyId: company.id,
+      isDefault: true,
+    },
+  });
+
+  // 1. StockLocations
+  const mainWarehouse = await prisma.stockLocation.upsert({
+    where: { code_companyId: { code: "MAIN", companyId: company.id } },
+    update: {},
+    create: {
+      name: "Main Warehouse",
+      code: "MAIN",
+      type: "MAIN_WAREHOUSE",
+      companyId: company.id,
+      isDefault: true,
+      isSellable: true,
+    },
+  });
+
+  const posStore = await prisma.stockLocation.upsert({
+    where: { code_companyId: { code: "POS-01", companyId: company.id } },
+    update: {},
+    create: {
+      name: "POS Store - Main Branch",
+      code: "POS-01",
+      type: "POS_STORE",
+      branchId: branch.id,
+      companyId: company.id,
+      isDefault: false,
+      isSellable: true,
+    },
+  });
+
+  const empStore = await prisma.stockLocation.upsert({
+    where: { code_companyId: { code: "EMP-01", companyId: company.id } },
+    update: {},
+    create: {
+      name: "Employee Store - Admin",
+      code: "EMP-01",
+      type: "EMPLOYEE_STORE",
+      assignedEmployeeId: user.id,
+      companyId: company.id,
+      isDefault: false,
+      isSellable: false,
+    },
+  });
+
+  // 2. StockBalance entries
+  const balanceData = [
+    { product: products[0], qtyOnHand: 500, qtyAvailable: 500, avgCost: 80 },
+    { product: products[1], qtyOnHand: 300, qtyAvailable: 300, avgCost: 150 },
+    { product: products[2], qtyOnHand: 400, qtyAvailable: 400, avgCost: 90 },
+  ];
+
+  for (const bd of balanceData) {
+    await prisma.stockBalance.upsert({
+      where: {
+        productId_locationId: { productId: bd.product.id, locationId: mainWarehouse.id },
+      },
+      update: {},
+      create: {
+        productId: bd.product.id,
+        locationId: mainWarehouse.id,
+        companyId: company.id,
+        qtyOnHand: bd.qtyOnHand,
+        qtyAvailable: bd.qtyAvailable,
+        averageCost: bd.avgCost,
+      },
+    });
+  }
+
+  // 3. StockLedger entries for opening balance
+  for (const bd of balanceData) {
+    await prisma.stockLedger.create({
+      data: {
+        productId: bd.product.id,
+        locationId: mainWarehouse.id,
+        companyId: company.id,
+        movementType: "OPENING_BALANCE",
+        quantity: bd.qtyOnHand,
+        qtyOnHandBefore: 0,
+        qtyOnHandAfter: bd.qtyOnHand,
+        qtyReservedBefore: 0,
+        qtyReservedAfter: 0,
+        notes: "Opening balance",
+        createdById: user.id,
+      },
+    });
+  }
+
+  // 4. StockTransfer - 2 completed transfers
+  await prisma.stockTransfer.upsert({
+    where: { referenceNumber_companyId: { referenceNumber: "STF-001", companyId: company.id } },
+    update: {},
+    create: {
+      referenceNumber: "STF-001",
+      sourceLocationId: mainWarehouse.id,
+      destinationLocationId: posStore.id,
+      status: "COMPLETED",
+      companyId: company.id,
+      notes: "Stock transfer to POS store",
+      createdById: user.id,
+      issuedAt: new Date(),
+      receivedAt: new Date(),
+      items: {
+        create: [
+          { productId: products[0].id, quantity: 50 },
+          { productId: products[2].id, quantity: 30 },
+        ],
+      },
+    },
+  });
+
+  await prisma.stockTransfer.upsert({
+    where: { referenceNumber_companyId: { referenceNumber: "STF-002", companyId: company.id } },
+    update: {},
+    create: {
+      referenceNumber: "STF-002",
+      sourceLocationId: mainWarehouse.id,
+      destinationLocationId: empStore.id,
+      status: "COMPLETED",
+      companyId: company.id,
+      notes: "Stock transfer to employee store",
+      createdById: user.id,
+      issuedAt: new Date(),
+      receivedAt: new Date(),
+      items: {
+        create: [{ productId: products[1].id, quantity: 20 }],
+      },
+    },
+  });
+
+  // 5. StockAdjustment - 1 for damage, 1 for correction
+  try {
+    await prisma.stockAdjustment.create({
+      data: {
+        referenceNumber: "ADJ-001",
+        locationId: mainWarehouse.id,
+        reason: "DAMAGE",
+        companyId: company.id,
+        notes: "Damaged goods adjustment",
+        createdById: user.id,
+        postedAt: new Date(),
+        items: {
+          create: [{ productId: products[0].id, direction: "OUT", quantity: 5, unitCost: 80 }],
+        },
+      },
+    });
+  } catch {
+    console.log("Adjustment ADJ-001 already exists, skipping.");
+  }
+
+  try {
+    await prisma.stockAdjustment.create({
+      data: {
+        referenceNumber: "ADJ-002",
+        locationId: mainWarehouse.id,
+        reason: "CORRECTION",
+        companyId: company.id,
+        notes: "Stock count correction",
+        createdById: user.id,
+        postedAt: new Date(),
+        items: {
+          create: [{ productId: products[2].id, direction: "IN", quantity: 10, unitCost: 90 }],
+        },
+      },
+    });
+  } catch {
+    console.log("Adjustment ADJ-002 already exists, skipping.");
+  }
+
+  // 6. StockCount - 1 posted
+  try {
+    await prisma.stockCount.create({
+      data: {
+        referenceNumber: "SC-001",
+        locationId: mainWarehouse.id,
+        companyId: company.id,
+        status: "POSTED",
+        notes: "Monthly stock count",
+        frozenAt: new Date(),
+        postedAt: new Date(),
+        createdById: user.id,
+        reviewedById: user.id,
+        items: {
+          create: products.slice(0, 3).map((p, i) => {
+            const expected = balanceData[i]?.qtyOnHand ?? 0;
+            const counted = expected - (i === 0 ? 2 : 0);
+            return {
+              productId: p.id,
+              expectedQty: expected,
+              countedQty: counted,
+              variance: counted - expected,
+            };
+          }),
+        },
+      },
+    });
+  } catch {
+    console.log("Stock count SC-001 already exists, skipping.");
+  }
+
+  console.log("Inventory seed data created successfully!");
+}
+
+seedInventory()
+  .catch((e) => {
+    console.error("Inventory seed error:", e);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

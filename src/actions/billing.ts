@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth } from "@/lib/auth-helper";
 import { createNotification } from "@/lib/audit";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import { getBillingCurrency, pricePlanForCurrency } from "@/lib/billing-currency";
 
 export async function getBillingOverview() {
@@ -83,6 +84,11 @@ export async function submitPayment(
     message: `Invoice ${invoice.invoiceNumber} is waiting for admin verification.`,
     type: "INFO",
     link: "/billing",
+  });
+  await sendPushNotificationWithAdmins(companyId, user.id, {
+    title: "Payment Submitted",
+    body: `Invoice ${invoice.invoiceNumber} — Rs ${invoice.amount} — ${data.paymentMethod} — by ${user.name || user.id}`,
+    url: "/billing",
   });
 
   revalidatePath("/billing");

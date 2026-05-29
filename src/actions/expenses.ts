@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth, requirePermission } from "@/lib/auth-helper";
-import { createAuditLog } from "@/lib/audit";
+import { createAuditLog, createNotification } from "@/lib/audit";
+import { sendPushNotificationWithAdmins } from "@/lib/push";
 import { PERMISSIONS } from "@/lib/constants";
 import { deleteOperationalJournal, postExpenseJournal } from "@/lib/operational-journals";
 
@@ -103,6 +104,19 @@ export async function createExpense(data: {
     metadata: { amount: data.amount, category: data.category, status: "SUBMITTED" },
   });
 
+  await createNotification({
+    companyId: user.companyId,
+    userId: user.id,
+    title: "Expense Submitted",
+    message: `Rs ${data.amount} expense in ${data.category} — ${data.description}`,
+    type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(user.companyId, user.id, {
+    title: "Expense Submitted",
+    body: `Rs ${data.amount} — ${data.category} — ${data.description} — by ${user.name || user.id}`,
+    url: "/expenses",
+  });
+
   revalidatePath("/expenses");
   revalidatePath("/accounting/expenses");
   return expenseToPlain(expense);
@@ -157,6 +171,19 @@ export async function updateExpenseStatus(expenseId: string, status: "APPROVED" 
     entity: "Expense",
     entityId: expense.id,
     metadata: { status, amount: toNumber(expense.amount) },
+  });
+
+  await createNotification({
+    companyId: user.companyId,
+    userId: user.id,
+    title: `Expense ${status}`,
+    message: `Expense ${expense.description} ${status.toLowerCase()} — Rs ${toNumber(expense.amount)}`,
+    type: status === "APPROVED" ? "SUCCESS" : status === "REJECTED" ? "WARNING" : "INFO",
+  });
+  await sendPushNotificationWithAdmins(user.companyId, user.id, {
+    title: `Expense ${status}`,
+    body: `Expense ${expense.description} — Rs ${toNumber(expense.amount)} — ${status.toLowerCase()} by ${user.name || user.id}`,
+    url: "/expenses",
   });
 
   revalidatePath("/expenses");

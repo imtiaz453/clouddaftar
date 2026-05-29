@@ -537,6 +537,19 @@ export async function createProduct(data: {
     metadata: { name: product.name, sku: product.sku },
   });
 
+  await createNotification({
+    companyId,
+    userId,
+    title: "Product Created",
+    message: `Product ${product.name} (${product.sku}) created`,
+    type: "SUCCESS",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Product Created",
+    body: `${product.name} (${product.sku}) created by ${user.name || userId}`,
+    url: `/inventory/${product.id}`,
+  });
+
   revalidateBoth("/inventory", user.companySlug);
   return product;
 }
@@ -741,6 +754,19 @@ export async function adjustStock(data: {
     metadata: {
       stockAdjustment: { type: data.type, quantity: data.quantity, beforeStock, afterStock },
     },
+  });
+
+  await createNotification({
+    companyId,
+    userId,
+    title: "Stock Adjusted",
+    message: `${product.name} — ${data.quantity > 0 ? "+" : ""}${data.quantity} units (${data.type})`,
+    type: "INFO",
+  });
+  await sendPushNotificationWithAdmins(companyId, userId, {
+    title: "Stock Adjusted",
+    body: `${product.name} — ${data.quantity > 0 ? "+" : ""}${data.quantity} — ${data.type} — now ${afterStock} units — by ${user.name || userId}`,
+    url: `/inventory/${product.id}`,
   });
 
   revalidateBoth("/inventory", user.companySlug);
