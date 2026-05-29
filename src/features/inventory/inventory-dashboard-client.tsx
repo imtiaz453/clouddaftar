@@ -75,26 +75,59 @@ interface InventoryDashboardClientProps {
   initialData: DashboardData;
 }
 
+type RawDashboardData = Omit<DashboardData, "recentMovements"> & {
+  recentMovements: Array<Omit<RecentMovement, "createdAt"> & { createdAt: string | Date }>;
+};
+
+function normalizeDashboardData(rawData: RawDashboardData): DashboardData {
+  return {
+    ...rawData,
+    recentMovements: rawData.recentMovements.map((movement) => ({
+      ...movement,
+      createdAt:
+        movement.createdAt instanceof Date
+          ? movement.createdAt.toISOString()
+          : movement.createdAt,
+    })),
+  };
+}
+
 function MovementBadge({ type }: { type: string }) {
   const styles: Record<string, string> = {
-    PURCHASE_RECEIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    PURCHASE_RECEIVE:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
     SALE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    SALE_ISSUE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    SALE_RETURN:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    PURCHASE_RETURN:
+      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     TRANSFER_IN: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    TRANSFER_OUT: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-    ADJUSTMENT_IN: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-    ADJUSTMENT_OUT: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-    STOCK_COUNT_CORRECTION: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+    TRANSFER_OUT:
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+    ADJUSTMENT_IN:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    ADJUSTMENT_OUT:
+      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    STOCK_COUNT_CORRECTION:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+    OPENING_BALANCE:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    DAMAGE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    EXPIRY: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    LOST: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   };
 
   const label = type
     .split("_")
-    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
     .join(" ");
 
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-        styles[type] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+        styles[type] ||
+        "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
       }`}
     >
       {label}
@@ -105,8 +138,8 @@ function MovementBadge({ type }: { type: string }) {
 function SummarySkeleton() {
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Card key={i} className="p-5">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <Card key={index} className="p-5">
           <Skeleton className="h-4 w-20" />
           <Skeleton className="mt-2 h-8 w-28" />
           <Skeleton className="mt-1 h-3 w-16" />
@@ -119,42 +152,97 @@ function SummarySkeleton() {
 function TableSkeletonRows({ rows = 4 }: { rows?: number }) {
   return (
     <div className="space-y-3 p-4">
-      {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} className="h-10 w-full" />
+      {Array.from({ length: rows }).map((_, index) => (
+        <Skeleton key={index} className="h-10 w-full" />
       ))}
     </div>
   );
 }
 
-export function InventoryDashboardClient({ initialData }: InventoryDashboardClientProps) {
+function EmptyInventoryState() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Inventory Dashboard"
+        description="Overview of stock, locations, and movements"
+      />
+
+      <Card className="flex flex-col items-center justify-center py-16">
+        <Package className="mb-4 h-12 w-12 text-muted-foreground/40" />
+        <h3 className="text-lg font-semibold">No inventory data</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Get started by creating your first product
+        </p>
+
+        <Link href="/inventory/products" className="mt-4">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            New Product
+          </Button>
+        </Link>
+      </Card>
+    </div>
+  );
+}
+
+export function InventoryDashboardClient({
+  initialData,
+}: InventoryDashboardClientProps) {
   const { addToast } = useToast();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<DashboardData | null>(
+    initialData ? normalizeDashboardData(initialData) : null,
+  );
+  const [loading, setLoading] = useState(!initialData);
 
   useEffect(() => {
+    let mounted = true;
+
     async function fetchData() {
       try {
         if (initialData) {
-          setData(initialData);
-          setLoading(false);
+          if (mounted) {
+            setData(normalizeDashboardData(initialData));
+            setLoading(false);
+          }
           return;
         }
+
         const result = await getInventoryDashboardData();
-        setData(result);
+
+        if (mounted) {
+          setData(normalizeDashboardData(result));
+        }
       } catch {
-        addToast({ title: "Failed to load inventory dashboard", variant: "error" });
+        if (mounted) {
+          addToast({
+            title: "Failed to load inventory dashboard",
+            variant: "error",
+          });
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
+
     fetchData();
+
+    return () => {
+      mounted = false;
+    };
   }, [initialData, addToast]);
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Inventory Dashboard" description="Overview of stock, locations, and movements" />
+        <PageHeader
+          title="Inventory Dashboard"
+          description="Overview of stock, locations, and movements"
+        />
+
         <SummarySkeleton />
+
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="p-0">
             <div className="border-b px-4 py-3">
@@ -162,6 +250,7 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
             </div>
             <TableSkeletonRows rows={4} />
           </Card>
+
           <Card className="p-0">
             <div className="border-b px-4 py-3">
               <Skeleton className="h-5 w-36" />
@@ -169,6 +258,7 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
             <TableSkeletonRows rows={4} />
           </Card>
         </div>
+
         <Card className="p-0">
           <div className="border-b px-4 py-3">
             <Skeleton className="h-5 w-40" />
@@ -180,70 +270,42 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
   }
 
   if (!data) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Inventory Dashboard" description="Overview of stock, locations, and movements" />
-        <Card className="flex flex-col items-center justify-center py-16">
-          <Package className="mb-4 h-12 w-12 text-muted-foreground/40" />
-          <h3 className="text-lg font-semibold">No inventory data</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Get started by creating your first product
-          </p>
-          <Link href="/inventory/products" className="mt-4">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Product
-            </Button>
-          </Link>
-        </Card>
-      </div>
-    );
+    return <EmptyInventoryState />;
   }
 
   const hasProducts = data.totalSkuWithStock > 0 || data.totalProducts > 0;
 
   if (!hasProducts) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Inventory Dashboard" description="Overview of stock, locations, and movements" />
-        <Card className="flex flex-col items-center justify-center py-16">
-          <Package className="mb-4 h-12 w-12 text-muted-foreground/40" />
-          <h3 className="text-lg font-semibold">No inventory data</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Get started by creating your first product
-          </p>
-          <Link href="/inventory/products" className="mt-4">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Product
-            </Button>
-          </Link>
-        </Card>
-      </div>
-    );
+    return <EmptyInventoryState />;
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Inventory Dashboard" description="Overview of stock, locations, and movements">
+      <PageHeader
+        title="Inventory Dashboard"
+        description="Overview of stock, locations, and movements"
+      >
         <Link href="/inventory/products">
           <Button size="sm" variant="outline">
             <Plus className="mr-1.5 h-4 w-4" />
             New Product
           </Button>
         </Link>
+
         <Link href="/inventory/transfers">
           <Button size="sm" variant="outline">
             <ArrowRightLeft className="mr-1.5 h-4 w-4" />
             New Transfer
           </Button>
         </Link>
+
         <Link href="/inventory/adjustments">
           <Button size="sm" variant="outline">
             <ClipboardCheck className="mr-1.5 h-4 w-4" />
             New Adjustment
           </Button>
         </Link>
+
         <Link href="/inventory/stock-counts">
           <Button size="sm">
             <ClipboardCheck className="mr-1.5 h-4 w-4" />
@@ -258,37 +320,58 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
             <p className="text-xs font-medium text-muted-foreground">Total SKUs</p>
             <Package className="h-4 w-4 text-muted-foreground/60" />
           </div>
-          <p className="mt-2 text-2xl font-semibold tabular-nums">{data.totalSkuWithStock}</p>
+
+          <p className="mt-2 text-2xl font-semibold tabular-nums">
+            {data.totalSkuWithStock}
+          </p>
+
           <p className="mt-0.5 text-xs text-muted-foreground">
             {data.totalProducts} total products
           </p>
         </Card>
+
         <Card className="p-5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">Stock Value</p>
             <DollarSign className="h-4 w-4 text-muted-foreground/60" />
           </div>
+
           <p className="mt-2 text-2xl font-semibold tabular-nums">
             {formatCurrency(data.totalStockValue)}
           </p>
+
           <p className="mt-0.5 text-xs text-muted-foreground">
             {data.totalStockQty} units on hand
           </p>
         </Card>
+
         <Card className="p-5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">Locations</p>
             <Building2 className="h-4 w-4 text-muted-foreground/60" />
           </div>
-          <p className="mt-2 text-2xl font-semibold tabular-nums">{data.totalLocations}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Active stock locations</p>
+
+          <p className="mt-2 text-2xl font-semibold tabular-nums">
+            {data.totalLocations}
+          </p>
+
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Active stock locations
+          </p>
         </Card>
+
         <Card className="p-5">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground">Pending Transfers</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Pending Transfers
+            </p>
             <Truck className="h-4 w-4 text-muted-foreground/60" />
           </div>
-          <p className="mt-2 text-2xl font-semibold tabular-nums">{data.pendingTransferCount}</p>
+
+          <p className="mt-2 text-2xl font-semibold tabular-nums">
+            {data.pendingTransferCount}
+          </p>
+
           <Link
             href="/inventory/transfers"
             className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
@@ -308,6 +391,7 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
                 Products at or below minimum stock level
               </p>
             </div>
+
             {data.lowStockCount > 0 && (
               <Link href="/inventory/low-stock">
                 <Button variant="ghost" size="sm" className="gap-1 text-xs">
@@ -317,6 +401,7 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
               </Link>
             )}
           </div>
+
           {data.lowStockItems.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">
               <AlertTriangle className="mb-2 h-8 w-8 text-muted-foreground/30" />
@@ -333,17 +418,24 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {data.lowStockItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
+
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {item.sku || "—"}
                     </TableCell>
+
                     <TableCell className="text-right font-medium tabular-nums">
                       {item.stock}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{item.minStock}</TableCell>
+
+                    <TableCell className="text-right tabular-nums">
+                      {item.minStock}
+                    </TableCell>
+
                     <TableCell>
                       <Badge variant={item.stock === 0 ? "destructive" : "warning"}>
                         {item.stock === 0 ? "Out of Stock" : "Warning"}
@@ -363,6 +455,7 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
               Distribution of stock across locations
             </p>
           </div>
+
           {data.stockByLocation.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">
               <Building2 className="mb-2 h-8 w-8 text-muted-foreground/30" />
@@ -378,15 +471,25 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
                   <TableHead className="text-right">Products</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
-                {data.stockByLocation.map((loc) => (
-                  <TableRow key={loc.locationId}>
-                    <TableCell className="font-medium">{loc.locationName}</TableCell>
-                    <TableCell className="text-right tabular-nums">{loc.totalQty}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(loc.totalValue)}
+                {data.stockByLocation.map((location) => (
+                  <TableRow key={location.locationId}>
+                    <TableCell className="font-medium">
+                      {location.locationName}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{loc.productCount}</TableCell>
+
+                    <TableCell className="text-right tabular-nums">
+                      {location.totalQty}
+                    </TableCell>
+
+                    <TableCell className="text-right tabular-nums">
+                      {formatCurrency(location.totalValue)}
+                    </TableCell>
+
+                    <TableCell className="text-right tabular-nums">
+                      {location.productCount}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -402,6 +505,7 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
             Last {data.recentMovements.length} transactions across all locations
           </p>
         </div>
+
         {data.recentMovements.length === 0 ? (
           <div className="flex flex-col items-center py-8 text-center">
             <Truck className="mb-2 h-8 w-8 text-muted-foreground/30" />
@@ -419,32 +523,42 @@ export function InventoryDashboardClient({ initialData }: InventoryDashboardClie
                 <TableHead className="text-right">Balance After</TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
-              {data.recentMovements.map((m) => (
-                <TableRow key={m.id}>
+              {data.recentMovements.map((movement) => (
+                <TableRow key={movement.id}>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {formatDateTime(m.createdAt)}
+                    {formatDateTime(movement.createdAt)}
                   </TableCell>
-                  <TableCell className="font-medium">{m.productName}</TableCell>
+
+                  <TableCell className="font-medium">
+                    {movement.productName}
+                  </TableCell>
+
                   <TableCell className="text-sm text-muted-foreground">
-                    {m.locationName}
+                    {movement.locationName}
                   </TableCell>
+
                   <TableCell>
-                    <MovementBadge type={m.movementType} />
+                    <MovementBadge type={movement.movementType} />
                   </TableCell>
+
                   <TableCell
-                    className={`text-right tabular-nums font-medium ${
-                      m.quantity < 0
+                    className={`text-right font-medium tabular-nums ${
+                      movement.quantity < 0
                         ? "text-red-600"
-                        : m.quantity > 0
+                        : movement.quantity > 0
                           ? "text-green-600"
                           : ""
                     }`}
                   >
-                    {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
+                    {movement.quantity > 0
+                      ? `+${movement.quantity}`
+                      : movement.quantity}
                   </TableCell>
+
                   <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {m.qtyOnHandAfter}
+                    {movement.qtyOnHandAfter}
                   </TableCell>
                 </TableRow>
               ))}
