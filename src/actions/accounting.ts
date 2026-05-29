@@ -477,7 +477,7 @@ export async function getReceivableDashboard() {
   const agingBuckets = { ...EMPTY_AGING_BUCKETS };
   for (const r of agingRecords) {
     const amt = toNumber(r.due);
-    const bucket = agingBucketFromDate(r.createdAt, amt, now);
+    const bucket = agingBucketFromDate(r.dueDate, amt, now);
     agingBuckets[bucket] += amt;
   }
 
@@ -1198,9 +1198,9 @@ export async function getCustomerAging(params?: {
 
       buckets.totalDue += amount;
 
-      // Aging by invoice date, not due date.
-      // This prevents old unpaid invoices from staying in Current.
-      const bucket = agingBucketFromDate(sale.createdAt, amount, now);
+      // Aging by due date.
+      // Current = not overdue yet; 1-30/31-60/61-90/90+ = days after due date.
+      const bucket = agingBucketFromDate(sale.dueDate, amount, now);
 
       buckets[bucket] += amount;
     }
@@ -1873,7 +1873,7 @@ export async function getPayableDashboard() {
   const agingBuckets = { ...EMPTY_AGING_BUCKETS };
   for (const r of agingRecords) {
     const amt = toNumber(r.due);
-    const bucket = agingBucketFromDate(r.createdAt, amt, now);
+    const bucket = agingBucketFromDate(r.dueDate, amt, now);
     agingBuckets[bucket] += amt;
   }
 
@@ -2313,7 +2313,7 @@ export async function getSupplierAging(params?: {
     for (const p of supplierPurchases) {
       const amt = toNumber(p.due);
       buckets.totalDue += amt;
-      const bucket = agingBucketFromDate(p.createdAt, amt, now);
+      const bucket = agingBucketFromDate(p.dueDate, amt, now);
       buckets[bucket] += amt;
     }
     return { supplierId: supplier.id, supplierName: supplier.name, ...buckets };
