@@ -1804,7 +1804,7 @@ export async function getPayableDashboard() {
   const agingBuckets = { ...EMPTY_AGING_BUCKETS };
   for (const r of agingRecords) {
     const amt = toNumber(r.due);
-    const bucket = agingBucketFromDueDate(r.dueDate, amt, now);
+    const bucket = agingBucketFromDate(r.dueDate, amt, now);
     agingBuckets[bucket] += amt;
   }
 
