@@ -2244,7 +2244,7 @@ export async function getSupplierAging(params?: {
     for (const p of supplierPurchases) {
       const amt = toNumber(p.due);
       buckets.totalDue += amt;
-      const bucket = agingBucketFromDueDate(p.dueDate, amt, now);
+      const bucket = agingBucketFromDate(p.dueDate, amt, now);
       buckets[bucket] += amt;
     }
     return { supplierId: supplier.id, supplierName: supplier.name, ...buckets };
