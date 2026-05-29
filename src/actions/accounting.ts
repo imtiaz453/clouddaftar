@@ -22,15 +22,30 @@ function toNumber(val: any): number {
   return Number(val) || 0;
 }
 
-function agingBucketFromDueDate(dueDate: Date | null, amount: number, now: Date): keyof typeof EMPTY_AGING_BUCKETS {
-  if (!dueDate) return "current";
-  const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+function agingBucketFromDate(
+  agingDate: Date | null | undefined,
+  amount: number,
+  now: Date,
+): keyof typeof EMPTY_AGING_BUCKETS {
+  if (amount <= 0) return "current";
+
+  if (!agingDate) return "current";
+
+  const baseDay = new Date(
+    agingDate.getFullYear(),
+    agingDate.getMonth(),
+    agingDate.getDate(),
+  );
+
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const daysOverdue = Math.floor((today.getTime() - dueDay.getTime()) / 86400000);
-  if (daysOverdue <= 0) return "current";
-  if (daysOverdue <= 30) return "days1to30";
-  if (daysOverdue <= 60) return "days31to60";
-  if (daysOverdue <= 90) return "days61to90";
+
+  const daysOld = Math.floor((today.getTime() - baseDay.getTime()) / 86400000);
+
+  if (daysOld <= 0) return "current";
+  if (daysOld <= 30) return "days1to30";
+  if (daysOld <= 60) return "days31to60";
+  if (daysOld <= 90) return "days61to90";
+
   return "days90plus";
 }
 
