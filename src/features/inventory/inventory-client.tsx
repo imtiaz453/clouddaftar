@@ -150,9 +150,9 @@ export function InventoryClient({
       const res = await fetch(`/api/inventory?search=${encodeURIComponent(search)}&page=${newPage}&pageSize=50`);
       const data = await res.json();
       if (data.success) setProducts(data.data);
-      else toast.error("Failed to load products");
+      else addToast({ title: "Failed to load products", variant: "error" });
     } catch {
-      toast.error("Failed to load products");
+      addToast({ title: "Failed to load products", variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -166,9 +166,9 @@ export function InventoryClient({
       const res = await fetch(`/api/inventory?search=${encodeURIComponent(value)}&page=1&pageSize=50`);
       const data = await res.json();
       if (data.success) setProducts(data.data);
-      else toast.error("Failed to search products");
+      else addToast({ title: "Failed to search products", variant: "error" });
     } catch {
-      toast.error("Failed to search products");
+      addToast({ title: "Failed to search products", variant: "error" });
     } finally {
       setLoading(false);
     }
