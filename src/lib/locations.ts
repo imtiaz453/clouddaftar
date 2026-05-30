@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import * as InventoryService from "@/services/inventory";
 
 type Tx = typeof prisma | any;
 
@@ -10,7 +9,13 @@ export const DEFAULT_WAREHOUSE_LOCATIONS = [
   { name: "Packing", codeSuffix: "PACK", type: "PACKING", isReplenishable: false },
   { name: "Output", codeSuffix: "OUT", type: "OUTPUT", isReplenishable: false },
   { name: "Transit", codeSuffix: "TRANSIT", type: "TRANSIT", isReplenishable: false },
-  { name: "Inventory Loss", codeSuffix: "LOSS", type: "INVENTORY_LOSS", isReplenishable: false, isScrapLocation: true },
+  {
+    name: "Inventory Loss",
+    codeSuffix: "LOSS",
+    type: "INVENTORY_LOSS",
+    isReplenishable: false,
+    isScrapLocation: true,
+  },
 ] as const;
 
 // ============ NEW STOCK LOCATION HELPERS ============
@@ -26,10 +31,12 @@ export async function getUserAccessibleLocationIds(
       where: { companyId, deletedAt: null },
       select: { id: true },
     });
-    return locations.map((l) => l.id);
+
+    return locations.map((location) => location.id);
   }
 
   const ids = new Set<string>();
+
   const membership = await prismaClient.companyMembership.findFirst({
     where: { companyId, userId, isActive: true },
     select: { branchId: true },
@@ -37,51 +44,117 @@ export async function getUserAccessibleLocationIds(
 
   if (membership?.branchId) {
     const branchLocations = await prismaClient.stockLocation.findMany({
-      where: { companyId, branchId: membership.branchId, deletedAt: null },
+      where: {
+        companyId,
+        branchId: membership.branchId,
+        deletedAt: null,
+      },
       select: { id: true },
     });
-    branchLocations.forEach((l) => ids.add(l.id));
+
+    branchLocations.forEach((location) => ids.add(location.id));
   }
 
-  const assigned = await prismaClient.stockLocation.findMany({
-    where: { companyId, assignedEmployeeId: userId, deletedAt: null },
+  const assignedLocations = await prismaClient.stockLocation.findMany({
+    where: {
+      companyId,
+      assignedEmployeeId: userId,
+      deletedAt: null,
+    },
     select: { id: true },
   });
-  assigned.forEach((l) => ids.add(l.id));
+
+  assignedLocations.forEach((location) => ids.add(location.id));
 
   return Array.from(ids);
 }
 
 // ============ BACKWARD-COMPATIBLE WRAPPERS ============
-// These exist so other modules (purchases, sales) can keep working.
+// These exist so other modules such as purchases and sales can keep working.
 // They wrap the new stock location / stock balance system.
 
 export async function ensureDefaultBranchAndWarehouse(tx: Tx, companyId: string) {
   let branch = await tx.branch.findFirst({
     where: { companyId, deletedAt: null, isDefault: true },
   });
-  if (!branch) branch = await tx.branch.findFirst({ where: { companyId, deletedAt: null } });
+
+  if (!branch) {
+    branch = await tx.branch.findFirst({
+      where: { companyId, deletedAt: null },
+    });
+  }
+
   if (!branch) {
     try {
       branch = await tx.branch.create({
-        data: { companyId, name: "Main Branch", code: "MAIN", isDefault: true },
+        data: {
+          companyId,
+          name: "Main Branch",
+          code: "MAIN",
+          isDefault: true,
+        },
       });
-    } catch { /* ignore duplicate */ }
+    } catch {
+      branch = await tx.branch.findFirst({
+        where: { companyId, deletedAt: null },
+      });
+    }
   }
+
+  if (!branch) {
+    throw new Error("Could not resolve or create default branch");
+  }
+
   return { branch, warehouse: null };
 }
 
-export async function ensureDefaultWarehouseLocations(tx: Tx, companyId: string, warehouse: { id: string; code: string }) {
-  // No-op: new architecture uses StockLocation
+export async function ensureDefaultWarehouseLocations(
+  tx: Tx,
+  companyId: string,
+  warehouse: { id: string; code: string },
+) {
+  // No-op: new architecture uses StockLocation.
+  void tx;
+  void companyId;
+  void warehouse;
 }
 
 export async function resolveOperationalLocation(
   tx: Tx,
-  params: { companyId: string; userId?: string; branchId?: string | null; warehouseId?: string | null },
+  params: {
+    companyId: string;
+    userId?: string;
+    branchId?: string | null;
+    warehouseId?: string | null;
+  },
 ) {
   const fallback = await ensureDefaultBranchAndWarehouse(tx, params.companyId);
   const branchId = params.branchId || fallback.branch.id;
+
   return { branchId, warehouseId: null };
+}
+
+async function findDefaultStockLocation(tx: Tx, companyId: string) {
+  const mainWarehouseLocation = await tx.stockLocation.findFirst({
+    where: {
+      companyId,
+      type: "MAIN_WAREHOUSE",
+      deletedAt: null,
+      isActive: true,
+    },
+    orderBy: { isDefault: "desc" },
+  });
+
+  if (mainWarehouseLocation) return mainWarehouseLocation;
+
+  return tx.stockLocation.findFirst({
+    where: {
+      companyId,
+      deletedAt: null,
+      isActive: true,
+    },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+  });
 }
 
 export async function getProductStockAtWarehouse(
@@ -90,41 +163,75 @@ export async function getProductStockAtWarehouse(
   companyId: string,
   warehouseId: string | null,
 ): Promise<number> {
-  // Find default location and use StockBalance
-  const defaultLocation = await tx.stockLocation.findFirst({
-    where: { companyId, type: "MAIN_WAREHOUSE", deletedAt: null, isActive: true },
-    orderBy: { isDefault: "desc" },
-  });
-  if (!defaultLocation) return Number(product.stock || 0);
+  void warehouseId;
+
+  const defaultLocation = await findDefaultStockLocation(tx, companyId);
+
+  if (!defaultLocation) {
+    return Number(product.stock || 0);
+  }
+
   const balance = await tx.stockBalance.findUnique({
-    where: { productId_locationId: { productId: product.id, locationId: defaultLocation.id } },
+    where: {
+      productId_locationId_companyId: {
+        productId: product.id,
+        locationId: defaultLocation.id,
+        companyId,
+      },
+    },
   });
+
   return balance ? Number(balance.qtyOnHand) : 0;
 }
 
 export async function adjustWarehouseStock(
   tx: Tx,
-  params: { companyId: string; productId: string; warehouseId: string | null; quantityDelta: number },
+  params: {
+    companyId: string;
+    productId: string;
+    warehouseId: string | null;
+    quantityDelta: number;
+  },
 ) {
-  // Map warehouse to default stock location
-  const defaultLocation = await tx.stockLocation.findFirst({
-    where: { companyId: params.companyId, type: "MAIN_WAREHOUSE", deletedAt: null, isActive: true },
-    orderBy: { isDefault: "desc" },
-  });
-  const locationId = defaultLocation?.id || "unknown";
+  const defaultLocation = await findDefaultStockLocation(tx, params.companyId);
 
-  const balance = await tx.stockBalance.findUnique({
-    where: { productId_locationId: { productId: params.productId, locationId } },
-  });
-  const beforeStock = balance ? Number(balance.qtyOnHand) : 0;
+  let beforeStock = 0;
+
+  if (defaultLocation) {
+    const balance = await tx.stockBalance.findUnique({
+      where: {
+        productId_locationId_companyId: {
+          productId: params.productId,
+          locationId: defaultLocation.id,
+          companyId: params.companyId,
+        },
+      },
+    });
+
+    beforeStock = balance ? Number(balance.qtyOnHand) : 0;
+  }
+
   const afterStock = beforeStock + params.quantityDelta;
 
-  // Just update ProductStock for backward compat (other modules may read it)
+  // Keep ProductStock updated for backward compatibility because some older
+  // purchase/sales screens may still read it.
   if (params.warehouseId) {
     await tx.productStock.upsert({
-      where: { productId_warehouseId: { productId: params.productId, warehouseId: params.warehouseId } },
-      create: { companyId: params.companyId, productId: params.productId, warehouseId: params.warehouseId, quantity: afterStock },
-      update: { quantity: afterStock },
+      where: {
+        productId_warehouseId: {
+          productId: params.productId,
+          warehouseId: params.warehouseId,
+        },
+      },
+      create: {
+        companyId: params.companyId,
+        productId: params.productId,
+        warehouseId: params.warehouseId,
+        quantity: afterStock,
+      },
+      update: {
+        quantity: afterStock,
+      },
     });
   }
 
