@@ -32,7 +32,7 @@ import {
   resolveOperationalLocation,
   getUserAccessibleLocationIds,
 } from "@/lib/locations";
-import { consumeStockForSaleTx, receiveStockForPurchaseTx, resolveLocationIdFromWarehouseId, getProductStockByLocation } from "@/lib/inventory";
+import { consumeStockForSaleTx, getProductStockByLocation } from "@/lib/inventory";
 
 type SaleLineInput = {
   productId: string;
@@ -90,18 +90,109 @@ function replacePeriodDocumentPrefix(value: string, nextPrefix: string): string 
   return value.replace(/^[^/]+/, normalizedPrefix);
 }
 
-function draftNumberFromPostedDocument(value: string): string | null {
-  return replacePeriodDocumentPrefix(value, "DRAFT");
+function makeDraftSaleDocumentNumber(invoiceNumber: string): string {
+  const value = String(invoiceNumber || "").trim();
+  if (!value) return value;
+  if (/^DRAFT\//i.test(value) || /^DRAFT-/i.test(value)) return value;
+
+  const parts = value.split("/");
+  if (parts.length >= 4) {
+    return ["DRAFT", ...parts.slice(1)].join("/");
+  }
+
+  return `DRAFT/${value}`;
 }
 
-function postedNumberFromDraftDocument(
-  value: string,
+function restoreSaleDocumentNumber(
+  invoiceNumber: string,
   kind: ReturnType<typeof documentKindForSaleStatus>,
-  settings: Parameters<typeof getPrefixForKind>[1],
+  settings?: Parameters<typeof getPrefixForKind>[1],
 ): string | null {
-  if (!hasPeriodDocumentNumber(value)) return null;
-  if (!/^DRAFT\//i.test(value)) return null;
-  return replacePeriodDocumentPrefix(value, getPrefixForKind(kind, settings));
+  const value = String(invoiceNumber || "").trim();
+  if (!value) return null;
+
+  if (/^DRAFT\//i.test(value)) {
+    const parts = value.split("/");
+    if (parts.length >= 4) {
+      const prefix = getPrefixForKind(kind, settings);
+      return [prefix, ...parts.slice(1)].join("/");
+    }
+
+    return value.replace(/^DRAFT/i, getPrefixForKind(kind, settings));
+  }
+
+  return null;
+}
+
+
+async function createSaleStockLedgerFromAdjustmentTx(
+  tx: any,
+  params: {
+    companyId: string;
+    productId: string;
+    locationId: string;
+    movementType: "SALE" | "SALE_RETURN";
+    quantity: number;
+    beforeStock: number;
+    afterStock: number;
+    reference: string;
+    referenceId: string;
+    notes?: string | null;
+    createdById: string;
+  },
+) {
+  const balance = await tx.stockBalance.findUnique({
+    where: {
+      productId_locationId_companyId: {
+        productId: params.productId,
+        locationId: params.locationId,
+        companyId: params.companyId,
+      },
+    },
+    select: { qtyReserved: true },
+  });
+
+  const qtyReserved = Number(balance?.qtyReserved || 0);
+
+  await tx.stockLedger.create({
+    data: {
+      productId: params.productId,
+      locationId: params.locationId,
+      companyId: params.companyId,
+      movementType: params.movementType as any,
+      quantity: params.quantity,
+      qtyOnHandBefore: params.beforeStock,
+      qtyOnHandAfter: params.afterStock,
+      qtyReservedBefore: qtyReserved,
+      qtyReservedAfter: qtyReserved,
+      reference: params.reference,
+      referenceId: params.referenceId,
+      notes: params.notes ?? null,
+      createdById: params.createdById,
+    },
+  });
+}
+
+async function saleAlreadyMovedStock(companyId: string, saleId: string): Promise<boolean> {
+  const movements = await prisma.stockLedger.findMany({
+    where: {
+      companyId,
+      referenceId: saleId,
+      movementType: { in: ["SALE", "SALE_RETURN", "PURCHASE_RECEIVE"] as any },
+    },
+    select: { movementType: true, quantity: true },
+  });
+
+  const netIssued = movements.reduce((sum, movement) => {
+    const quantity = Number(movement.quantity || 0);
+    if (movement.movementType === "SALE") return sum + quantity;
+    if (movement.movementType === "SALE_RETURN" || movement.movementType === "PURCHASE_RECEIVE") {
+      return sum - quantity;
+    }
+    return sum;
+  }, 0);
+
+  return netIssued > 0;
 }
 
 function buildZatcaSaleLines(sale: any) {
@@ -602,7 +693,7 @@ export async function createSale(data: {
               createdById: userId,
             });
           } else {
-            const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
+            const { beforeStock, afterStock, locationId } = await adjustWarehouseStock(tx, {
               companyId,
               productId: item.productId,
               warehouseId: location.warehouseId,
@@ -622,18 +713,19 @@ export async function createSale(data: {
                 createdById: userId,
               },
             });
-            const stockLocationId = await resolveLocationIdFromWarehouseId(location.warehouseId, companyId);
-            if (stockLocationId) {
-              await consumeStockForSaleTx(tx, {
-                locationId: stockLocationId,
-                productId: item.productId,
-                companyId,
-                quantity: item.quantity,
-                reference: invoiceNumber,
-                referenceId: sale.id,
-                createdById: userId,
-              });
-            }
+            await createSaleStockLedgerFromAdjustmentTx(tx, {
+              companyId,
+              productId: item.productId,
+              locationId,
+              movementType: "SALE",
+              quantity: item.quantity,
+              beforeStock,
+              afterStock,
+              reference: invoiceNumber,
+              referenceId: sale.id,
+              notes: "Invoice completed",
+              createdById: userId,
+            });
           }
         }
       }
@@ -906,9 +998,11 @@ export async function updateSale(
 
   const settings = await prisma.companySettings.findUnique({ where: { companyId } });
   const newStatus = data.status || existing.status;
+  const existingHasMovedStock = await saleAlreadyMovedStock(companyId, id);
   const existingAffectsStock = salePostsToAccounting(existing.status);
   const updatedAffectsStock = salePostsToAccounting(newStatus);
-  const existingKind = documentKindForSaleStatus(existing.status);
+  const existingAffectsInventory = existingAffectsStock || existingHasMovedStock;
+  const updatedAffectsInventory = updatedAffectsStock || (newStatus === "DRAFT" && existingAffectsInventory);
   const newKind = documentKindForSaleStatus(newStatus);
   const itemsInput =
     data.items ||
@@ -940,145 +1034,174 @@ export async function updateSale(
   );
   const effectiveCustomerId = data.customerId ?? existing.customerId;
   let invoiceNumber = existing.invoiceNumber;
-  const isStatusKindChange = newStatus !== existing.status && existingKind !== newKind;
-  const isConvertingPostedDocumentToDraft =
-    newStatus === "DRAFT" && existing.status !== "DRAFT" && existingKind !== newKind;
-  const isPromotingPreservedDraftDocument =
-    ["DRAFT", "CONFIRMED"].includes(existing.status) &&
+  const isPromotingFromDraft =
     newStatus !== "DRAFT" &&
-    /^DRAFT\//i.test(existing.invoiceNumber);
-  const needsDocumentNumber =
-    (isStatusKindChange && !isConvertingPostedDocumentToDraft && !isPromotingPreservedDraftDocument) ||
-    (newStatus !== "DRAFT" && isLegacyDraftDocumentNumber(existing.invoiceNumber));
+    (existing.status === "DRAFT" || /^DRAFT\//i.test(existing.invoiceNumber));
 
   const sale = await prisma.$transaction(async (tx) => {
-    if (isConvertingPostedDocumentToDraft) {
-      invoiceNumber = draftNumberFromPostedDocument(existing.invoiceNumber) ?? existing.invoiceNumber;
-    } else if (isPromotingPreservedDraftDocument) {
-      const preservedInvoiceNumber = postedNumberFromDraftDocument(
+    if (isPromotingFromDraft) {
+      const restoredInvoiceNumber = restoreSaleDocumentNumber(
         existing.invoiceNumber,
         newKind,
         settings,
       );
 
-      if (preservedInvoiceNumber) {
+      if (restoredInvoiceNumber) {
         const duplicate = await tx.sale.findFirst({
           where: {
             companyId,
             deletedAt: null,
-            invoiceNumber: preservedInvoiceNumber,
+            invoiceNumber: restoredInvoiceNumber,
             id: { not: id },
           },
           select: { id: true },
         });
 
         if (duplicate) {
-          // Do not silently assign the next invoice number because that breaks the
-          // invoice -> draft -> invoice promise. Surface a clear conflict instead.
           throw new Error(
-            `Cannot restore original invoice number ${preservedInvoiceNumber} because it is already used by another document.`,
+            `Cannot restore original invoice number ${restoredInvoiceNumber} because it is already used by another sale document.`,
           );
         }
-
-        invoiceNumber = preservedInvoiceNumber;
-      } else if (needsDocumentNumber) {
-        invoiceNumber = await reserveNextDocumentNumber(tx, companyId, newKind, settings);
       }
-    } else if (needsDocumentNumber) {
+
+      invoiceNumber =
+        restoredInvoiceNumber ??
+        (await reserveNextDocumentNumber(tx, companyId, newKind, settings));
+    } else if (existing.status !== "DRAFT" && newStatus === "DRAFT") {
+      invoiceNumber = makeDraftSaleDocumentNumber(existing.invoiceNumber);
+    } else if (isLegacyDraftDocumentNumber(existing.invoiceNumber) && newStatus !== "DRAFT") {
       invoiceNumber = await reserveNextDocumentNumber(tx, companyId, newKind, settings);
     }
 
-    const stockNeedsRestore = existingAffectsStock && (Boolean(data.items) || !updatedAffectsStock);
-    if (stockNeedsRestore) {
+    const stockNeedsFullRestore = existingAffectsInventory && !updatedAffectsInventory;
+    const stockNeedsFullIssue = updatedAffectsInventory && !existingAffectsInventory;
+    const stockNeedsDelta = Boolean(data.items) && existingAffectsInventory && updatedAffectsInventory;
+    const stockProductIds = Array.from(
+      new Set([
+        ...existing.items.map((item) => item.productId),
+        ...itemsInput.map((item) => item.productId),
+      ]),
+    );
+    const productsById =
+      stockNeedsFullRestore || stockNeedsFullIssue || stockNeedsDelta
+        ? new Map<string, any>(
+            (
+              await tx.product.findMany({
+                where: { id: { in: stockProductIds }, companyId, deletedAt: null },
+              })
+            ).map((product: any) => [product.id, product]),
+          )
+        : new Map<string, any>();
+
+    const applySaleStockChange = async (params: {
+      productId: string;
+      quantity: number;
+      direction: "ISSUE" | "RESTORE";
+      notes: string;
+    }) => {
+      if (!existing.warehouseId || params.quantity <= 0) return;
+      const product = productsById.get(params.productId);
+      if (!product || product.isService) return;
+
+      const signedDelta = params.direction === "ISSUE" ? -params.quantity : params.quantity;
+      const { beforeStock, afterStock, locationId } = await adjustWarehouseStock(tx, {
+        companyId,
+        productId: params.productId,
+        warehouseId: existing.warehouseId,
+        quantityDelta: signedDelta,
+      });
+
+      await tx.inventoryLog.create({
+        data: {
+          productId: params.productId,
+          companyId,
+          branchId: existing.branchId,
+          warehouseId: existing.warehouseId,
+          type: params.direction === "ISSUE" ? "SALE" : "RETURN",
+          quantity: signedDelta,
+          beforeStock,
+          afterStock,
+          reference: invoiceNumber,
+          notes: params.notes,
+          createdById: userId,
+        },
+      });
+
+      await createSaleStockLedgerFromAdjustmentTx(tx, {
+        companyId,
+        productId: params.productId,
+        locationId,
+        movementType: params.direction === "ISSUE" ? "SALE" : "SALE_RETURN",
+        quantity: params.quantity,
+        beforeStock,
+        afterStock,
+        reference: invoiceNumber,
+        referenceId: existing.id,
+        notes: params.notes,
+        createdById: userId,
+      });
+    };
+
+    if (stockNeedsFullRestore) {
       for (const oldItem of existing.items) {
-        const product = await tx.product.findFirst({
-          where: { id: oldItem.productId, companyId, deletedAt: null },
+        await applySaleStockChange({
+          productId: oldItem.productId,
+          quantity: oldItem.quantity,
+          direction: "RESTORE",
+          notes: "Invoice converted to non-posting document - stock restored",
         });
-        if (product && !product.isService && existing.warehouseId) {
-          const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
-            companyId,
-            productId: oldItem.productId,
-            warehouseId: existing.warehouseId,
-            quantityDelta: oldItem.quantity,
-          });
-          await tx.inventoryLog.create({
-            data: {
-              productId: oldItem.productId,
-              companyId,
-              branchId: existing.branchId,
-              warehouseId: existing.warehouseId,
-              type: "ADJUSTMENT",
-              quantity: oldItem.quantity,
-              beforeStock,
-              afterStock,
-              reference: invoiceNumber,
-              notes: data.items
-                ? "Invoice items edited"
-                : "Invoice converted to non-posting document",
-              createdById: userId,
-            },
-          });
-          const restoreLocId = await resolveLocationIdFromWarehouseId(existing.warehouseId, companyId);
-          if (restoreLocId) {
-            await receiveStockForPurchaseTx(tx, {
-              locationId: restoreLocId,
-              productId: oldItem.productId,
-              companyId,
-              quantity: oldItem.quantity,
-              reference: invoiceNumber,
-              referenceId: existing.id,
-              notes: data.items ? "Invoice items edited - stock restored" : "Invoice converted to non-posting - stock restored",
-              createdById: userId,
-            });
-          }
-        }
       }
     }
 
-    const stockNeedsIssue = updatedAffectsStock && (Boolean(data.items) || !existingAffectsStock);
-    const productsById = stockNeedsIssue
-      ? await getProductsForSale(tx, companyId, itemsInput)
-      : new Map<string, any>();
-
-    if (stockNeedsIssue) {
+    if (stockNeedsFullIssue) {
       assertSaleStockAvailable(productsById, itemsInput, settings?.enableNegativeStock ?? false);
       for (const item of itemsInput) {
-        const product = productsById.get(item.productId);
-        if (!product || product.isService || !existing.warehouseId) continue;
-        const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
-          companyId,
+        await applySaleStockChange({
           productId: item.productId,
-          warehouseId: existing.warehouseId,
-          quantityDelta: -item.quantity,
+          quantity: item.quantity,
+          direction: "ISSUE",
+          notes: `${saleDocumentLabel(existing.status)} converted to invoice`,
         });
-        await tx.inventoryLog.create({
-          data: {
-            productId: item.productId,
-            companyId,
-            branchId: existing.branchId,
-            warehouseId: existing.warehouseId,
-            type: "SALE",
-            quantity: -item.quantity,
-            beforeStock,
-            afterStock,
-            reference: invoiceNumber,
-            notes:
-              existingAffectsStock && data.items
-                ? "Invoice items edited"
-                : `${saleDocumentLabel(existing.status)} converted to invoice`,
-            createdById: userId,
-          },
-        });
-        const issueLocId = await resolveLocationIdFromWarehouseId(existing.warehouseId, companyId);
-        if (issueLocId) {
-          await consumeStockForSaleTx(tx, {
-            locationId: issueLocId,
-            productId: item.productId,
-            companyId,
-            quantity: item.quantity,
-            reference: invoiceNumber,
-            referenceId: existing.id,
-            createdById: userId,
+      }
+    }
+
+    if (stockNeedsDelta) {
+      const oldQtyByProduct = new Map<string, number>();
+      for (const item of existing.items) {
+        oldQtyByProduct.set(item.productId, (oldQtyByProduct.get(item.productId) || 0) + Number(item.quantity || 0));
+      }
+
+      const newQtyByProduct = new Map<string, number>();
+      for (const item of itemsInput) {
+        newQtyByProduct.set(item.productId, (newQtyByProduct.get(item.productId) || 0) + Number(item.quantity || 0));
+      }
+
+      const positiveDeltas: SaleLineInput[] = [];
+      for (const productId of stockProductIds) {
+        const delta = (newQtyByProduct.get(productId) || 0) - (oldQtyByProduct.get(productId) || 0);
+        if (delta > 0) {
+          positiveDeltas.push({ productId, quantity: delta, price: 0 });
+        }
+      }
+      if (positiveDeltas.length) {
+        assertSaleStockAvailable(productsById, positiveDeltas, settings?.enableNegativeStock ?? false);
+      }
+
+      for (const productId of stockProductIds) {
+        const delta = (newQtyByProduct.get(productId) || 0) - (oldQtyByProduct.get(productId) || 0);
+        if (delta > 0) {
+          await applySaleStockChange({
+            productId,
+            quantity: delta,
+            direction: "ISSUE",
+            notes: "Invoice draft quantity increased - only extra quantity issued",
+          });
+        } else if (delta < 0) {
+          await applySaleStockChange({
+            productId,
+            quantity: Math.abs(delta),
+            direction: "RESTORE",
+            notes: "Invoice draft quantity reduced - only reduced quantity restored",
           });
         }
       }
