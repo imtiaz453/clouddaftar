@@ -8,7 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import hotToast, { Toaster as HotToaster, type Toast as HotToastInstance } from "react-hot-toast";
+import hotToast, {
+  Toaster as HotToaster,
+  type Toast as HotToastInstance,
+} from "react-hot-toast";
 import { Toaster as SonnerToaster } from "sonner";
 
 interface Toast {
@@ -29,24 +32,25 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 type ToastVariant = NonNullable<Toast["variant"]>;
 
 type ToastVariantConfig = {
-  card: string;
+  bg: string;
   title: string;
   description: string;
-  iconWrap: string;
+  iconBg: string;
+  iconText: string;
   close: string;
-  icon: ReactNode;
   label: string;
+  icon: ReactNode;
 };
 
 const variants: Record<ToastVariant, ToastVariantConfig> = {
   default: {
     label: "Info",
-    card:
-      "bg-sky-50/95 text-sky-950 shadow-[0_12px_30px_rgba(2,132,199,0.16)] dark:bg-sky-950/90 dark:text-sky-50 dark:shadow-[0_12px_30px_rgba(2,132,199,0.16)]",
+    bg: "bg-sky-50/50 dark:bg-sky-950/50",
     title: "text-sky-950 dark:text-sky-50",
     description: "text-sky-800/75 dark:text-sky-100/75",
-    iconWrap: "bg-sky-500 text-white shadow-[0_6px_14px_rgba(14,165,233,0.28)]",
-    close: "text-sky-700/55 hover:bg-sky-100 hover:text-sky-950 dark:text-sky-100/60 dark:hover:bg-sky-900/70 dark:hover:text-white",
+    iconBg: "bg-sky-500/15 dark:bg-sky-300/15",
+    iconText: "text-sky-700 dark:text-sky-200",
+    close: "text-sky-800/45 hover:bg-sky-500/10 hover:text-sky-950 dark:text-sky-100/45 dark:hover:bg-sky-200/10 dark:hover:text-sky-50",
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
         <path fillRule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0ZM9 8a1 1 0 1 0 2 0 1 1 0 0 0-2 0Zm1 2a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 10Z" clipRule="evenodd" />
@@ -55,12 +59,12 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
   },
   success: {
     label: "Success",
-    card:
-      "bg-emerald-50/95 text-emerald-950 shadow-[0_12px_30px_rgba(5,150,105,0.16)] dark:bg-emerald-950/90 dark:text-emerald-50 dark:shadow-[0_12px_30px_rgba(5,150,105,0.16)]",
+    bg: "bg-emerald-50/50 dark:bg-emerald-950/50",
     title: "text-emerald-950 dark:text-emerald-50",
     description: "text-emerald-800/75 dark:text-emerald-100/75",
-    iconWrap: "bg-emerald-500 text-white shadow-[0_6px_14px_rgba(16,185,129,0.28)]",
-    close: "text-emerald-700/55 hover:bg-emerald-100 hover:text-emerald-950 dark:text-emerald-100/60 dark:hover:bg-emerald-900/70 dark:hover:text-white",
+    iconBg: "bg-emerald-500/15 dark:bg-emerald-300/15",
+    iconText: "text-emerald-700 dark:text-emerald-200",
+    close: "text-emerald-800/45 hover:bg-emerald-500/10 hover:text-emerald-950 dark:text-emerald-100/45 dark:hover:bg-emerald-200/10 dark:hover:text-emerald-50",
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
         <path fillRule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.31a1 1 0 0 1-1.423 0L3.29 9.23a1 1 0 1 1 1.42-1.408l4.037 4.07 6.54-6.596a1 1 0 0 1 1.416-.006Z" clipRule="evenodd" />
@@ -69,12 +73,12 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
   },
   error: {
     label: "Error",
-    card:
-      "bg-rose-50/95 text-rose-950 shadow-[0_12px_30px_rgba(225,29,72,0.16)] dark:bg-rose-950/90 dark:text-rose-50 dark:shadow-[0_12px_30px_rgba(225,29,72,0.16)]",
+    bg: "bg-rose-50/50 dark:bg-rose-950/50",
     title: "text-rose-950 dark:text-rose-50",
     description: "text-rose-800/75 dark:text-rose-100/75",
-    iconWrap: "bg-rose-500 text-white shadow-[0_6px_14px_rgba(244,63,94,0.28)]",
-    close: "text-rose-700/55 hover:bg-rose-100 hover:text-rose-950 dark:text-rose-100/60 dark:hover:bg-rose-900/70 dark:hover:text-white",
+    iconBg: "bg-rose-500/15 dark:bg-rose-300/15",
+    iconText: "text-rose-700 dark:text-rose-200",
+    close: "text-rose-800/45 hover:bg-rose-500/10 hover:text-rose-950 dark:text-rose-100/45 dark:hover:bg-rose-200/10 dark:hover:text-rose-50",
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
         <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 1 0-1.06-1.06L10 8.94 8.28 7.22Z" clipRule="evenodd" />
@@ -83,12 +87,12 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
   },
   warning: {
     label: "Warning",
-    card:
-      "bg-amber-50/95 text-amber-950 shadow-[0_12px_30px_rgba(217,119,6,0.16)] dark:bg-amber-950/90 dark:text-amber-50 dark:shadow-[0_12px_30px_rgba(217,119,6,0.16)]",
+    bg: "bg-amber-50/50 dark:bg-amber-950/50",
     title: "text-amber-950 dark:text-amber-50",
     description: "text-amber-800/75 dark:text-amber-100/75",
-    iconWrap: "bg-amber-500 text-white shadow-[0_6px_14px_rgba(245,158,11,0.28)]",
-    close: "text-amber-700/55 hover:bg-amber-100 hover:text-amber-950 dark:text-amber-100/60 dark:hover:bg-amber-900/70 dark:hover:text-white",
+    iconBg: "bg-amber-500/15 dark:bg-amber-300/15",
+    iconText: "text-amber-700 dark:text-amber-200",
+    close: "text-amber-800/45 hover:bg-amber-500/10 hover:text-amber-950 dark:text-amber-100/45 dark:hover:bg-amber-200/10 dark:hover:text-amber-50",
     icon: (
       <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
         <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.674 1.167-.168 2.625-1.515 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 6a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 6Zm0 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
@@ -97,21 +101,33 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
   },
 };
 
-function ToastCard({ toast, instance, onClose }: { toast: Toast; instance?: HotToastInstance; onClose: () => void }) {
+function ToastCard({
+  toast,
+  instance,
+  onClose,
+}: {
+  toast: Toast;
+  instance?: HotToastInstance;
+  onClose: () => void;
+}) {
   const variant = variants[toast.variant || "default"];
 
   return (
     <div
       role="alert"
-      className={`pointer-events-auto flex w-[min(312px,calc(100vw-18px))] items-start gap-2.5 overflow-hidden rounded-2xl px-3 py-2.5 transition-all duration-200 ${variant.card} ${
-        instance?.visible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-[0.98] opacity-0"
+      className={`pointer-events-auto flex w-[min(312px,calc(100vw-20px))] items-center gap-2.5 rounded-2xl ${variant.bg} px-3 py-2.5 shadow-[0_12px_30px_rgba(15,23,42,0.14)] backdrop-blur-sm transition-all duration-200 dark:shadow-[0_12px_30px_rgba(0,0,0,0.32)] ${
+        instance?.visible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-[0.985] opacity-0"
       }`}
+      style={{ zIndex: 2147483647 }}
     >
-      <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${variant.iconWrap}`}>
+      <div
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${variant.iconBg} ${variant.iconText}`}
+        aria-hidden="true"
+      >
         {variant.icon}
       </div>
 
-      <div className="min-w-0 flex-1 pt-px">
+      <div className="min-w-0 flex-1 self-center">
         <div className={`truncate text-[13px] font-semibold leading-4 tracking-[-0.01em] ${variant.title}`}>
           {toast.title || variant.label}
         </div>
@@ -125,8 +141,8 @@ function ToastCard({ toast, instance, onClose }: { toast: Toast; instance?: HotT
       <button
         type="button"
         onClick={onClose}
-        className={`-mr-1 -mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-white/50 ${variant.close}`}
-        aria-label="Close toast"
+        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-current/15 ${variant.close}`}
+        aria-label="Close notification"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
           <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -161,7 +177,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         (instance) => <ToastCard toast={nextToast} instance={instance} onClose={() => removeToast(id)} />,
         {
           id,
-          duration: 3200,
+          duration: 3400,
           position: "top-right",
         },
       );
@@ -184,14 +200,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <HotToaster
         position="top-right"
         reverseOrder={false}
-        gutter={7}
+        gutter={8}
         containerClassName="!z-[2147483647]"
-        containerStyle={{ top: 12, right: 12, zIndex: 2147483647 }}
+        containerStyle={{ top: 14, right: 14, zIndex: 2147483647 }}
         toastOptions={{
-          duration: 3200,
+          duration: 3400,
           style: {
             background: "transparent",
-            border: "none",
             boxShadow: "none",
             padding: 0,
             maxWidth: "312px",
@@ -203,20 +218,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         closeButton
         richColors={false}
         expand={false}
-        duration={3200}
+        duration={3400}
         visibleToasts={4}
-        gap={7}
-        offset={12}
+        gap={8}
+        offset={14}
         className="!z-[2147483646]"
         style={{ zIndex: 2147483646, pointerEvents: "auto" }}
         toastOptions={{
           classNames: {
             toast:
-              "!w-[min(312px,calc(100vw-18px))] !rounded-2xl !border-0 !px-3 !py-2.5 !shadow-[0_12px_30px_rgba(15,23,42,0.12)] data-[type=success]:!bg-emerald-50/95 data-[type=success]:!text-emerald-950 data-[type=error]:!bg-rose-50/95 data-[type=error]:!text-rose-950 data-[type=warning]:!bg-amber-50/95 data-[type=warning]:!text-amber-950 data-[type=info]:!bg-sky-50/95 data-[type=info]:!text-sky-950 data-[type=default]:!bg-sky-50/95 data-[type=default]:!text-sky-950 dark:data-[type=success]:!bg-emerald-950/90 dark:data-[type=success]:!text-emerald-50 dark:data-[type=error]:!bg-rose-950/90 dark:data-[type=error]:!text-rose-50 dark:data-[type=warning]:!bg-amber-950/90 dark:data-[type=warning]:!text-amber-50 dark:data-[type=info]:!bg-sky-950/90 dark:data-[type=info]:!text-sky-50 dark:data-[type=default]:!bg-sky-950/90 dark:data-[type=default]:!text-sky-50",
+              "!w-[min(312px,calc(100vw-20px))] !rounded-2xl !border-0 !bg-slate-50/50 !px-3 !py-2.5 !text-slate-900 !shadow-[0_12px_30px_rgba(15,23,42,0.14)] !backdrop-blur-sm dark:!bg-slate-950/50 dark:!text-white dark:!shadow-[0_12px_30px_rgba(0,0,0,0.32)]",
             title: "!text-[13px] !font-semibold !leading-4 !tracking-[-0.01em]",
-            description: "!line-clamp-2 !text-[11px] !font-medium !leading-4 !opacity-75",
+            description: "!line-clamp-2 !text-[11px] !font-medium !leading-4 !text-slate-600 dark:!text-slate-300",
             closeButton:
-              "!h-6 !w-6 !border-0 !bg-transparent !text-current !opacity-55 transition hover:!bg-white/35 hover:!opacity-90 dark:hover:!bg-white/10",
+              "!h-6 !w-6 !border-0 !bg-transparent !text-slate-500 hover:!bg-slate-900/10 dark:!text-slate-300 dark:hover:!bg-white/10",
           },
         }}
       />
