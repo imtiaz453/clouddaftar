@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { dashboardHref } from "@/lib/dashboard-href";
 import { deleteInventoryLocation } from "@/actions/inventory";
 import { toast } from "sonner";
 import { LocationFormDialog } from "./location-form-dialog";
