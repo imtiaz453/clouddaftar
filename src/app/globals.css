@@ -1549,3 +1549,107 @@
   }
 }
 
+
+
+/* Cloud Daftar UI polish: responsive business layouts, premium surfaces, safer tables */
+@layer components {
+  .cd-page {
+    @apply space-y-5 md:space-y-6;
+  }
+
+  .cd-hero {
+    @apply relative overflow-hidden rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm backdrop-blur-xl sm:p-5 md:p-6;
+    box-shadow:
+      0 1px 2px hsl(224 47% 11% / 0.04),
+      0 18px 45px hsl(224 47% 11% / 0.08);
+  }
+
+  .cd-hero::before {
+    content: "";
+    position: absolute;
+    inset: -45% -10% auto auto;
+    width: 22rem;
+    height: 22rem;
+    pointer-events: none;
+    border-radius: 999px;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.16), transparent 68%);
+  }
+
+  .cd-toolbar {
+    @apply rounded-2xl border border-border/70 bg-card/90 p-3 shadow-sm backdrop-blur-xl sm:p-4;
+  }
+
+  .cd-stat-card {
+    @apply relative overflow-hidden rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm transition-all duration-200;
+    box-shadow:
+      0 1px 2px hsl(224 47% 11% / 0.04),
+      0 12px 30px hsl(224 47% 11% / 0.06);
+  }
+
+  .cd-stat-card:hover {
+    @apply -translate-y-0.5 border-primary/25 shadow-md;
+  }
+
+  .cd-stat-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  .cd-stat-value {
+    @apply mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl;
+  }
+
+  .cd-mobile-card {
+    @apply rounded-2xl border border-border/70 bg-card/95 p-4 shadow-sm transition-all duration-200;
+  }
+
+  .cd-mobile-card:active {
+    @apply scale-[0.995];
+  }
+
+  .cd-table-wrap {
+    @apply min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-sm;
+  }
+
+  .cd-table-scroll {
+    @apply w-full overflow-x-auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cd-table-scroll > table {
+    min-width: 760px;
+  }
+
+  .cd-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground;
+  }
+
+  .cd-form-grid {
+    @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .cd-form-field {
+    @apply min-w-0 space-y-1.5;
+  }
+
+  .cd-actions-row {
+    @apply flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end;
+  }
+
+  .cd-actions-row > * {
+    @apply w-full sm:w-auto;
+  }
+
+  .cd-empty-hint {
+    @apply rounded-2xl border border-dashed border-border/80 bg-muted/30 p-8 text-center text-sm text-muted-foreground;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

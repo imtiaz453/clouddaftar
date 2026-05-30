@@ -175,9 +175,13 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
   const total = data?.total ?? 0;
 
   const totalStockValue = products.reduce((sum, p) => sum + p.stockSummary.stockValue, 0);
+  const activeProducts = products.filter((p) => p.isActive).length;
+  const lowStockCount = products.filter((p) => !p.isService && p.stockSummary.totalOnHand > 0 && p.stockSummary.totalOnHand <= p.minStock).length;
+  const outOfStockCount = products.filter((p) => !p.isService && p.stockSummary.totalOnHand === 0).length;
+  const availableQty = products.reduce((sum, p) => sum + p.stockSummary.totalAvailable, 0);
 
   return (
-    <div className="space-y-5">
+    <div className="cd-page">
       <PageHeader title="Products" description="Manage your product catalog and stock levels">
         <Button size="sm" onClick={handleAdd}>
           <Plus className="mr-2 h-4 w-4" /> New Product
@@ -187,8 +191,31 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
         </Button>
       </PageHeader>
 
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="cd-stat-card">
+          <p className="cd-stat-label">Catalog</p>
+          <p className="cd-stat-value">{total}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{activeProducts} active products loaded</p>
+        </div>
+        <div className="cd-stat-card">
+          <p className="cd-stat-label">Available Qty</p>
+          <p className="cd-stat-value tabular-nums">{availableQty}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Across the current page filters</p>
+        </div>
+        <div className="cd-stat-card">
+          <p className="cd-stat-label">Stock Value</p>
+          <p className="cd-stat-value tabular-nums">{formatCurrency(totalStockValue)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Calculated from on-hand balances</p>
+        </div>
+        <div className="cd-stat-card">
+          <p className="cd-stat-label">Attention</p>
+          <p className="cd-stat-value tabular-nums">{lowStockCount + outOfStockCount}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{lowStockCount} low · {outOfStockCount} out of stock</p>
+        </div>
+      </div>
+
+      <Card className="cd-toolbar">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -196,12 +223,12 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
               placeholder="Search by name, SKU, or barcode..."
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
-              className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="h-10 w-full rounded-xl border border-input bg-background/80 pl-9 pr-4 text-sm placeholder:text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:flex xl:flex-wrap">
             <Select value={categoryId} onValueChange={(v) => handleFilterChange("categoryId", v)}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger className="h-10 w-full sm:w-full xl:w-[160px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -212,7 +239,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
               </SelectContent>
             </Select>
             <Select value={stockStatus} onValueChange={(v) => handleFilterChange("stockStatus", v)}>
-              <SelectTrigger className="h-9 w-[140px]">
+              <SelectTrigger className="h-10 w-full sm:w-full xl:w-[150px]">
                 <SelectValue placeholder="Stock Status" />
               </SelectTrigger>
               <SelectContent>
@@ -222,7 +249,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
               </SelectContent>
             </Select>
             <Select value={locationId} onValueChange={(v) => handleFilterChange("locationId", v)}>
-              <SelectTrigger className="h-9 w-[160px]">
+              <SelectTrigger className="h-10 w-full sm:w-full xl:w-[170px]">
                 <SelectValue placeholder="Location" />
               </SelectTrigger>
               <SelectContent>
@@ -261,18 +288,18 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
         />
       ) : (
         <>
-          <div className="grid gap-3 sm:hidden">
+          <div className="grid gap-3 lg:hidden">
             {products.map((product) => {
               const isLowStock = product.stockSummary.totalOnHand > 0 && product.stockSummary.totalOnHand <= product.minStock;
               const isOutOfStock = product.stockSummary.totalOnHand === 0 && !product.isService;
               return (
-                <Card key={product.id} className="p-3">
+                <Card key={product.id} className="cd-mobile-card">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <Link
                           href={productHref(product.id)}
-                          className="truncate font-medium hover:underline"
+                          className="block max-w-[320px] truncate font-medium hover:text-primary hover:underline"
                         >
                           {product.name}
                         </Link>
@@ -325,8 +352,8 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
             })}
           </div>
 
-          <div className="hidden sm:block">
-            <Table>
+          <div className="hidden lg:block">
+            <Table className="min-w-[1080px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
@@ -351,7 +378,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                   return (
                     <TableRow key={product.id}>
                       <TableCell>
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-[240px] items-center gap-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                             {product.image ? (
                               <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
@@ -359,10 +386,10 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                               <Package className="h-4 w-4 text-muted-foreground" />
                             )}
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <Link
                               href={productHref(product.id)}
-                              className="truncate font-medium hover:underline"
+                              className="block max-w-[320px] truncate font-medium hover:text-primary hover:underline"
                             >
                               {product.name}
                             </Link>

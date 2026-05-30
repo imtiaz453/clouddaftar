@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Search } from "lucide-react";
+import { Download, Search, FileText, WalletCards, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { exportToCSV, type ExportColumn } from "@/lib/export-utils";
 
 interface SupplierStatementClientProps {
@@ -97,110 +97,164 @@ export function SupplierStatementClient({ suppliers }: SupplierStatementClientPr
   }
 
   return (
-    <div>
-      <PageHeader title="Supplier Statement" description="View detailed transaction history for a supplier">
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV} disabled={!data}>
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-          <Button variant="outline" onClick={downloadPDF} disabled={!data}>
-            <Download className="mr-2 h-4 w-4" />
-            Download PDF
-          </Button>
-        </div>
+    <div className="cd-page">
+      <PageHeader title="Supplier Statement" description="Review opening balance, transaction movements, and closing balance in a clean responsive statement view">
+        <Button variant="outline" onClick={exportCSV} disabled={!data}>
+          <Download className="mr-2 h-4 w-4" />
+          Export CSV
+        </Button>
+        <Button variant="outline" onClick={downloadPDF} disabled={!data}>
+          <Download className="mr-2 h-4 w-4" />
+          Download PDF
+        </Button>
       </PageHeader>
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[200px] flex-1">
-              <label className="mb-1.5 block text-sm font-medium">Supplier</label>
+      <Card className="cd-toolbar">
+        <CardContent className="p-0">
+          <div className="cd-form-grid">
+            <div className="cd-form-field sm:col-span-2 lg:col-span-1">
+              <label className="text-sm font-medium">Supplier</label>
               <Select value={supplierId} onValueChange={setSupplierId}>
-                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
                 <SelectContent>
-                  {suppliers.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  {suppliers.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-[150px]">
-              <label className="mb-1.5 block text-sm font-medium">From Date</label>
-              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <div className="cd-form-field">
+              <label className="text-sm font-medium">From Date</label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-10" />
             </div>
-            <div className="min-w-[150px]">
-              <label className="mb-1.5 block text-sm font-medium">To Date</label>
-              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <div className="cd-form-field">
+              <label className="text-sm font-medium">To Date</label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-10" />
             </div>
-            <Button onClick={generateStatement} disabled={!supplierId || loading}>
-              <Search className="mr-2 h-4 w-4" />
-              {loading ? "Generating..." : "Generate"}
-            </Button>
+            <div className="flex items-end">
+              <Button className="w-full" onClick={generateStatement} disabled={!supplierId || loading}>
+                <Search className="mr-2 h-4 w-4" />
+                {loading ? "Generating..." : "Generate"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {error && (
-        <Card className="mb-6 border-destructive">
-          <CardContent className="pt-6">
+        <Card className="border-destructive/60 bg-destructive/5">
+          <CardContent className="p-4">
             <p className="text-sm text-destructive">{error}</p>
           </CardContent>
         </Card>
       )}
 
+      {!data && !error && (
+        <div className="cd-empty-hint">
+          Select a supplier, choose an optional date range, then generate the statement.
+        </div>
+      )}
+
       {data && (
         <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Supplier</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg font-semibold">{data.supplier.name}</p>
-                {data.supplier.phone && (
-                  <p className="text-xs text-muted-foreground">{data.supplier.phone}</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Opening Balance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className={data.openingBalance > 0 ? "text-lg font-semibold text-red-600" : "text-lg font-semibold"}>
-                  {formatCurrency(data.openingBalance)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Closing Balance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className={data.closingBalance > 0 ? "text-lg font-semibold text-red-600" : "text-lg font-semibold"}>
-                  {formatCurrency(data.closingBalance)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Transactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg font-semibold">{data.transactions.length}</p>
-              </CardContent>
-            </Card>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="cd-stat-card">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="cd-stat-label">Supplier</p>
+                  <p className="mt-1 truncate text-lg font-semibold">{data.supplier.name}</p>
+                  {data.supplier.phone && <p className="mt-1 text-xs text-muted-foreground">{data.supplier.phone}</p>}
+                </div>
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+            <div className="cd-stat-card">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="cd-stat-label">Opening</p>
+                  <p className={cn("cd-stat-value tabular-nums", data.openingBalance > 0 && "text-red-600")}>{formatCurrency(data.openingBalance)}</p>
+                </div>
+                <WalletCards className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </div>
+            <div className="cd-stat-card">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="cd-stat-label">Closing</p>
+                  <p className={cn("cd-stat-value tabular-nums", data.closingBalance > 0 && "text-red-600")}>{formatCurrency(data.closingBalance)}</p>
+                </div>
+                <TrendingUp className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </div>
+            <div className="cd-stat-card">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="cd-stat-label">Transactions</p>
+                  <p className="cd-stat-value tabular-nums">{data.transactions.length}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Debit {formatCurrency(data.totalDebits)} · Credit {formatCurrency(data.totalCredits)}</p>
+                </div>
+                <TrendingDown className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </div>
           </div>
 
-          <Card>
-            <CardHeader>
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border/70 bg-muted/20">
               <CardTitle>Transaction History</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
+              <div className="lg:hidden">
+                <div className="border-b border-border/70 p-4">
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/40 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Opening Balance</span>
+                    <span className="font-semibold tabular-nums">{formatCurrency(data.openingBalance)}</span>
+                  </div>
+                </div>
+                {data.transactions.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">No transactions in this period</div>
+                ) : (
+                  <div className="divide-y divide-border/70">
+                    {data.transactions.map((t, i) => (
+                      <div key={i} className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{t.description}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString()} · {t.reference}</p>
+                          </div>
+                          <div className="text-right text-sm tabular-nums">
+                            <p className="font-semibold">{formatCurrency(t.balance)}</p>
+                            <p className="text-xs text-muted-foreground">Balance</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                          <div className="rounded-xl bg-muted/40 px-3 py-2">
+                            <p className="text-xs text-muted-foreground">Debit</p>
+                            <p className="font-medium tabular-nums">{t.debit > 0 ? formatCurrency(t.debit) : "-"}</p>
+                          </div>
+                          <div className="rounded-xl bg-muted/40 px-3 py-2">
+                            <p className="text-xs text-muted-foreground">Credit</p>
+                            <p className="font-medium tabular-nums">{t.credit > 0 ? formatCurrency(t.credit) : "-"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="border-t border-border/70 p-4">
+                  <div className="rounded-xl bg-primary/10 px-3 py-2 text-sm">
+                    <div className="flex justify-between gap-3 font-semibold">
+                      <span>Closing Balance</span>
+                      <span className="tabular-nums">{formatCurrency(data.closingBalance)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="cd-table-scroll hidden lg:block">
+                <table className="w-full min-w-[880px] text-sm">
+                  <thead className="bg-muted/40">
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="px-4 py-3 font-medium">Date</th>
                       <th className="px-4 py-3 font-medium">Reference</th>
@@ -212,39 +266,31 @@ export function SupplierStatementClient({ suppliers }: SupplierStatementClientPr
                   </thead>
                   <tbody>
                     <tr className="border-b text-sm">
-                      <td className="px-4 py-3 text-muted-foreground" colSpan={3}>
-                        Opening Balance
-                      </td>
-                      <td className="px-4 py-3 text-right" colSpan={2}></td>
-                      <td className="px-4 py-3 text-right font-medium">
-                        {formatCurrency(data.openingBalance)}
-                      </td>
+                      <td className="px-4 py-3 text-muted-foreground" colSpan={3}>Opening Balance</td>
+                      <td className="px-4 py-3 text-right" colSpan={2} />
+                      <td className="px-4 py-3 text-right font-medium tabular-nums">{formatCurrency(data.openingBalance)}</td>
                     </tr>
                     {data.transactions.length === 0 ? (
                       <tr>
-                        <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>
-                          No transactions in this period
-                        </td>
+                        <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>No transactions in this period</td>
                       </tr>
                     ) : (
                       data.transactions.map((t, i) => (
-                        <tr key={i} className="border-b text-sm hover:bg-muted/50">
-                          <td className="px-4 py-3">{new Date(t.date).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 font-mono text-xs">{t.reference}</td>
-                          <td className="px-4 py-3 max-w-[200px] truncate">{t.description}</td>
-                          <td className="px-4 py-3 text-right">{t.debit > 0 ? formatCurrency(t.debit) : "-"}</td>
-                          <td className="px-4 py-3 text-right">{t.credit > 0 ? formatCurrency(t.credit) : "-"}</td>
-                          <td className="px-4 py-3 text-right font-medium">
-                            {formatCurrency(t.balance)}
-                          </td>
+                        <tr key={i} className="border-b text-sm hover:bg-muted/40">
+                          <td className="whitespace-nowrap px-4 py-3">{new Date(t.date).toLocaleDateString()}</td>
+                          <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">{t.reference}</td>
+                          <td className="max-w-[340px] truncate px-4 py-3">{t.description}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{t.debit > 0 ? formatCurrency(t.debit) : "-"}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{t.credit > 0 ? formatCurrency(t.credit) : "-"}</td>
+                          <td className="px-4 py-3 text-right font-medium tabular-nums">{formatCurrency(t.balance)}</td>
                         </tr>
                       ))
                     )}
-                    <tr className="font-semibold">
+                    <tr className="bg-muted/30 font-semibold">
                       <td className="px-4 py-3" colSpan={3}>Closing Balance</td>
-                      <td className="px-4 py-3 text-right">{formatCurrency(data.totalDebits)}</td>
-                      <td className="px-4 py-3 text-right">{formatCurrency(data.totalCredits)}</td>
-                      <td className="px-4 py-3 text-right">{formatCurrency(data.closingBalance)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{formatCurrency(data.totalDebits)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{formatCurrency(data.totalCredits)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{formatCurrency(data.closingBalance)}</td>
                     </tr>
                   </tbody>
                 </table>

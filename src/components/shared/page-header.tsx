@@ -2,20 +2,21 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   children?: React.ReactNode;
+  eyebrow?: string;
 }
 
-export function PageHeader({ title, description, children }: PageHeaderProps) {
+export function PageHeader({ title, description, children, eyebrow = "Workspace" }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 space-y-1">
-        <p className="text-xs font-medium uppercase tracking-wider text-primary">Workspace</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{title}</h1>
+    <div className="cd-hero flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="relative z-10 min-w-0 space-y-1.5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/90">{eyebrow}</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl lg:text-[2rem]">{title}</h1>
         {description && (
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">{description}</p>
         )}
       </div>
       {children && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{children}</div>
+        <div className="cd-actions-row relative z-10 shrink-0">{children}</div>
       )}
     </div>
   );
