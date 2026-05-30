@@ -1,7 +1,7 @@
-import { LocationsPage } from "@/features/inventory/locations/locations-page";
+import { LocationsClient } from "@/features/inventory/locations/locations-client";
 
 export const dynamic = "force-dynamic";
 
-export default function Page() {
-  return <LocationsPage />;
+export default function LocationsPage() {
+  return <LocationsClient />;
 }

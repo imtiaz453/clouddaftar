@@ -8,12 +8,12 @@ function calcAvailable(qtyOnHand: number, qtyReserved: number): number {
   return available < 0 ? 0 : available;
 }
 
-async function upsertBalance(
+async function getOrCreateStockBalance(
   tx: Tx,
   productId: string,
   locationId: string,
   companyId: string,
-): Promise<{ id: string; qtyOnHand: number; qtyReserved: number; averageCost: number }> {
+): Promise<{ id: string; qtyOnHand: number; qtyReserved: number; qtyAvailable: number; averageCost: number }> {
   const balance = await tx.stockBalance.upsert({
     where: { productId_locationId: { productId, locationId } },
     update: {},
@@ -25,17 +25,19 @@ async function upsertBalance(
       qtyReserved: 0,
       qtyAvailable: 0,
       averageCost: 0,
+      reorderPoint: 0,
     },
   });
   return {
     id: balance.id,
     qtyOnHand: Number(balance.qtyOnHand),
     qtyReserved: Number(balance.qtyReserved),
+    qtyAvailable: Number(balance.qtyAvailable),
     averageCost: Number(balance.averageCost),
   };
 }
 
-async function createLedger(
+async function postStockLedger(
   tx: Tx,
   params: {
     productId: string;
@@ -72,6 +74,67 @@ async function createLedger(
   });
 }
 
+// ========== ADJUST STOCK BALANCE (core mutation) ==========
+
+export async function adjustStockBalance(
+  params: {
+    locationId: string;
+    productId: string;
+    companyId: string;
+    quantity: number;
+    direction: "IN" | "OUT";
+    movementType?: StockMovementType;
+    reason?: string | null;
+    notes?: string | null;
+    createdById?: string | null;
+    unitCost?: number;
+    allowNegative?: boolean;
+  },
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const before = await getOrCreateStockBalance(tx, params.productId, params.locationId, params.companyId);
+    const movementType: StockMovementType = params.movementType ?? (params.direction === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT");
+    const qty = params.direction === "IN" ? params.quantity : -params.quantity;
+    const qtyOnHandAfter = before.qtyOnHand + qty;
+    if (qtyOnHandAfter < 0 && !params.allowNegative) throw new Error("Insufficient stock");
+
+    const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
+
+    const unitCost = params.unitCost ?? before.averageCost;
+    const totalCost = Number(before.averageCost) * Number(before.qtyOnHand);
+    const newTotalCost = params.direction === "IN"
+      ? totalCost + params.quantity * unitCost
+      : totalCost - params.quantity * unitCost;
+    const newAvgCost = qtyOnHandAfter > 0 ? newTotalCost / qtyOnHandAfter : 0;
+
+    await tx.stockBalance.update({
+      where: { id: before.id },
+      data: {
+        qtyOnHand: qtyOnHandAfter,
+        qtyAvailable: qtyAvailableAfter,
+        averageCost: newAvgCost,
+        lastMovementAt: new Date(),
+      },
+    });
+
+    await postStockLedger(tx, {
+      productId: params.productId,
+      locationId: params.locationId,
+      companyId: params.companyId,
+      movementType,
+      quantity: params.quantity,
+      qtyOnHandBefore: before.qtyOnHand,
+      qtyOnHandAfter,
+      qtyReservedBefore: before.qtyReserved,
+      qtyReservedAfter: before.qtyReserved,
+      notes: params.reason
+        ? `[${params.reason}]${params.notes ? ` - ${params.notes}` : ""}`
+        : params.notes,
+      createdById: params.createdById,
+    });
+  });
+}
+
 // ========== READ FUNCTIONS ==========
 
 export async function getStockBalance(
@@ -91,7 +154,7 @@ export async function getStockBalance(
   };
 }
 
-export async function getProductStockByLocations(
+export async function getProductStockByLocation(
   productId: string,
   companyId: string,
 ): Promise<Array<{
@@ -118,6 +181,22 @@ export async function getProductStockByLocations(
     qtyAvailable: Number(b.qtyAvailable),
     averageCost: Number(b.averageCost),
   }));
+}
+
+export async function getProductStockSummary(
+  productId: string,
+  companyId: string,
+): Promise<{ totalOnHand: number; totalReserved: number; totalAvailable: number; totalValue: number }> {
+  const balances = await prisma.stockBalance.findMany({
+    where: { productId, companyId },
+  });
+  const totalOnHand = balances.reduce((s, b) => s + Number(b.qtyOnHand), 0);
+  const totalReserved = balances.reduce((s, b) => s + Number(b.qtyReserved), 0);
+  const totalAvailable = balances.reduce((s, b) => s + Number(b.qtyAvailable), 0);
+  const avgCost = balances.length > 0
+    ? balances.reduce((s, b) => s + Number(b.averageCost) * Number(b.qtyOnHand), 0) / (totalOnHand || 1)
+    : 0;
+  return { totalOnHand, totalReserved, totalAvailable, totalValue: totalOnHand * avgCost };
 }
 
 export async function getLocationStock(
@@ -188,219 +267,7 @@ export async function validateStockAvailability(
   return { valid: true, available, onHand };
 }
 
-// ========== WRITE FUNCTIONS ==========
-
-export async function adjustStock(
-  params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    direction: "IN" | "OUT";
-    reason?: string | null;
-    notes?: string | null;
-    createdById?: string | null;
-    unitCost?: number;
-    allowNegative?: boolean;
-  },
-): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
-    const movementType: StockMovementType =
-      params.direction === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
-    const qty = params.direction === "IN" ? params.quantity : -params.quantity;
-    const qtyOnHandAfter = before.qtyOnHand + qty;
-    if (qtyOnHandAfter < 0 && !params.allowNegative) throw new Error("Insufficient stock");
-    const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
-
-    const unitCost = params.unitCost ?? before.averageCost;
-    const totalCost = Number(before.averageCost) * Number(before.qtyOnHand);
-    const newTotalCost = params.direction === "IN"
-      ? totalCost + params.quantity * unitCost
-      : totalCost - params.quantity * unitCost;
-    const newAvgCost = qtyOnHandAfter > 0 ? newTotalCost / qtyOnHandAfter : 0;
-
-    await tx.stockBalance.update({
-      where: { id: before.id },
-      data: {
-        qtyOnHand: qtyOnHandAfter,
-        qtyAvailable: qtyAvailableAfter,
-        averageCost: newAvgCost,
-        lastMovementAt: new Date(),
-      },
-    });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType,
-      quantity: params.quantity,
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter: before.qtyReserved,
-      notes: params.reason
-        ? `[${params.reason}]${params.notes ? ` - ${params.notes}` : ""}`
-        : params.notes,
-      createdById: params.createdById,
-    });
-  });
-}
-
-export async function transferStock(
-  params: {
-    fromLocationId: string;
-    toLocationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    notes?: string | null;
-    createdById?: string | null;
-    reference?: string | null;
-    referenceId?: string | null;
-    allowNegative?: boolean;
-  },
-): Promise<void> {
-  if (params.fromLocationId === params.toLocationId) throw new Error("Source and destination locations must differ");
-  if (params.quantity <= 0) throw new Error("Quantity must be positive");
-
-  await prisma.$transaction(async (tx) => {
-    const fromBefore = await upsertBalance(tx, params.productId, params.fromLocationId, params.companyId);
-    const toBefore = await upsertBalance(tx, params.productId, params.toLocationId, params.companyId);
-
-    const fromQtyOnHandAfter = fromBefore.qtyOnHand - params.quantity;
-    if (fromQtyOnHandAfter < 0 && !params.allowNegative) throw new Error("Insufficient stock at source location");
-    const fromQtyAvailableAfter = calcAvailable(fromQtyOnHandAfter, fromBefore.qtyReserved);
-
-    const toQtyOnHandAfter = toBefore.qtyOnHand + params.quantity;
-    const toQtyAvailableAfter = calcAvailable(toQtyOnHandAfter, toBefore.qtyReserved);
-
-    await tx.stockBalance.update({
-      where: { id: fromBefore.id },
-      data: { qtyOnHand: fromQtyOnHandAfter, qtyAvailable: fromQtyAvailableAfter, lastMovementAt: new Date() },
-    });
-    await tx.stockBalance.update({
-      where: { id: toBefore.id },
-      data: { qtyOnHand: toQtyOnHandAfter, qtyAvailable: toQtyAvailableAfter, lastMovementAt: new Date() },
-    });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.fromLocationId,
-      companyId: params.companyId,
-      movementType: "TRANSFER_OUT",
-      quantity: params.quantity,
-      qtyOnHandBefore: fromBefore.qtyOnHand,
-      qtyOnHandAfter: fromQtyOnHandAfter,
-      qtyReservedBefore: fromBefore.qtyReserved,
-      qtyReservedAfter: fromBefore.qtyReserved,
-      reference: params.reference ?? null,
-      referenceId: params.referenceId ?? null,
-      notes: `Transfer to ${params.toLocationId}`,
-      createdById: params.createdById,
-    });
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.toLocationId,
-      companyId: params.companyId,
-      movementType: "TRANSFER_IN",
-      quantity: params.quantity,
-      qtyOnHandBefore: toBefore.qtyOnHand,
-      qtyOnHandAfter: toQtyOnHandAfter,
-      qtyReservedBefore: toBefore.qtyReserved,
-      qtyReservedAfter: toBefore.qtyReserved,
-      reference: params.reference ?? null,
-      referenceId: params.referenceId ?? null,
-      notes: `Transfer from ${params.fromLocationId}`,
-      createdById: params.createdById,
-    });
-  });
-}
-
-export async function reserveStock(
-  params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    reference?: string | null;
-    referenceId?: string | null;
-    createdById?: string | null;
-  },
-): Promise<void> {
-  if (params.quantity <= 0) throw new Error("Quantity must be positive");
-
-  await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
-    const available = calcAvailable(before.qtyOnHand, before.qtyReserved);
-    if (available < params.quantity) throw new Error("Insufficient available stock for reservation");
-
-    const qtyReservedAfter = before.qtyReserved + params.quantity;
-    const qtyAvailableAfter = calcAvailable(before.qtyOnHand, qtyReservedAfter);
-
-    await tx.stockBalance.update({
-      where: { id: before.id },
-      data: { qtyReserved: qtyReservedAfter, qtyAvailable: qtyAvailableAfter },
-    });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType: "RESERVATION",
-      quantity: params.quantity,
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter: before.qtyOnHand,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter,
-      reference: params.reference ?? null,
-      referenceId: params.referenceId ?? null,
-      createdById: params.createdById,
-    });
-  });
-}
-
-export async function releaseReservedStock(
-  params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    reference?: string | null;
-    referenceId?: string | null;
-    createdById?: string | null;
-  },
-): Promise<void> {
-  if (params.quantity <= 0) throw new Error("Quantity must be positive");
-
-  await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
-    const qtyReservedAfter = before.qtyReserved - params.quantity;
-    if (qtyReservedAfter < 0) throw new Error("Cannot release more than reserved");
-    const qtyAvailableAfter = calcAvailable(before.qtyOnHand, qtyReservedAfter);
-
-    await tx.stockBalance.update({
-      where: { id: before.id },
-      data: { qtyReserved: qtyReservedAfter, qtyAvailable: qtyAvailableAfter },
-    });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType: "RESERVATION_RELEASE",
-      quantity: params.quantity,
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter: before.qtyOnHand,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter,
-      reference: params.reference ?? null,
-      referenceId: params.referenceId ?? null,
-      createdById: params.createdById,
-    });
-  });
-}
+// ========== STOCK MOVEMENT FUNCTIONS ==========
 
 export async function consumeStockForSaleTx(
   tx: Tx,
@@ -416,322 +283,201 @@ export async function consumeStockForSaleTx(
   },
 ): Promise<void> {
   if (params.quantity <= 0) throw new Error("Quantity must be positive");
-
-  const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
+  const before = await getOrCreateStockBalance(tx, params.productId, params.locationId, params.companyId);
   const qtyOnHandAfter = before.qtyOnHand - params.quantity;
   if (qtyOnHandAfter < 0 && !params.allowNegative) throw new Error("Insufficient stock for sale");
-
   const reserveRelease = Math.min(params.quantity, before.qtyReserved);
   const qtyReservedAfter = before.qtyReserved - reserveRelease;
   const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, qtyReservedAfter);
-
   await tx.stockBalance.update({
     where: { id: before.id },
-    data: {
-      qtyOnHand: qtyOnHandAfter,
-      qtyReserved: qtyReservedAfter,
-      qtyAvailable: qtyAvailableAfter,
-      lastMovementAt: new Date(),
-    },
+    data: { qtyOnHand: qtyOnHandAfter, qtyReserved: qtyReservedAfter, qtyAvailable: qtyAvailableAfter, lastMovementAt: new Date() },
   });
-
-  await createLedger(tx, {
-    productId: params.productId,
-    locationId: params.locationId,
-    companyId: params.companyId,
-    movementType: "SALE",
-    quantity: params.quantity,
-    qtyOnHandBefore: before.qtyOnHand,
-    qtyOnHandAfter,
-    qtyReservedBefore: before.qtyReserved,
-    qtyReservedAfter,
-    reference: params.reference ?? null,
-    referenceId: params.referenceId ?? null,
+  await postStockLedger(tx, {
+    productId: params.productId, locationId: params.locationId, companyId: params.companyId,
+    movementType: "SALE", quantity: params.quantity,
+    qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter,
+    qtyReservedBefore: before.qtyReserved, qtyReservedAfter,
+    reference: params.reference ?? null, referenceId: params.referenceId ?? null,
     createdById: params.createdById,
   });
 }
 
-export async function consumeStockForSale(
-  params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    reference?: string | null;
-    referenceId?: string | null;
-    createdById?: string | null;
-    allowNegative?: boolean;
-  },
-): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await consumeStockForSaleTx(tx, params);
-  });
+export async function issueSaleFromStock(params: {
+  locationId: string; productId: string; companyId: string; quantity: number;
+  reference?: string | null; referenceId?: string | null; createdById?: string | null; allowNegative?: boolean;
+}): Promise<void> {
+  await prisma.$transaction(async (tx) => { await consumeStockForSaleTx(tx, params); });
 }
 
-export async function receiveStockForPurchaseTx(
-  tx: Tx,
+export async function receivePurchaseIntoStock(
   params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    unitCost?: number;
-    reference?: string | null;
-    referenceId?: string | null;
-    notes?: string | null;
-    createdById?: string | null;
+    locationId: string; productId: string; companyId: string; quantity: number; unitCost?: number;
+    reference?: string | null; referenceId?: string | null; notes?: string | null; createdById?: string | null;
   },
 ): Promise<void> {
   if (params.quantity <= 0) throw new Error("Quantity must be positive");
-
-  const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
-  const qtyOnHandAfter = before.qtyOnHand + params.quantity;
-  const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
-
-  const unitCost = params.unitCost ?? 0;
-  const totalCost = Number(before.averageCost) * Number(before.qtyOnHand);
-  const newTotalCost = totalCost + params.quantity * unitCost;
-  const newAvgCost = qtyOnHandAfter > 0 ? newTotalCost / qtyOnHandAfter : 0;
-
-  await tx.stockBalance.update({
-    where: { id: before.id },
-    data: {
-      qtyOnHand: qtyOnHandAfter,
-      qtyAvailable: qtyAvailableAfter,
-      averageCost: newAvgCost,
-      lastMovementAt: new Date(),
-    },
-  });
-
-  await createLedger(tx, {
-    productId: params.productId,
-    locationId: params.locationId,
-    companyId: params.companyId,
-    movementType: "PURCHASE_RECEIVE",
-    quantity: params.quantity,
-    qtyOnHandBefore: before.qtyOnHand,
-    qtyOnHandAfter,
-    qtyReservedBefore: before.qtyReserved,
-    qtyReservedAfter: before.qtyReserved,
-    reference: params.reference ?? null,
-    referenceId: params.referenceId ?? null,
-    notes: params.notes ?? null,
-    createdById: params.createdById,
-  });
-}
-
-export async function receiveStockForPurchase(
-  params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    unitCost?: number;
-    reference?: string | null;
-    referenceId?: string | null;
-    notes?: string | null;
-    createdById?: string | null;
-  },
-): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await receiveStockForPurchaseTx(tx, params);
+    const before = await getOrCreateStockBalance(tx, params.productId, params.locationId, params.companyId);
+    const qtyOnHandAfter = before.qtyOnHand + params.quantity;
+    const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
+    const unitCost = params.unitCost ?? 0;
+    const totalCost = Number(before.averageCost) * Number(before.qtyOnHand);
+    const newTotalCost = totalCost + params.quantity * unitCost;
+    const newAvgCost = qtyOnHandAfter > 0 ? newTotalCost / qtyOnHandAfter : 0;
+    await tx.stockBalance.update({
+      where: { id: before.id },
+      data: { qtyOnHand: qtyOnHandAfter, qtyAvailable: qtyAvailableAfter, averageCost: newAvgCost, lastMovementAt: new Date() },
+    });
+    await postStockLedger(tx, {
+      productId: params.productId, locationId: params.locationId, companyId: params.companyId,
+      movementType: "PURCHASE_RECEIVE", quantity: params.quantity,
+      qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter,
+      qtyReservedBefore: before.qtyReserved, qtyReservedAfter: before.qtyReserved,
+      reference: params.reference ?? null, referenceId: params.referenceId ?? null,
+      notes: params.notes ?? null, createdById: params.createdById,
+    });
   });
 }
 
 export async function returnSaleStock(
   params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    unitCost?: number;
-    reference?: string | null;
-    referenceId?: string | null;
-    notes?: string | null;
-    createdById?: string | null;
+    locationId: string; productId: string; companyId: string; quantity: number; unitCost?: number;
+    reference?: string | null; referenceId?: string | null; notes?: string | null; createdById?: string | null;
   },
 ): Promise<void> {
   if (params.quantity <= 0) throw new Error("Quantity must be positive");
-
   await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
+    const before = await getOrCreateStockBalance(tx, params.productId, params.locationId, params.companyId);
     const qtyOnHandAfter = before.qtyOnHand + params.quantity;
     const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
-
     const unitCost = params.unitCost ?? before.averageCost;
     const totalCost = Number(before.averageCost) * Number(before.qtyOnHand);
     const newTotalCost = totalCost + params.quantity * unitCost;
     const newAvgCost = qtyOnHandAfter > 0 ? newTotalCost / qtyOnHandAfter : 0;
-
     await tx.stockBalance.update({
       where: { id: before.id },
-      data: {
-        qtyOnHand: qtyOnHandAfter,
-        qtyAvailable: qtyAvailableAfter,
-        averageCost: newAvgCost,
-        lastMovementAt: new Date(),
-      },
+      data: { qtyOnHand: qtyOnHandAfter, qtyAvailable: qtyAvailableAfter, averageCost: newAvgCost, lastMovementAt: new Date() },
     });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType: "SALE_RETURN",
-      quantity: params.quantity,
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter: before.qtyReserved,
-      reference: params.reference ?? null,
-      referenceId: params.referenceId ?? null,
-      notes: params.notes ?? null,
-      createdById: params.createdById,
+    await postStockLedger(tx, {
+      productId: params.productId, locationId: params.locationId, companyId: params.companyId,
+      movementType: "SALE_RETURN", quantity: params.quantity,
+      qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter,
+      qtyReservedBefore: before.qtyReserved, qtyReservedAfter: before.qtyReserved,
+      reference: params.reference ?? null, referenceId: params.referenceId ?? null,
+      notes: params.notes ?? null, createdById: params.createdById,
     });
   });
 }
 
 export async function returnPurchaseStock(
   params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    reference?: string | null;
-    referenceId?: string | null;
-    notes?: string | null;
-    createdById?: string | null;
-    allowNegative?: boolean;
+    locationId: string; productId: string; companyId: string; quantity: number;
+    reference?: string | null; referenceId?: string | null; notes?: string | null; createdById?: string | null; allowNegative?: boolean;
   },
 ): Promise<void> {
   if (params.quantity <= 0) throw new Error("Quantity must be positive");
-
   await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
+    const before = await getOrCreateStockBalance(tx, params.productId, params.locationId, params.companyId);
     const qtyOnHandAfter = before.qtyOnHand - params.quantity;
     if (qtyOnHandAfter < 0 && !params.allowNegative) throw new Error("Insufficient stock for purchase return");
     const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
-
     await tx.stockBalance.update({
       where: { id: before.id },
-      data: {
-        qtyOnHand: qtyOnHandAfter,
-        qtyAvailable: qtyAvailableAfter,
-        lastMovementAt: new Date(),
-      },
+      data: { qtyOnHand: qtyOnHandAfter, qtyAvailable: qtyAvailableAfter, lastMovementAt: new Date() },
     });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType: "PURCHASE_RETURN",
-      quantity: params.quantity,
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter: before.qtyReserved,
-      reference: params.reference ?? null,
-      referenceId: params.referenceId ?? null,
-      notes: params.notes ?? null,
-      createdById: params.createdById,
+    await postStockLedger(tx, {
+      productId: params.productId, locationId: params.locationId, companyId: params.companyId,
+      movementType: "PURCHASE_RETURN", quantity: params.quantity,
+      qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter,
+      qtyReservedBefore: before.qtyReserved, qtyReservedAfter: before.qtyReserved,
+      reference: params.reference ?? null, referenceId: params.referenceId ?? null,
+      notes: params.notes ?? null, createdById: params.createdById,
     });
   });
 }
 
-export async function postStockCountCorrection(
+export async function reserveSaleStock(
   params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    expectedQty: number;
-    countedQty: number;
-    notes?: string | null;
-    createdById?: string | null;
-    countReferenceId?: string | null;
+    locationId: string; productId: string; companyId: string; quantity: number;
+    reference?: string | null; referenceId?: string | null; createdById?: string | null;
   },
 ): Promise<void> {
-  const variance = params.countedQty - params.expectedQty;
-  if (variance === 0) return;
-
+  if (params.quantity <= 0) throw new Error("Quantity must be positive");
   await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
-    const qtyOnHandAfter = before.qtyOnHand + variance;
-    if (qtyOnHandAfter < 0) throw new Error("Stock count correction would cause negative stock");
-
-    const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
-
+    const before = await getOrCreateStockBalance(tx, params.productId, params.locationId, params.companyId);
+    const available = calcAvailable(before.qtyOnHand, before.qtyReserved);
+    if (available < params.quantity) throw new Error("Insufficient available stock for reservation");
+    const qtyReservedAfter = before.qtyReserved + params.quantity;
+    const qtyAvailableAfter = calcAvailable(before.qtyOnHand, qtyReservedAfter);
     await tx.stockBalance.update({
       where: { id: before.id },
-      data: {
-        qtyOnHand: qtyOnHandAfter,
-        qtyAvailable: qtyAvailableAfter,
-        lastMovementAt: new Date(),
-      },
+      data: { qtyReserved: qtyReservedAfter, qtyAvailable: qtyAvailableAfter },
     });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType: "STOCK_COUNT_CORRECTION",
-      quantity: Math.abs(variance),
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter: before.qtyReserved,
-      reference: "Stock Count",
-      referenceId: params.countReferenceId ?? null,
-      notes: params.notes ?? `Count correction: expected ${params.expectedQty}, counted ${params.countedQty}`,
+    await postStockLedger(tx, {
+      productId: params.productId, locationId: params.locationId, companyId: params.companyId,
+      movementType: "RESERVATION", quantity: params.quantity,
+      qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter: before.qtyOnHand,
+      qtyReservedBefore: before.qtyReserved, qtyReservedAfter,
+      reference: params.reference ?? null, referenceId: params.referenceId ?? null,
       createdById: params.createdById,
     });
   });
 }
 
-export async function openingBalance(
+export async function releaseReservedStock(
   params: {
-    locationId: string;
-    productId: string;
-    companyId: string;
-    quantity: number;
-    unitCost?: number;
-    createdById?: string | null;
+    locationId: string; productId: string; companyId: string; quantity: number;
+    reference?: string | null; referenceId?: string | null; createdById?: string | null;
+  },
+): Promise<void> {
+  if (params.quantity <= 0) throw new Error("Quantity must be positive");
+  await prisma.$transaction(async (tx) => {
+    const before = await getOrCreateStockBalance(tx, params.productId, params.locationId, params.companyId);
+    const qtyReservedAfter = before.qtyReserved - params.quantity;
+    if (qtyReservedAfter < 0) throw new Error("Cannot release more than reserved");
+    const qtyAvailableAfter = calcAvailable(before.qtyOnHand, qtyReservedAfter);
+    await tx.stockBalance.update({
+      where: { id: before.id },
+      data: { qtyReserved: qtyReservedAfter, qtyAvailable: qtyAvailableAfter },
+    });
+    await postStockLedger(tx, {
+      productId: params.productId, locationId: params.locationId, companyId: params.companyId,
+      movementType: "RESERVATION_RELEASE", quantity: params.quantity,
+      qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter: before.qtyOnHand,
+      qtyReservedBefore: before.qtyReserved, qtyReservedAfter,
+      reference: params.reference ?? null, referenceId: params.referenceId ?? null,
+      createdById: params.createdById,
+    });
+  });
+}
+
+// ========== OPENING BALANCE ==========
+
+export async function createOpeningBalance(
+  params: {
+    locationId: string; productId: string; companyId: string; quantity: number; unitCost?: number; createdById?: string | null;
   },
 ): Promise<void> {
   if (params.quantity <= 0) throw new Error("Opening balance must be positive");
-
   await prisma.$transaction(async (tx) => {
-    const before = await upsertBalance(tx, params.productId, params.locationId, params.companyId);
+    const before = await getOrCreateStockBalance(tx, params.productId, params.locationId, params.companyId);
     const qtyOnHandAfter = before.qtyOnHand + params.quantity;
     const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
-
     const unitCost = params.unitCost ?? 0;
     const totalCost = Number(before.averageCost) * Number(before.qtyOnHand);
     const newTotalCost = totalCost + params.quantity * unitCost;
     const newAvgCost = qtyOnHandAfter > 0 ? newTotalCost / qtyOnHandAfter : 0;
-
     await tx.stockBalance.update({
       where: { id: before.id },
-      data: {
-        qtyOnHand: qtyOnHandAfter,
-        qtyAvailable: qtyAvailableAfter,
-        averageCost: newAvgCost,
-        lastMovementAt: new Date(),
-      },
+      data: { qtyOnHand: qtyOnHandAfter, qtyAvailable: qtyAvailableAfter, averageCost: newAvgCost, lastMovementAt: new Date() },
     });
-
-    await createLedger(tx, {
-      productId: params.productId,
-      locationId: params.locationId,
-      companyId: params.companyId,
-      movementType: "OPENING_BALANCE",
-      quantity: params.quantity,
-      qtyOnHandBefore: before.qtyOnHand,
-      qtyOnHandAfter,
-      qtyReservedBefore: before.qtyReserved,
-      qtyReservedAfter: before.qtyReserved,
-      notes: "Opening balance",
-      createdById: params.createdById,
+    await postStockLedger(tx, {
+      productId: params.productId, locationId: params.locationId, companyId: params.companyId,
+      movementType: "OPENING_BALANCE", quantity: params.quantity,
+      qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter,
+      qtyReservedBefore: before.qtyReserved, qtyReservedAfter: before.qtyReserved,
+      notes: "Opening balance", createdById: params.createdById,
     });
   });
 }
@@ -739,59 +485,35 @@ export async function openingBalance(
 // ========== LOCATION MANAGEMENT ==========
 
 export async function createInventoryLocation(data: {
-  name: string;
-  code: string;
-  type: string;
-  branchId?: string | null;
-  assignedEmployeeId?: string | null;
-  companyId: string;
-  isDefault?: boolean;
-  isSellable?: boolean;
-  address?: string | null;
-  notes?: string | null;
+  name: string; code: string; type: string; branchId?: string | null; assignedEmployeeId?: string | null;
+  companyId: string; isDefault?: boolean; isSellable?: boolean; address?: string | null; notes?: string | null;
 }) {
-  if (data.type === "MAIN_WAREHOUSE" && data.branchId) {
-    data.branchId = null;
-  }
+  if (data.type === "MAIN_WAREHOUSE" && data.branchId) { data.branchId = null; }
   if ((data.type === "BRANCH_STORE" || data.type === "POS_STORE") && !data.branchId) {
     throw new Error("Branch store or POS store must be linked to a branch");
   }
   if (data.type === "EMPLOYEE_STORE" && !data.assignedEmployeeId) {
     throw new Error("Employee store must be linked to an employee");
   }
-
+  if (data.type === "DAMAGED_STORE" && data.isSellable === undefined) {
+    data.isSellable = false;
+  }
   const location = await prisma.stockLocation.create({
     data: {
-      name: data.name,
-      code: data.code,
-      type: data.type as any,
-      branchId: data.branchId ?? null,
-      assignedEmployeeId: data.assignedEmployeeId ?? null,
-      companyId: data.companyId,
-      isDefault: data.isDefault ?? false,
-      isSellable: data.isSellable ?? true,
-      address: data.address ?? null,
-      notes: data.notes ?? null,
+      name: data.name, code: data.code, type: data.type as any,
+      branchId: data.branchId ?? null, assignedEmployeeId: data.assignedEmployeeId ?? null,
+      companyId: data.companyId, isDefault: data.isDefault ?? false,
+      isSellable: data.isSellable ?? true, address: data.address ?? null, notes: data.notes ?? null,
     },
   });
   return location;
 }
 
 export async function updateInventoryLocation(
-  id: string,
-  data: {
-    name?: string;
-    code?: string;
-    type?: string;
-    branchId?: string | null;
-    assignedEmployeeId?: string | null;
-    isDefault?: boolean;
-    isSellable?: boolean;
-    address?: string | null;
-    notes?: string | null;
-    isActive?: boolean;
-  },
-  companyId: string,
+  id: string, data: {
+    name?: string; code?: string; type?: string; branchId?: string | null; assignedEmployeeId?: string | null;
+    isDefault?: boolean; isSellable?: boolean; address?: string | null; notes?: string | null; isActive?: boolean;
+  }, companyId: string,
 ) {
   return prisma.stockLocation.update({
     where: { id, companyId },
@@ -810,24 +532,58 @@ export async function updateInventoryLocation(
   });
 }
 
+export async function getInventoryLocations(companyId: string, accessibleIds?: string[]) {
+  const where: Record<string, unknown> = { companyId, deletedAt: null };
+  if (accessibleIds) where.id = { in: accessibleIds };
+  return prisma.stockLocation.findMany({
+    where: where as any,
+    include: { branch: { select: { id: true, name: true } }, assignedEmployee: { select: { id: true, name: true } } },
+    orderBy: [{ type: "asc" }, { name: "asc" }],
+  });
+}
+
+export async function getInventoryLocationDetail(locationId: string, companyId: string) {
+  const location = await prisma.stockLocation.findUnique({
+    where: { id: locationId, companyId },
+    include: { branch: { select: { id: true, name: true } }, assignedEmployee: { select: { id: true, name: true, email: true } } },
+  });
+  if (!location) throw new Error("Location not found");
+  const balances = await prisma.stockBalance.findMany({
+    where: { locationId, companyId },
+    include: { product: { select: { id: true, name: true, sku: true, barcode: true, sellingPrice: true, purchasePrice: true, unit: true, category: { select: { name: true } } } } },
+    orderBy: { product: { name: "asc" } },
+  });
+  const recentLedger = await prisma.stockLedger.findMany({
+    where: { locationId, companyId },
+    include: { product: { select: { name: true } }, createdBy: { select: { name: true, email: true } } },
+    orderBy: { createdAt: "desc" }, take: 20,
+  });
+  return {
+    location,
+    balances: balances.map((b) => ({
+      id: b.id, productId: b.productId, productName: b.product.name, sku: b.product.sku,
+      barcode: b.product.barcode, unit: b.product.unit, categoryName: b.product.category?.name ?? null,
+      qtyOnHand: Number(b.qtyOnHand), qtyReserved: Number(b.qtyReserved), qtyAvailable: Number(b.qtyAvailable),
+      averageCost: Number(b.averageCost), stockValue: Number(b.qtyOnHand) * Number(b.averageCost),
+    })),
+    recentLedger: recentLedger.map((l) => ({
+      id: l.id, movementType: l.movementType, quantity: Number(l.quantity),
+      qtyOnHandBefore: Number(l.qtyOnHandBefore), qtyOnHandAfter: Number(l.qtyOnHandAfter),
+      productName: l.product.name, createdByName: l.createdBy?.name ?? "System", createdAt: l.createdAt,
+    })),
+  };
+}
+
 // ========== STOCK TRANSFER MANAGEMENT ==========
 
 export async function createStockTransfer(data: {
-  sourceLocationId: string;
-  destinationLocationId: string;
-  companyId: string;
-  notes?: string | null;
-  createdById: string;
-  items: Array<{ productId: string; quantity: number }>;
+  sourceLocationId: string; destinationLocationId: string; companyId: string; notes?: string | null;
+  createdById: string; items: Array<{ productId: string; quantity: number }>;
 }) {
-  if (data.sourceLocationId === data.destinationLocationId) {
-    throw new Error("Source and destination locations must differ");
-  }
-
+  if (data.sourceLocationId === data.destinationLocationId) throw new Error("Source and destination locations must differ");
   const count = await prisma.stockTransfer.count({ where: { companyId: data.companyId } });
   const refNumber = `TRF-${String(count + 1).padStart(5, "0")}`;
-
-  const transfer = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     for (const item of data.items) {
       const bal = await tx.stockBalance.findUnique({
         where: { productId_locationId: { productId: item.productId, locationId: data.sourceLocationId } },
@@ -838,250 +594,277 @@ export async function createStockTransfer(data: {
         throw new Error(`Insufficient stock for "${product?.name ?? item.productId}" at source location`);
       }
     }
-
     return tx.stockTransfer.create({
       data: {
-        referenceNumber: refNumber,
-        sourceLocationId: data.sourceLocationId,
-        destinationLocationId: data.destinationLocationId,
-        status: "PENDING",
-        companyId: data.companyId,
-        notes: data.notes ?? null,
-        createdById: data.createdById,
-        items: {
-          create: data.items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          })),
-        },
+        referenceNumber: refNumber, sourceLocationId: data.sourceLocationId,
+        destinationLocationId: data.destinationLocationId, status: "DRAFT",
+        companyId: data.companyId, notes: data.notes ?? null, createdById: data.createdById,
+        items: { create: data.items.map((item) => ({ productId: item.productId, quantity: item.quantity })) },
       },
       include: { items: { include: { product: { select: { name: true, sku: true } } } } },
     });
   });
-
-  return transfer;
 }
 
-export async function receiveStockTransfer(
-  transferId: string,
-  companyId: string,
-  userId: string,
-) {
+export async function issueStockTransfer(transferId: string, companyId: string, userId: string) {
   const transfer = await prisma.stockTransfer.findUnique({
-    where: { id: transferId, companyId },
-    include: { items: true },
+    where: { id: transferId, companyId }, include: { items: true },
   });
   if (!transfer) throw new Error("Transfer not found");
-  if (transfer.status !== "PENDING" && transfer.status !== "IN_TRANSIT") {
+  if (transfer.status !== "DRAFT") throw new Error(`Cannot issue transfer in status: ${transfer.status}`);
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of transfer.items) {
+      const qty = Number(item.quantity);
+      const fromBefore = await getOrCreateStockBalance(tx, item.productId, transfer.sourceLocationId, companyId);
+      const fromQtyOnHandAfter = fromBefore.qtyOnHand - qty;
+      if (fromQtyOnHandAfter < 0) throw new Error("Insufficient stock at source for transfer");
+      await tx.stockBalance.update({
+        where: { id: fromBefore.id },
+        data: { qtyOnHand: fromQtyOnHandAfter, qtyAvailable: calcAvailable(fromQtyOnHandAfter, fromBefore.qtyReserved), lastMovementAt: new Date() },
+      });
+      await postStockLedger(tx, {
+        productId: item.productId, locationId: transfer.sourceLocationId, companyId,
+        movementType: "TRANSFER_OUT", quantity: qty,
+        qtyOnHandBefore: fromBefore.qtyOnHand, qtyOnHandAfter: fromQtyOnHandAfter,
+        qtyReservedBefore: fromBefore.qtyReserved, qtyReservedAfter: fromBefore.qtyReserved,
+        reference: transfer.referenceNumber, referenceId: transfer.id,
+        notes: `Transfer to ${transfer.destinationLocationId}`, createdById: userId,
+      });
+    }
+    await tx.stockTransfer.update({
+      where: { id: transferId },
+      data: { status: "ISSUED", issuedAt: new Date() },
+    });
+  });
+}
+
+export async function receiveStockTransfer(transferId: string, companyId: string, userId: string) {
+  const transfer = await prisma.stockTransfer.findUnique({
+    where: { id: transferId, companyId }, include: { items: true },
+  });
+  if (!transfer) throw new Error("Transfer not found");
+  if (transfer.status !== "ISSUED" && transfer.status !== "PARTIALLY_RECEIVED") {
     throw new Error(`Transfer cannot be received in status: ${transfer.status}`);
   }
 
   await prisma.$transaction(async (tx) => {
     for (const item of transfer.items) {
       const qty = Number(item.quantity);
-      const fromBefore = await upsertBalance(tx, item.productId, transfer.sourceLocationId, companyId);
-      const toBefore = await upsertBalance(tx, item.productId, transfer.destinationLocationId, companyId);
-
-      const fromQtyOnHandAfter = fromBefore.qtyOnHand - qty;
-      if (fromQtyOnHandAfter < 0) throw new Error("Insufficient stock at source for transfer");
-
-      await tx.stockBalance.update({
-        where: { id: fromBefore.id },
-        data: {
-          qtyOnHand: fromQtyOnHandAfter,
-          qtyAvailable: calcAvailable(fromQtyOnHandAfter, fromBefore.qtyReserved),
-          lastMovementAt: new Date(),
-        },
-      });
+      const toBefore = await getOrCreateStockBalance(tx, item.productId, transfer.destinationLocationId, companyId);
+      const toQtyOnHandAfter = toBefore.qtyOnHand + qty;
       await tx.stockBalance.update({
         where: { id: toBefore.id },
-        data: {
-          qtyOnHand: toBefore.qtyOnHand + qty,
-          qtyAvailable: calcAvailable(toBefore.qtyOnHand + qty, toBefore.qtyReserved),
-          lastMovementAt: new Date(),
-        },
+        data: { qtyOnHand: toQtyOnHandAfter, qtyAvailable: calcAvailable(toQtyOnHandAfter, toBefore.qtyReserved), lastMovementAt: new Date() },
       });
-
-      await createLedger(tx, {
-        productId: item.productId,
-        locationId: transfer.sourceLocationId,
-        companyId,
-        movementType: "TRANSFER_OUT",
-        quantity: qty,
-        qtyOnHandBefore: fromBefore.qtyOnHand,
-        qtyOnHandAfter: fromQtyOnHandAfter,
-        qtyReservedBefore: fromBefore.qtyReserved,
-        qtyReservedAfter: fromBefore.qtyReserved,
-        reference: transfer.referenceNumber,
-        referenceId: transfer.id,
-        notes: `Transfer to ${transfer.destinationLocationId}`,
-        createdById: userId,
-      });
-      await createLedger(tx, {
-        productId: item.productId,
-        locationId: transfer.destinationLocationId,
-        companyId,
-        movementType: "TRANSFER_IN",
-        quantity: qty,
-        qtyOnHandBefore: toBefore.qtyOnHand,
-        qtyOnHandAfter: toBefore.qtyOnHand + qty,
-        qtyReservedBefore: toBefore.qtyReserved,
-        qtyReservedAfter: toBefore.qtyReserved,
-        reference: transfer.referenceNumber,
-        referenceId: transfer.id,
-        notes: `Transfer from ${transfer.sourceLocationId}`,
-        createdById: userId,
+      await postStockLedger(tx, {
+        productId: item.productId, locationId: transfer.destinationLocationId, companyId,
+        movementType: "TRANSFER_IN", quantity: qty,
+        qtyOnHandBefore: toBefore.qtyOnHand, qtyOnHandAfter: toQtyOnHandAfter,
+        qtyReservedBefore: toBefore.qtyReserved, qtyReservedAfter: toBefore.qtyReserved,
+        reference: transfer.referenceNumber, referenceId: transfer.id,
+        notes: `Transfer from ${transfer.sourceLocationId}`, createdById: userId,
       });
     }
-
     await tx.stockTransfer.update({
       where: { id: transferId },
-      data: { status: "COMPLETED", receivedAt: new Date() },
+      data: { status: "RECEIVED", receivedAt: new Date() },
     });
   });
 }
 
-export async function cancelStockTransfer(
-  transferId: string,
-  companyId: string,
-) {
+export async function cancelStockTransfer(transferId: string, companyId: string, userId: string, allowReverseSource?: boolean) {
   const transfer = await prisma.stockTransfer.findUnique({
-    where: { id: transferId, companyId },
+    where: { id: transferId, companyId }, include: { items: true },
   });
   if (!transfer) throw new Error("Transfer not found");
-  if (transfer.status === "COMPLETED" || transfer.status === "CANCELLED") {
-    throw new Error("Cannot cancel a completed or already cancelled transfer");
+  if (transfer.status === "RECEIVED" || transfer.status === "CANCELLED") {
+    throw new Error("Cannot cancel a received or already cancelled transfer");
   }
 
-  return prisma.stockTransfer.update({
-    where: { id: transferId },
-    data: { status: "CANCELLED" },
+  // If issued, reverse source deduction if allowed
+  if (transfer.status === "ISSUED" && allowReverseSource) {
+    await prisma.$transaction(async (tx) => {
+      for (const item of transfer.items) {
+        const qty = Number(item.quantity);
+        const fromBefore = await getOrCreateStockBalance(tx, item.productId, transfer.sourceLocationId, companyId);
+        const fromQtyOnHandAfter = fromBefore.qtyOnHand + qty;
+        await tx.stockBalance.update({
+          where: { id: fromBefore.id },
+          data: { qtyOnHand: fromQtyOnHandAfter, qtyAvailable: calcAvailable(fromQtyOnHandAfter, fromBefore.qtyReserved), lastMovementAt: new Date() },
+        });
+        await postStockLedger(tx, {
+          productId: item.productId, locationId: transfer.sourceLocationId, companyId,
+          movementType: "ADJUSTMENT_IN", quantity: qty,
+          qtyOnHandBefore: fromBefore.qtyOnHand, qtyOnHandAfter: fromQtyOnHandAfter,
+          qtyReservedBefore: fromBefore.qtyReserved, qtyReservedAfter: fromBefore.qtyReserved,
+          reference: transfer.referenceNumber, referenceId: transfer.id,
+          notes: `Transfer cancelled - stock returned to source`, createdById: userId,
+        });
+      }
+      await tx.stockTransfer.update({ where: { id: transferId }, data: { status: "CANCELLED" } });
+    });
+  } else {
+    await prisma.stockTransfer.update({ where: { id: transferId }, data: { status: "CANCELLED" } });
+  }
+}
+
+// Instant transfer: source decreases, destination increases in one tx
+export async function instantTransfer(data: {
+  sourceLocationId: string; destinationLocationId: string; productId: string; companyId: string;
+  quantity: number; notes?: string | null; createdById?: string | null; reference?: string | null; referenceId?: string | null;
+  allowNegative?: boolean;
+}): Promise<void> {
+  if (data.sourceLocationId === data.destinationLocationId) throw new Error("Source and destination must differ");
+  if (data.quantity <= 0) throw new Error("Quantity must be positive");
+  await prisma.$transaction(async (tx) => {
+    const fromBefore = await getOrCreateStockBalance(tx, data.productId, data.sourceLocationId, data.companyId);
+    const toBefore = await getOrCreateStockBalance(tx, data.productId, data.destinationLocationId, data.companyId);
+    const fromQtyOnHandAfter = fromBefore.qtyOnHand - data.quantity;
+    if (fromQtyOnHandAfter < 0 && !data.allowNegative) throw new Error("Insufficient stock at source");
+    await tx.stockBalance.update({
+      where: { id: fromBefore.id },
+      data: { qtyOnHand: fromQtyOnHandAfter, qtyAvailable: calcAvailable(fromQtyOnHandAfter, fromBefore.qtyReserved), lastMovementAt: new Date() },
+    });
+    const toQtyOnHandAfter = toBefore.qtyOnHand + data.quantity;
+    await tx.stockBalance.update({
+      where: { id: toBefore.id },
+      data: { qtyOnHand: toQtyOnHandAfter, qtyAvailable: calcAvailable(toQtyOnHandAfter, toBefore.qtyReserved), lastMovementAt: new Date() },
+    });
+    await postStockLedger(tx, {
+      productId: data.productId, locationId: data.sourceLocationId, companyId: data.companyId,
+      movementType: "TRANSFER_OUT", quantity: data.quantity,
+      qtyOnHandBefore: fromBefore.qtyOnHand, qtyOnHandAfter: fromQtyOnHandAfter,
+      qtyReservedBefore: fromBefore.qtyReserved, qtyReservedAfter: fromBefore.qtyReserved,
+      reference: data.reference ?? null, referenceId: data.referenceId ?? null,
+      notes: `Instant transfer to ${data.destinationLocationId}`, createdById: data.createdById,
+    });
+    await postStockLedger(tx, {
+      productId: data.productId, locationId: data.destinationLocationId, companyId: data.companyId,
+      movementType: "TRANSFER_IN", quantity: data.quantity,
+      qtyOnHandBefore: toBefore.qtyOnHand, qtyOnHandAfter: toQtyOnHandAfter,
+      qtyReservedBefore: toBefore.qtyReserved, qtyReservedAfter: toBefore.qtyReserved,
+      reference: data.reference ?? null, referenceId: data.referenceId ?? null,
+      notes: `Instant transfer from ${data.sourceLocationId}`, createdById: data.createdById,
+    });
   });
 }
 
 // ========== STOCK ADJUSTMENT MANAGEMENT ==========
 
 export async function createStockAdjustment(data: {
-  locationId: string;
-  reason: AdjustmentReason;
-  companyId: string;
-  notes?: string | null;
-  createdById: string;
-  items: Array<{ productId: string; direction: "IN" | "OUT"; quantity: number; unitCost?: number }>;
+  locationId: string; reason: AdjustmentReason; companyId: string; notes?: string | null;
+  createdById: string; items: Array<{ productId: string; direction: "IN" | "OUT"; quantity: number; unitCost?: number }>;
 }) {
   const count = await prisma.stockAdjustment.count({ where: { companyId: data.companyId } });
   const refNumber = `ADJ-${String(count + 1).padStart(5, "0")}`;
+  return prisma.stockAdjustment.create({
+    data: {
+      referenceNumber: refNumber, locationId: data.locationId, reason: data.reason,
+      companyId: data.companyId, notes: data.notes ?? null, createdById: data.createdById,
+      items: { create: data.items.map((item) => ({ productId: item.productId, direction: item.direction, quantity: item.quantity, unitCost: item.unitCost ?? 0 })) },
+    },
+    include: { items: { include: { product: { select: { name: true, sku: true } } } } },
+  });
+}
 
-  const adjustment = await prisma.$transaction(async (tx) => {
-    const created = await tx.stockAdjustment.create({
-      data: {
-        referenceNumber: refNumber,
-        locationId: data.locationId,
-        reason: data.reason,
-        companyId: data.companyId,
-        notes: data.notes ?? null,
-        createdById: data.createdById,
-        postedAt: new Date(),
-        items: {
-          create: data.items.map((item) => ({
-            productId: item.productId,
-            direction: item.direction,
-            quantity: item.quantity,
-            unitCost: item.unitCost ?? 0,
-          })),
-        },
-      },
-      include: { items: { include: { product: { select: { name: true, sku: true } } } } },
-    });
+export async function postStockAdjustment(adjustmentId: string, companyId: string, userId: string) {
+  const adjustment = await prisma.stockAdjustment.findUnique({
+    where: { id: adjustmentId, companyId }, include: { items: true },
+  });
+  if (!adjustment) throw new Error("Adjustment not found");
+  if (adjustment.postedAt) throw new Error("Adjustment already posted");
 
-    for (const item of data.items) {
-      await adjustStock({
-        locationId: data.locationId,
-        productId: item.productId,
-        companyId: data.companyId,
-        quantity: item.quantity,
-        direction: item.direction,
-        reason: data.reason,
-        notes: data.notes ?? `Adjustment ${refNumber}`,
-        createdById: data.createdById,
-        unitCost: item.unitCost,
+  await prisma.$transaction(async (tx) => {
+    for (const item of adjustment.items) {
+      const before = await getOrCreateStockBalance(tx, item.productId, adjustment.locationId, companyId);
+      const qty = Number(item.quantity);
+      const direction = item.direction as "IN" | "OUT";
+      const movementQty = direction === "IN" ? qty : -qty;
+      const qtyOnHandAfter = before.qtyOnHand + movementQty;
+      const qtyAvailableAfter = calcAvailable(qtyOnHandAfter, before.qtyReserved);
+      const unitCost = Number(item.unitCost) || before.averageCost;
+      const totalCost = Number(before.averageCost) * Number(before.qtyOnHand);
+      const newTotalCost = direction === "IN" ? totalCost + qty * unitCost : totalCost - qty * unitCost;
+      const newAvgCost = qtyOnHandAfter > 0 ? newTotalCost / qtyOnHandAfter : 0;
+
+      await tx.stockBalance.update({
+        where: { id: before.id },
+        data: { qtyOnHand: qtyOnHandAfter, qtyAvailable: qtyAvailableAfter, averageCost: newAvgCost, lastMovementAt: new Date() },
+      });
+
+      const movementType: StockMovementType = direction === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
+      await postStockLedger(tx, {
+        productId: item.productId, locationId: adjustment.locationId, companyId,
+        movementType, quantity: qty,
+        qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter,
+        qtyReservedBefore: before.qtyReserved, qtyReservedAfter: before.qtyReserved,
+        reference: adjustment.referenceNumber, referenceId: adjustment.id,
+        notes: `${adjustment.reason}${adjustment.notes ? ` - ${adjustment.notes}` : ""}`,
+        createdById: userId,
       });
     }
 
-    return created;
+    await tx.stockAdjustment.update({
+      where: { id: adjustmentId },
+      data: { postedAt: new Date() },
+    });
   });
-
-  return adjustment;
 }
 
 // ========== STOCK COUNT MANAGEMENT ==========
 
 export async function createStockCount(data: {
-  locationId: string;
-  companyId: string;
-  notes?: string | null;
-  createdById: string;
+  locationId: string; companyId: string; notes?: string | null; createdById: string;
 }) {
   const count = await prisma.stockCount.count({ where: { companyId: data.companyId } });
   const refNumber = `SC-${String(count + 1).padStart(5, "0")}`;
-
   const balances = await prisma.stockBalance.findMany({
     where: { locationId: data.locationId, companyId: data.companyId },
     select: { productId: true, qtyOnHand: true },
   });
-
-  const snapshot = await prisma.stockCount.create({
+  return prisma.stockCount.create({
     data: {
-      referenceNumber: refNumber,
-      locationId: data.locationId,
-      companyId: data.companyId,
-      notes: data.notes ?? null,
-      frozenAt: new Date(),
-      status: "DRAFT",
-      createdById: data.createdById,
+      referenceNumber: refNumber, locationId: data.locationId, companyId: data.companyId,
+      notes: data.notes ?? null, frozenAt: new Date(), status: "DRAFT", createdById: data.createdById,
       items: {
         create: balances.map((b) => ({
-          productId: b.productId,
-          expectedQty: b.qtyOnHand,
-          countedQty: b.qtyOnHand,
-          variance: 0,
+          productId: b.productId, expectedQty: b.qtyOnHand, countedQty: b.qtyOnHand, variance: 0,
         })),
       },
     },
     include: { items: { include: { product: { select: { id: true, name: true, sku: true, unit: true } } } } },
   });
-
-  return snapshot;
 }
 
-export async function updateStockCountItem(
-  countId: string,
-  itemId: string,
-  countedQty: number,
-  companyId: string,
-) {
+export async function updateStockCountItem(countId: string, itemId: string, countedQty: number, companyId: string) {
   const item = await prisma.stockCountItem.findFirst({
     where: { id: itemId, countId, count: { companyId } },
   });
   if (!item) throw new Error("Count item not found");
-
   const expectedQty = Number(item.expectedQty);
   const variance = countedQty - expectedQty;
-
   return prisma.stockCountItem.update({
     where: { id: itemId },
     data: { countedQty, variance },
   });
 }
 
-export async function postStockCount(
-  countId: string,
-  companyId: string,
-  userId: string,
-) {
+export async function reviewStockCount(countId: string, companyId: string, userId: string) {
+  const count = await prisma.stockCount.findUnique({ where: { id: countId, companyId } });
+  if (!count) throw new Error("Stock count not found");
+  if (count.status !== "DRAFT" && count.status !== "IN_PROGRESS") {
+    throw new Error("Stock count must be in DRAFT or IN_PROGRESS status to review");
+  }
+  return prisma.stockCount.update({
+    where: { id: countId },
+    data: { status: "REVIEWED", reviewedById: userId },
+  });
+}
+
+export async function postStockCount(countId: string, companyId: string, userId: string) {
   const count = await prisma.stockCount.findUnique({
-    where: { id: countId, companyId },
-    include: { items: true },
+    where: { id: countId, companyId }, include: { items: true },
   });
   if (!count) throw new Error("Stock count not found");
   if (count.status !== "REVIEWED") throw new Error("Stock count must be reviewed before posting");
@@ -1090,38 +873,23 @@ export async function postStockCount(
     for (const item of count.items) {
       const variance = Number(item.variance);
       if (variance === 0) continue;
-
-      const fromLocationId = count.locationId;
-      const before = await upsertBalance(tx, item.productId, fromLocationId, companyId);
+      const before = await getOrCreateStockBalance(tx, item.productId, count.locationId, companyId);
       const qtyOnHandAfter = before.qtyOnHand + variance;
       if (qtyOnHandAfter < 0) throw new Error("Stock count correction would cause negative stock");
-
       await tx.stockBalance.update({
         where: { id: before.id },
-        data: {
-          qtyOnHand: qtyOnHandAfter,
-          qtyAvailable: calcAvailable(qtyOnHandAfter, before.qtyReserved),
-          lastMovementAt: new Date(),
-        },
+        data: { qtyOnHand: qtyOnHandAfter, qtyAvailable: calcAvailable(qtyOnHandAfter, before.qtyReserved), lastMovementAt: new Date() },
       });
-
-      await createLedger(tx, {
-        productId: item.productId,
-        locationId: fromLocationId,
-        companyId,
-        movementType: "STOCK_COUNT_CORRECTION",
-        quantity: Math.abs(variance),
-        qtyOnHandBefore: before.qtyOnHand,
-        qtyOnHandAfter,
-        qtyReservedBefore: before.qtyReserved,
-        qtyReservedAfter: before.qtyReserved,
-        reference: count.referenceNumber,
-        referenceId: count.id,
+      await postStockLedger(tx, {
+        productId: item.productId, locationId: count.locationId, companyId,
+        movementType: "STOCK_COUNT_CORRECTION", quantity: Math.abs(variance),
+        qtyOnHandBefore: before.qtyOnHand, qtyOnHandAfter,
+        qtyReservedBefore: before.qtyReserved, qtyReservedAfter: before.qtyReserved,
+        reference: count.referenceNumber, referenceId: count.id,
         notes: `Stock count correction: expected ${item.expectedQty}, counted ${item.countedQty}`,
         createdById: userId,
       });
     }
-
     await tx.stockCount.update({
       where: { id: countId },
       data: { status: "POSTED", postedAt: new Date() },
@@ -1129,44 +897,22 @@ export async function postStockCount(
   });
 }
 
-export async function reviewStockCount(
-  countId: string,
-  companyId: string,
-  userId: string,
-) {
-  const count = await prisma.stockCount.findUnique({
-    where: { id: countId, companyId },
-  });
-  if (!count) throw new Error("Stock count not found");
-  if (count.status !== "IN_PROGRESS" && count.status !== "DRAFT") {
-    throw new Error("Stock count must be in DRAFT or IN_PROGRESS status to review");
-  }
-
-  return prisma.stockCount.update({
-    where: { id: countId },
-    data: { status: "REVIEWED", reviewedById: userId },
-  });
-}
-
 // ========== LEDGER / HISTORY ==========
 
 export async function getStockLedger(params: {
-  companyId: string;
-  productId?: string;
-  locationId?: string;
-  movementType?: string;
-  dateFrom?: Date;
-  dateTo?: Date;
-  page?: number;
-  pageSize?: number;
+  companyId: string; productId?: string; locationId?: string; movementType?: string;
+  dateFrom?: Date; dateTo?: Date; reference?: string; referenceId?: string; createdById?: string;
+  page?: number; pageSize?: number;
 }) {
   const page = params.page || 1;
   const pageSize = params.pageSize || 50;
   const where: Record<string, unknown> = { companyId: params.companyId };
-
   if (params.productId) where.productId = params.productId;
   if (params.locationId) where.locationId = params.locationId;
   if (params.movementType) where.movementType = params.movementType;
+  if (params.reference) where.reference = { contains: params.reference, mode: "insensitive" };
+  if (params.referenceId) where.referenceId = params.referenceId;
+  if (params.createdById) where.createdById = params.createdById;
   if (params.dateFrom || params.dateTo) {
     const createdAt: Record<string, Date> = {};
     if (params.dateFrom) createdAt.gte = params.dateFrom;
@@ -1191,94 +937,118 @@ export async function getStockLedger(params: {
 
   return {
     data: data.map((entry) => ({
-      id: entry.id,
-      productId: entry.productId,
-      productName: entry.product.name,
-      productSku: entry.product.sku,
-      locationId: entry.locationId,
-      locationName: entry.location.name,
-      locationType: entry.location.type,
+      id: entry.id, productId: entry.productId, productName: entry.product.name, productSku: entry.product.sku,
+      locationId: entry.locationId, locationName: entry.location.name, locationType: entry.location.type,
       movementType: entry.movementType,
       quantity: Number(entry.quantity),
-      qtyOnHandBefore: Number(entry.qtyOnHandBefore),
-      qtyOnHandAfter: Number(entry.qtyOnHandAfter),
-      qtyReservedBefore: Number(entry.qtyReservedBefore),
-      qtyReservedAfter: Number(entry.qtyReservedAfter),
-      reference: entry.reference,
-      referenceId: entry.referenceId,
-      notes: entry.notes,
-      createdBy: entry.createdBy?.name ?? null,
-      createdAt: entry.createdAt,
+      qtyOnHandBefore: Number(entry.qtyOnHandBefore), qtyOnHandAfter: Number(entry.qtyOnHandAfter),
+      qtyReservedBefore: Number(entry.qtyReservedBefore), qtyReservedAfter: Number(entry.qtyReservedAfter),
+      reference: entry.reference, referenceId: entry.referenceId,
+      notes: entry.notes, createdBy: entry.createdBy?.name ?? null, createdAt: entry.createdAt,
     })),
-    total,
-    page,
-    pageSize,
+    total, page, pageSize,
     totalPages: Math.ceil(total / pageSize),
   };
 }
 
+export async function getStockMovementTypes(companyId: string): Promise<string[]> {
+  const types = await prisma.stockLedger.findMany({
+    where: { companyId },
+    distinct: ["movementType"],
+    select: { movementType: true },
+    orderBy: { movementType: "asc" },
+  });
+  return types.map((t) => t.movementType);
+}
+
+export async function getMovementTypeLabels(): Promise<Record<string, string>> {
+  return {
+    OPENING_BALANCE: "Opening Balance", PURCHASE_RECEIVE: "Purchase Receive",
+    PURCHASE_RETURN: "Purchase Return", SALE: "Sale", SALE_RETURN: "Sale Return",
+    TRANSFER_IN: "Transfer In", TRANSFER_OUT: "Transfer Out",
+    ADJUSTMENT_IN: "Adjustment In", ADJUSTMENT_OUT: "Adjustment Out",
+    RESERVATION: "Reservation", RESERVATION_RELEASE: "Reservation Release",
+    STOCK_COUNT_CORRECTION: "Stock Count Correction",
+    DAMAGE: "Damage", EXPIRY: "Expiry", LOST: "Lost", FOUND: "Found",
+    INTERNAL_USE: "Internal Use", WRITE_OFF: "Write Off",
+  };
+}
+
+// ========== INVENTORY DASHBOARD ==========
+
 export async function getInventoryDashboard(companyId: string) {
   const [
-    productCount,
-    locationCount,
-    totalBalances,
-    lowStockItems,
-    outOfStockItems,
-    pendingTransfers,
-    recentLedger,
+    productCount, locationCount, totalBalances, pendingTransfers, recentLedger, productLots,
   ] = await Promise.all([
     prisma.product.count({ where: { companyId, deletedAt: null, isActive: true, isService: false } }),
     prisma.stockLocation.count({ where: { companyId, isActive: true } }),
     prisma.stockBalance.findMany({
       where: { companyId },
-      include: { product: { select: { id: true, name: true, sellingPrice: true, purchasePrice: true } }, location: { select: { id: true, name: true } } },
+      include: {
+        product: { select: { id: true, name: true, sku: true, sellingPrice: true, purchasePrice: true, minStock: true } },
+        location: { select: { id: true, name: true, type: true } },
+      },
     }),
-    prisma.$queryRaw<Array<{ id: string; name: string; sku: string | null; stock: number; minStock: number }>>`
-      SELECT id, name, sku, stock, "minStock"
-      FROM products
-      WHERE "companyId" = ${companyId}
-        AND "deletedAt" IS NULL
-        AND "isActive" = true
-        AND "isService" = false
-        AND stock > 0
-        AND stock <= "minStock"
-      LIMIT 20
-    `.then((rows) => rows.map((r) => ({ ...r, stock: Number(r.stock), minStock: Number(r.minStock) }))),
-    prisma.product.count({
-      where: { companyId, deletedAt: null, isActive: true, isService: false, stock: 0 },
-    }),
-    prisma.stockTransfer.count({
-      where: { companyId, status: { in: ["PENDING", "IN_TRANSIT"] as any } },
-    }),
+    prisma.stockTransfer.count({ where: { companyId, status: { in: ["DRAFT", "ISSUED", "PARTIALLY_RECEIVED"] } as any } }),
     prisma.stockLedger.findMany({
       where: { companyId },
-      include: {
-        product: { select: { name: true } },
-        location: { select: { name: true } },
-        createdBy: { select: { name: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
+      include: { product: { select: { name: true } }, location: { select: { name: true } }, createdBy: { select: { name: true } } },
+      orderBy: { createdAt: "desc" }, take: 10,
+    }),
+    prisma.productLot.findMany({
+      where: { companyId, isActive: true, expiryDate: { not: null, lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) } },
+      include: { product: { select: { id: true, name: true, sku: true } } },
+      orderBy: { expiryDate: "asc" }, take: 20,
     }),
   ]);
 
-  const totalValue = totalBalances.reduce((sum, b) => {
-    const product = b as any;
-    return sum + Number(b.qtyOnHand) * Number(product.product?.sellingPrice || 0);
-  }, 0);
   const totalStockQty = totalBalances.reduce((sum, b) => sum + Number(b.qtyOnHand), 0);
+  const totalValue = totalBalances.reduce((sum, b) => {
+    return sum + Number(b.qtyOnHand) * Number(b.averageCost);
+  }, 0);
   const totalSkuWithStock = new Set(totalBalances.filter((b) => Number(b.qtyOnHand) > 0).map((b) => b.productId)).size;
 
-  const stockByLocation = new Map<string, { locationName: string; totalQty: number; totalValue: number; productCount: number }>();
+  // Low stock based on StockBalance + Product.minStock
+  const lowStockItems = totalBalances
+    .filter((b) => Number(b.qtyOnHand) > 0 && Number(b.qtyOnHand) <= Number(b.product.minStock))
+    .map((b) => ({
+      productId: b.productId, productName: b.product.name, sku: b.product.sku,
+      qtyOnHand: Number(b.qtyOnHand), minStock: Number(b.product.minStock), locationName: b.location.name,
+    }))
+    .slice(0, 20);
+
+  const outOfStockCount = new Set(
+    totalBalances.filter((b) => Number(b.qtyOnHand) === 0 && Number(b.product.minStock) > 0).map((b) => b.productId)
+  ).size;
+
+  // Stock by location
+  const stockByLocationMap = new Map<string, { locationName: string; locationType: string; totalQty: number; totalValue: number; productCount: number }>();
   for (const b of totalBalances) {
     const locId = b.locationId;
-    const existing = stockByLocation.get(locId) || { locationName: b.location.name, totalQty: 0, totalValue: 0, productCount: 0 };
+    const existing = stockByLocationMap.get(locId) || {
+      locationName: b.location.name, locationType: b.location.type,
+      totalQty: 0, totalValue: 0, productCount: 0,
+    };
     existing.totalQty += Number(b.qtyOnHand);
-    const brec = b as any;
-    existing.totalValue += Number(brec.qtyOnHand) * Number(brec.product?.sellingPrice || 0);
-    existing.productCount += 1;
-    stockByLocation.set(locId, existing);
+    existing.totalValue += Number(b.qtyOnHand) * Number(b.averageCost);
+    existing.productCount += Number(b.qtyOnHand) > 0 ? 1 : 0;
+    stockByLocationMap.set(locId, existing);
   }
+
+  // Damaged store value
+  const damagedBalances = totalBalances.filter((b) => b.location.type === "DAMAGED_STORE");
+  const damagedStockValue = damagedBalances.reduce((s, b) => s + Number(b.qtyOnHand) * Number(b.averageCost), 0);
+
+  // Employee custody stock value
+  const employeeBalances = totalBalances.filter((b) => b.location.type === "EMPLOYEE_STORE");
+  const employeeCustodyValue = employeeBalances.reduce((s, b) => s + Number(b.qtyOnHand) * Number(b.averageCost), 0);
+
+  // Expiring batches
+  const expiringLots = productLots.map((lot) => ({
+    id: lot.id, lotNumber: lot.lotNumber, expiryDate: lot.expiryDate,
+    productId: lot.productId, productName: lot.product.name, productSku: lot.product.sku,
+    daysToExpire: lot.expiryDate ? Math.ceil((lot.expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null,
+  }));
 
   return {
     totalProducts: productCount,
@@ -1287,44 +1057,30 @@ export async function getInventoryDashboard(companyId: string) {
     totalStockQty,
     totalStockValue: totalValue,
     lowStockCount: lowStockItems.length,
-    lowStockItems: lowStockItems.slice(0, 10),
-    outOfStockCount: outOfStockItems,
+    lowStockItems,
+    outOfStockCount,
     pendingTransferCount: pendingTransfers,
+    damagedStockValue,
+    employeeCustodyValue,
+    expiringLots,
     recentMovements: recentLedger.map((l) => ({
-      id: l.id,
-      productName: l.product.name,
-      locationName: l.location.name,
-      movementType: l.movementType,
-      quantity: Number(l.quantity),
+      id: l.id, productName: l.product.name, locationName: l.location.name,
+      movementType: l.movementType, quantity: Number(l.quantity),
       qtyOnHandAfter: Number(l.qtyOnHandAfter),
-      createdBy: l.createdBy?.name ?? "System",
-      createdAt: l.createdAt,
+      createdBy: l.createdBy?.name ?? "System", createdAt: l.createdAt,
     })),
-    stockByLocation: Array.from(stockByLocation.entries()).map(([id, data]) => ({ locationId: id, ...data })),
+    stockByLocation: Array.from(stockByLocationMap.entries()).map(([locationId, data]) => ({ locationId, ...data })),
   };
 }
 
-// ========== LOCATION GEOFENCING / RULES ==========
+// ========== LOCATION VALIDATION ==========
 
-export async function validateLocationRules(
-  locationId: string,
-  companyId: string,
-): Promise<{ valid: boolean; errors: string[] }> {
+export async function validateLocationRules(locationId: string, companyId: string): Promise<{ valid: boolean; errors: string[] }> {
   const location = await prisma.stockLocation.findUnique({ where: { id: locationId, companyId } });
   if (!location) return { valid: false, errors: ["Location not found"] };
-
   const errors: string[] = [];
-  if (location.type === "MAIN_WAREHOUSE") {
-    if (location.branchId) errors.push("Main warehouse should not be linked to a branch");
-  } else if (location.type === "BRANCH_STORE" || location.type === "POS_STORE") {
-    if (!location.branchId) errors.push("Branch store must be linked to a branch");
-    if (location.branchId) {
-      const branch = await prisma.branch.findUnique({ where: { id: location.branchId } });
-      if (!branch || branch.companyId !== companyId) errors.push("Linked branch not found or invalid");
-    }
-  } else if (location.type === "EMPLOYEE_STORE") {
-    if (!location.assignedEmployeeId) errors.push("Employee store must be linked to an employee");
-  }
-
+  if (location.type === "MAIN_WAREHOUSE" && location.branchId) errors.push("Main warehouse should not be linked to a branch");
+  if ((location.type === "BRANCH_STORE" || location.type === "POS_STORE") && !location.branchId) errors.push("Branch store must be linked to a branch");
+  if (location.type === "EMPLOYEE_STORE" && !location.assignedEmployeeId) errors.push("Employee store must be linked to an employee");
   return { valid: errors.length === 0, errors };
 }

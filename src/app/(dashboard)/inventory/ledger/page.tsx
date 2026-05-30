@@ -1,18 +1,14 @@
-import { requireCompanyAuth } from "@/lib/auth-helper";
-import { getInventoryLedger } from "@/actions/inventory";
-import { InventoryLedgerClient } from "@/features/inventory/inventory-ledger-client";
-import { PageHeader } from "@/components/shared/page-header";
+import { getStockLedgerData, getInventoryLocations, getStockMovementTypes } from "@/actions/inventory";
+import { LedgerClient } from "@/features/inventory/ledger/ledger-client";
 
-export default async function InventoryLedgerPage() {
-  await requireCompanyAuth();
-  const data = await getInventoryLedger({ page: 1, pageSize: 50 }).catch(() => ({
-    data: [], total: 0, page: 1, pageSize: 50, totalPages: 0,
-  }));
+export const dynamic = "force-dynamic";
 
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Inventory Ledger" description="All stock movements across products" />
-      <InventoryLedgerClient initialData={data as any} />
-    </div>
-  );
+export default async function LedgerPage() {
+  const [initialData, locations, movementTypes] = await Promise.all([
+    getStockLedgerData({ page: 1, pageSize: 50 }).catch(() => null),
+    getInventoryLocations().catch(() => []),
+    getStockMovementTypes().catch(() => []),
+  ]);
+
+  return <LedgerClient initialData={initialData as any} />;
 }

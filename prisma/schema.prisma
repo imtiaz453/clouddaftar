@@ -53,9 +53,9 @@ enum StockMovementType {
 
 enum TransferStatus {
   DRAFT
-  PENDING
-  IN_TRANSIT
-  COMPLETED
+  ISSUED
+  PARTIALLY_RECEIVED
+  RECEIVED
   CANCELLED
 }
 
@@ -468,7 +468,6 @@ model Warehouse {
   sales            Sale[]
   purchases        Purchase[]
   inventoryLogs    InventoryLog[]
-  productLotStocks ProductLotStock[]
 
   @@unique([code, companyId])
   @@index([companyId])
@@ -534,6 +533,7 @@ model StockLocation {
   destinationTransfers StockTransfer[]   @relation("TransferDest")
   stockAdjustments     StockAdjustment[]
   stockCounts          StockCount[]
+  productLotStocks     ProductLotStock[]
 
   @@unique([code, companyId])
   @@index([companyId])
@@ -561,7 +561,7 @@ model StockBalance {
   location StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
   company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, locationId, companyId])
+  @@unique([productId, locationId])
   @@index([companyId])
   @@index([productId])
   @@index([locationId])
@@ -856,6 +856,7 @@ model ProductLot {
   companyId    String
   lotNumber    String
   serialNumber String?
+  mfgDate      DateTime?
   expiryDate   DateTime?
   notes        String?
   isActive     Boolean   @default(true)
@@ -876,24 +877,24 @@ model ProductLot {
 }
 
 model ProductLotStock {
-  id          String   @id @default(cuid())
-  lotId       String
-  productId   String
-  warehouseId String
-  companyId   String
-  quantity    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  lotId      String
+  productId  String
+  locationId String
+  companyId  String
+  quantity   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  lot       ProductLot @relation(fields: [lotId], references: [id], onDelete: Cascade)
-  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  warehouse Warehouse  @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lot      ProductLot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  @@unique([lotId, warehouseId])
+  @@unique([lotId, locationId])
   @@index([companyId])
   @@index([productId])
-  @@index([warehouseId])
+  @@index([locationId])
   @@map("product_lot_stocks")
 }
 

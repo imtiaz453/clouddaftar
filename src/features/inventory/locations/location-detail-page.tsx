@@ -7,5 +7,5 @@ interface LocationDetailPageProps {
 
 export default async function LocationDetailPage({ params }: LocationDetailPageProps) {
   const data = await getInventoryLocationDetail(params.id);
-  return <LocationDetailClient data={data} />;
+  return <LocationDetailClient data={data as any} />;
 }

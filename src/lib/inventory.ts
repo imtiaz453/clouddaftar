@@ -415,9 +415,17 @@ export async function receiveStockForPurchase(
 }
 
 export async function resolveLocationIdFromWarehouseId(
-  warehouseId: string,
+  warehouseId: string | null,
   companyId: string,
 ): Promise<string | null> {
+  if (!warehouseId) {
+    const defaultLocation = await prisma.stockLocation.findFirst({
+      where: { companyId, type: "MAIN_WAREHOUSE", isDefault: true, deletedAt: null },
+      select: { id: true },
+    });
+    return defaultLocation?.id || null;
+  }
+
   const warehouse = await prisma.warehouse.findUnique({
     where: { id: warehouseId },
     select: { code: true },

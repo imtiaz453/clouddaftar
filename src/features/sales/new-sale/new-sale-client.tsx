@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, taxLabel } from "@/lib/utils";
 import { dashboardHref } from "@/lib/dashboard-href";
-import { getStockLocations, getProducts } from "@/actions/inventory";
+import { getInventoryLocations, getProducts } from "@/actions/inventory";
 import {
   type LineItem,
   type ProductOption,
@@ -176,7 +176,7 @@ export function NewSaleClient({
 	useEffect(() => {
 		async function fetchLocations() {
 			try {
-				const data = await getStockLocations();
+				const data = await getInventoryLocations();
 				setLocations(data || []);
 				if (data && data.length > 0 && !selectedLocationId) {
 					setSelectedLocationId(data[0].id);

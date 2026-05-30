@@ -1,433 +1,411 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useState, useCallback, useMemo } from "react";
 import {
-  Building2, Package, ArrowLeft, Plus, History, ArrowRightLeft,
-  ClipboardCheck, Search, X,
+  Search, Plus, Eye, Pencil, Trash2,
+  MapPin, Building2, UserCircle,
+  CheckCircle, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { TableSkeleton } from "@/components/ui/skeleton";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { useToast } from "@/providers/toast-provider";
+import { ActionsMenu } from "@/components/shared/actions-menu";
+import { getInventoryLocations, deleteInventoryLocation } from "@/actions/inventory";
+import { toast } from "sonner";
+import { LocationFormDialog } from "./location-form-dialog";
 
-interface LocationSummary {
-  id: string; name: string; code: string; type: string;
-  isDefault: boolean; isActive: boolean;
-  totalProducts: number; totalQty: number;
-}
+const LOCATION_TYPES = [
+  { value: "", label: "All Types" },
+  { value: "MAIN_WAREHOUSE", label: "Main Warehouse" },
+  { value: "BRANCH_STORE", label: "Branch Store" },
+  { value: "POS_STORE", label: "POS Store" },
+  { value: "EMPLOYEE_STORE", label: "Employee Store" },
+  { value: "DAMAGED_STORE", label: "Damaged Stock" },
+  { value: "RETURN_STORE", label: "Return Stock" },
+] as const;
 
-interface BalanceItem {
-  id: string; qtyOnHand: number; qtyReserved: number; qtyAvailable: number;
-  product: { id: string; name: string; sku: string | null; sellingPrice: number; purchasePrice: number; unit: string };
-}
+const TYPE_BADGE_STYLES: Record<string, string> = {
+  MAIN_WAREHOUSE: "border-transparent bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  BRANCH_STORE: "border-transparent bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  POS_STORE: "border-transparent bg-purple-500/10 text-purple-700 dark:text-purple-400",
+  EMPLOYEE_STORE: "border-transparent bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  DAMAGED_STORE: "border-transparent bg-red-500/10 text-red-700 dark:text-red-400",
+  RETURN_STORE: "border-transparent bg-orange-500/10 text-orange-700 dark:text-orange-400",
+};
 
-interface LedgerEntry {
-  id: string; movementType: string; quantity: number;
-  qtyOnHandBefore: number; qtyOnHandAfter: number;
-  notes: string | null; createdAt: string;
-  product: { name: string };
-  createdBy: { name: string; email: string } | null;
-}
+const PAGE_SIZE = 15;
 
-interface ProductOption {
-  id: string; name: string; sku: string | null;
+interface LocationRow {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  isDefault: boolean;
+  isActive: boolean;
+  isSellable: boolean;
+  branch: { id: string; name: string } | null;
+  assignedEmployee: { id: string; name: string } | null;
+  address: string | null;
+  notes: string | null;
+  totalProducts: number;
+  totalQty: number;
 }
 
 interface LocationsClientProps {
-  locations: LocationSummary[];
-  locationDetail?: { location: any; balances: BalanceItem[]; recentLedger: LedgerEntry[] } | null;
-  products: ProductOption[];
-  locationId?: string | null;
+  initialLocations?: LocationRow[];
 }
 
-export function LocationsClient({ locations, locationDetail, products, locationId }: LocationsClientProps) {
+export function LocationsClient({ initialLocations }: LocationsClientProps) {
   const router = useRouter();
-  const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams() ?? new URLSearchParams();
-  const { addToast } = useToast();
+  const [locations, setLocations] = useState<LocationRow[]>(initialLocations ?? []);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editLocation, setEditLocation] = useState<LocationRow | null>(null);
 
-  const [selectedLocation, setSelectedLocation] = useState(locationId || null);
-  const [detail, setDetail] = useState(locationDetail);
-  const [detailLoading, setDetailLoading] = useState(false);
-
-  // Transfer dialog
-  const [transferOpen, setTransferOpen] = useState(false);
-  const [transferSaving, setTransferSaving] = useState(false);
-  const [transferForm, setTransferForm] = useState({ productId: "", toLocationId: "", quantity: 1, notes: "" });
-
-  // Adjust dialog
-  const [adjustOpen, setAdjustOpen] = useState(false);
-  const [adjustSaving, setAdjustSaving] = useState(false);
-  const [adjustForm, setAdjustForm] = useState({ productId: "", direction: "IN" as "IN" | "OUT", quantity: 1, reason: "", notes: "" });
-
-  useEffect(() => {
-    setSelectedLocation(locationId || null);
-  }, [locationId]);
-
-  useEffect(() => {
-    setDetail(locationDetail);
-  }, [locationDetail]);
-
-  const loadDetail = useCallback(async (locId: string) => {
-    setDetailLoading(true);
+  const fetchLocations = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/inventory/locations/${locId}`);
-      const json = await res.json();
-      if (json.success) setDetail(json.data);
-    } catch {
-      addToast({ title: "Failed to load location", variant: "error" });
-    } finally {
-      setDetailLoading(false);
-    }
-  }, [addToast]);
-
-  function selectLocation(id: string) {
-    setSelectedLocation(id);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("locationId", id);
-    router.push(`${pathname}?${params}`);
-    if (!locationDetail) loadDetail(id);
-  }
-
-  function backToList() {
-    setSelectedLocation(null);
-    router.push(pathname);
-  }
-
-  const [transferProductSearch, setTransferProductSearch] = useState("");
-  const [adjustProductSearch, setAdjustProductSearch] = useState("");
-  const transferFiltered = products.filter((p) =>
-    p.name.toLowerCase().includes(transferProductSearch.toLowerCase()) ||
-    (p.sku || "").toLowerCase().includes(transferProductSearch.toLowerCase()),
-  );
-  const adjustFiltered = products.filter((p) =>
-    p.name.toLowerCase().includes(adjustProductSearch.toLowerCase()) ||
-    (p.sku || "").toLowerCase().includes(adjustProductSearch.toLowerCase()),
-  );
-  const otherLocations = locations.filter((l) => l.id !== selectedLocation);
-
-  async function handleTransfer(e: React.FormEvent) {
-    e.preventDefault();
-    if (!transferForm.productId || !transferForm.toLocationId) return;
-    setTransferSaving(true);
-    try {
-      const res = await fetch("/api/inventory/transfers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: transferForm.productId,
-          fromWarehouseId: selectedLocation,
-          toWarehouseId: transferForm.toLocationId,
-          quantity: transferForm.quantity,
-          notes: transferForm.notes || undefined,
-        }),
+      const result = await getInventoryLocations({
+        search: search || undefined,
+        type: typeFilter || undefined,
       });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || data?.success === false) throw new Error(data?.error || "Transfer failed");
-      addToast({ title: "Stock transferred", variant: "success" });
-      setTransferOpen(false);
-      setTransferForm({ productId: "", toLocationId: "", quantity: 1, notes: "" });
-      if (selectedLocation) loadDetail(selectedLocation);
+      setLocations(result as unknown as LocationRow[]);
     } catch (err) {
-      addToast({ title: "Transfer failed", description: String(err), variant: "error" });
-    } finally {
-      setTransferSaving(false);
-    }
-  }
-
-  async function handleAdjust(e: React.FormEvent) {
-    e.preventDefault();
-    if (!adjustForm.productId) return;
-    setAdjustSaving(true);
-    try {
-      const res = await fetch("/api/inventory/adjust-stock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: adjustForm.productId,
-          warehouseId: selectedLocation,
-          quantity: adjustForm.quantity,
-          type: adjustForm.direction === "IN" ? "ADJUSTMENT" : "ADJUSTMENT",
-          notes: adjustForm.reason ? `${adjustForm.reason}${adjustForm.notes ? ` - ${adjustForm.notes}` : ""}` : adjustForm.notes,
-        }),
+      toast.error("Failed to load locations", {
+        description: err instanceof Error ? err.message : undefined,
       });
-      if (!res.ok) throw new Error("Adjustment failed");
-      addToast({ title: "Stock adjusted", variant: "success" });
-      setAdjustOpen(false);
-      setAdjustForm({ productId: "", direction: "IN", quantity: 1, reason: "", notes: "" });
-      if (selectedLocation) loadDetail(selectedLocation);
-    } catch (err) {
-      addToast({ title: "Adjustment failed", description: String(err), variant: "error" });
     } finally {
-      setAdjustSaving(false);
+      setLoading(false);
+    }
+  }, [search, typeFilter]);
+
+  const filtered = useMemo(() => {
+    let list = locations;
+    if (typeFilter) {
+      list = list.filter((l) => l.type === typeFilter);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((l) => l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q));
+    }
+    return list;
+  }, [locations, typeFilter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+
+  function handleSearch(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
+
+  function handleTypeFilter(value: string) {
+    setTypeFilter(value);
+    setPage(1);
+  }
+
+  function handlePageChange(newPage: number) {
+    setPage(newPage);
+  }
+
+  function handleAdd() {
+    setEditLocation(null);
+    setDialogOpen(true);
+  }
+
+  function handleEdit(location: LocationRow) {
+    setEditLocation(location);
+    setDialogOpen(true);
+  }
+
+  async function handleDelete(locationId: string) {
+    try {
+      await deleteInventoryLocation(locationId);
+      toast.success("Location deleted");
+      fetchLocations();
+      router.refresh();
+    } catch (err) {
+      toast.error("Error deleting location", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     }
   }
 
-  // Detail view
-  if (selectedLocation && detail) {
-    const loc = detail.location;
-    const totalValue = detail.balances.reduce((s, b) => s + Number(b.qtyOnHand) * Number(b.product.purchasePrice), 0);
-    const totalReserved = detail.balances.reduce((s, b) => s + Number(b.qtyReserved), 0);
-    const totalAvailable = detail.balances.reduce((s, b) => s + Number(b.qtyAvailable), 0);
-
-    return (
-      <div className="space-y-5">
-        <PageHeader title={loc.name} description={`${loc.code} · ${loc.type.replace(/_/g, " ")}`}>
-          <Button variant="ghost" size="sm" onClick={backToList}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> All Locations
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setTransferOpen(true)}>
-            <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setAdjustOpen(true)}>
-            <ClipboardCheck className="mr-2 h-4 w-4" /> Adjust
-          </Button>
-        </PageHeader>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Card className="p-3">
-            <p className="text-xs text-muted-foreground">Products</p>
-            <p className="mt-1 text-xl font-semibold">{detail.balances.length}</p>
-          </Card>
-          <Card className="p-3">
-            <p className="text-xs text-muted-foreground">On Hand / Reserved / Available</p>
-            <p className="mt-1 text-xl font-semibold">
-              {detail.balances.reduce((s, b) => s + Number(b.qtyOnHand), 0)}
-              <span className="text-sm text-muted-foreground"> / {totalReserved} / {totalAvailable}</span>
-            </p>
-          </Card>
-          <Card className="p-3">
-            <p className="text-xs text-muted-foreground">Stock Value</p>
-            <p className="mt-1 text-xl font-semibold">{formatCurrency(totalValue)}</p>
-          </Card>
-        </div>
-
-        <Card>
-          <div className="border-b border-border/60 p-3">
-            <h3 className="text-sm font-medium">Items</h3>
-          </div>
-          {detail.balances.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">No stock at this location</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>On Hand</TableHead>
-                  <TableHead>Reserved</TableHead>
-                  <TableHead>Available</TableHead>
-                  <TableHead>Value</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {detail.balances.map((b: BalanceItem) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium">{b.product.name}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{b.product.sku}</TableCell>
-                    <TableCell>{Number(b.qtyOnHand)}</TableCell>
-                    <TableCell className="text-muted-foreground">{Number(b.qtyReserved)}</TableCell>
-                    <TableCell>{Number(b.qtyAvailable)}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatCurrency(Number(b.qtyOnHand) * Number(b.product.purchasePrice))}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-2 border-b border-border/60 p-3">
-            <History className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-medium">Recent Movements</h3>
-          </div>
-          {detail.recentLedger.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">No recent movements</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Before</TableHead>
-                  <TableHead>After</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {detail.recentLedger.map((e: LedgerEntry) => (
-                  <TableRow key={e.id}>
-                    <TableCell className="text-xs">{formatDate(e.createdAt)}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-[10px]">{e.movementType.replace(/_/g, " ")}</Badge>
-                    </TableCell>
-                    <TableCell className="text-xs">{e.product.name}</TableCell>
-                    <TableCell className="font-medium">{Number(e.quantity)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{Number(e.qtyOnHandBefore)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{Number(e.qtyOnHandAfter)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{e.notes || "-"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </Card>
-
-        {/* Transfer Dialog */}
-        <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>Transfer Stock</DialogTitle></DialogHeader>
-            <form onSubmit={handleTransfer} className="space-y-4">
-              <div>
-                <p className="mb-1 text-sm font-medium">Product</p>
-                <Input placeholder="Search product..." value={transferProductSearch} onChange={(e) => setTransferProductSearch(e.target.value)} />
-                <div className="mt-1 max-h-40 overflow-y-auto rounded border">
-                  {transferFiltered.map((p) => (
-                    <button key={p.id} type="button" onClick={() => { setTransferForm((f) => ({ ...f, productId: p.id })); setTransferProductSearch(p.name); }}
-                      className={`w-full px-3 py-1.5 text-left text-sm hover:bg-accent ${transferForm.productId === p.id ? "bg-accent font-medium" : ""}`}>
-                      {p.name} {p.sku && <span className="text-muted-foreground">({p.sku})</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium">From</p>
-                <p className="text-sm">{detail.location.name}</p>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium">To</p>
-                <Select value={transferForm.toLocationId} onValueChange={(v) => setTransferForm((f) => ({ ...f, toLocationId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
-                  <SelectContent>
-                    {otherLocations.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium">Quantity</p>
-                <Input type="number" min={1} value={transferForm.quantity} onChange={(e) => setTransferForm((f) => ({ ...f, quantity: Number(e.target.value) }))} />
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium">Notes (optional)</p>
-                <Input value={transferForm.notes} onChange={(e) => setTransferForm((f) => ({ ...f, notes: e.target.value }))} />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setTransferOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={transferSaving || !transferForm.productId || !transferForm.toLocationId}>
-                  {transferSaving ? <LoadingSpinner size={4} /> : "Transfer"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Adjust Dialog */}
-        <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>Adjust Stock</DialogTitle></DialogHeader>
-            <form onSubmit={handleAdjust} className="space-y-4">
-              <div>
-                <p className="mb-1 text-sm font-medium">Product</p>
-                <Input placeholder="Search product..." value={adjustProductSearch} onChange={(e) => setAdjustProductSearch(e.target.value)} />
-                <div className="mt-1 max-h-40 overflow-y-auto rounded border">
-                  {adjustFiltered.map((p) => (
-                    <button key={p.id} type="button" onClick={() => { setAdjustForm((f) => ({ ...f, productId: p.id })); setAdjustProductSearch(p.name); }}
-                      className={`w-full px-3 py-1.5 text-left text-sm hover:bg-accent ${adjustForm.productId === p.id ? "bg-accent font-medium" : ""}`}>
-                      {p.name} {p.sku && <span className="text-muted-foreground">({p.sku})</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium">Direction</p>
-                <Select value={adjustForm.direction} onValueChange={(v: "IN" | "OUT") => setAdjustForm((f) => ({ ...f, direction: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="IN">Increase (Stock In)</SelectItem>
-                    <SelectItem value="OUT">Decrease (Stock Out)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium">Quantity</p>
-                <Input type="number" min={1} value={adjustForm.quantity} onChange={(e) => setAdjustForm((f) => ({ ...f, quantity: Number(e.target.value) }))} />
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium">Reason</p>
-                <Input value={adjustForm.reason} onChange={(e) => setAdjustForm((f) => ({ ...f, reason: e.target.value }))} placeholder="e.g. Damaged, Found, etc." />
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-medium">Notes (optional)</p>
-                <Input value={adjustForm.notes} onChange={(e) => setAdjustForm((f) => ({ ...f, notes: e.target.value }))} />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setAdjustOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={adjustSaving || !adjustForm.productId}>
-                  {adjustSaving ? <LoadingSpinner size={4} /> : "Adjust"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
+  function onDialogSuccess() {
+    setDialogOpen(false);
+    setEditLocation(null);
+    fetchLocations();
+    router.refresh();
   }
 
-  // List view
+  const totalCount = filtered.length;
+
   return (
     <div className="space-y-5">
       <PageHeader title="Stock Locations" description="Manage warehouses, stores, and stock points">
-        <Button variant="ghost" size="sm" onClick={() => router.push(`${pathname}/../warehouses`)}>
-          <Building2 className="mr-2 h-4 w-4" /> Warehouses (Legacy)
+        <Button size="sm" onClick={handleAdd}>
+          <Plus className="mr-2 h-4 w-4" /> New Location
         </Button>
       </PageHeader>
 
-      {detailLoading ? (
-        <TableSkeleton />
-      ) : locations.length === 0 ? (
-        <Card className="p-6 text-center text-sm text-muted-foreground">No locations found</Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {locations.map((loc) => (
-            <button key={loc.id} type="button" onClick={() => selectLocation(loc.id)}
-              className="rounded-lg border bg-background p-4 text-left transition hover:bg-accent">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  <p className="font-medium">{loc.name}</p>
-                </div>
-                {loc.isDefault && <Badge variant="secondary" className="text-[10px]">Default</Badge>}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{loc.code} · {loc.type.replace(/_/g, " ")}</p>
-              <div className="mt-2 flex gap-3 text-sm">
-                <span>{loc.totalProducts} products</span>
-                <span className="text-muted-foreground">{loc.totalQty} units</span>
-              </div>
-            </button>
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by name or code..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Select value={typeFilter} onValueChange={handleTypeFilter}>
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                {LOCATION_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        {!loading && (
+          <div className="mt-2 text-xs text-muted-foreground">
+            {totalCount} location{totalCount !== 1 ? "s" : ""}
+          </div>
+        )}
+      </Card>
+
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Building2}
+          title="No locations found"
+          description="Try adjusting your filters or create a new location"
+          action={
+            <Button onClick={handleAdd}>
+              <Plus className="mr-2 h-4 w-4" /> New Location
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:hidden">
+            {paginated.map((loc) => (
+              <Card key={loc.id} className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/inventory/locations/${loc.id}`}
+                        className="truncate font-medium hover:underline"
+                      >
+                        {loc.name}
+                      </Link>
+                      {loc.isDefault && (
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">Default</Badge>
+                      )}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{loc.code}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge className={TYPE_BADGE_STYLES[loc.type] || ""}>
+                      {LOCATION_TYPES.find((t) => t.value === loc.type)?.label || loc.type}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  {loc.branch && (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      {loc.branch.name}
+                    </span>
+                  )}
+                  {loc.assignedEmployee && (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <UserCircle className="h-3 w-3" />
+                      {loc.assignedEmployee.name}
+                    </span>
+                  )}
+                  <span className="text-xs">{loc.totalProducts} products</span>
+                  <span className="text-xs text-muted-foreground">{loc.totalQty} units</span>
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  {loc.isActive ? (
+                    <Badge variant="success" className="text-[10px]">Active</Badge>
+                  ) : (
+                    <Badge variant="destructive" className="text-[10px]">Inactive</Badge>
+                  )}
+                  {loc.isSellable && (
+                    <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600">Sellable</Badge>
+                  )}
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <ActionsMenu
+                    compact
+                    items={[
+                      { label: "View Detail", icon: Eye, onSelect: () => router.push(`/inventory/locations/${loc.id}`) },
+                      { label: "Edit", icon: Pencil, onSelect: () => handleEdit(loc) },
+                      { label: "Delete", icon: Trash2, onSelect: () => handleDelete(loc.id), destructive: true, separatorBefore: true },
+                    ]}
+                  />
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Branch</TableHead>
+                  <TableHead>Assigned Employee</TableHead>
+                  <TableHead className="text-right">Products</TableHead>
+                  <TableHead className="text-right">Total Qty</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[60px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginated.map((loc) => (
+                  <TableRow key={loc.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <Link
+                            href={`/inventory/locations/${loc.id}`}
+                            className="truncate font-medium hover:underline"
+                          >
+                            {loc.name}
+                          </Link>
+                        </div>
+                        {loc.isDefault && (
+                          <Badge variant="secondary" className="text-[10px] shrink-0">Default</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">{loc.code}</code>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={TYPE_BADGE_STYLES[loc.type] || ""}>
+                        {LOCATION_TYPES.find((t) => t.value === loc.type)?.label || loc.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {loc.branch ? (
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {loc.branch.name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/60">&mdash;</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {loc.assignedEmployee ? (
+                        <span className="inline-flex items-center gap-1">
+                          <UserCircle className="h-3 w-3" />
+                          {loc.assignedEmployee.name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/60">&mdash;</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">{loc.totalProducts}</TableCell>
+                    <TableCell className="text-right font-medium">{loc.totalQty}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {loc.isActive ? (
+                          <CheckCircle className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span className="text-xs">{loc.isActive ? "Active" : "Inactive"}</span>
+                        {loc.isSellable && (
+                          <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600 ml-1">Sellable</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <ActionsMenu
+                        compact
+                        items={[
+                          { label: "View Detail", icon: Eye, onSelect: () => router.push(`/inventory/locations/${loc.id}`) },
+                          { label: "Edit", icon: Pencil, onSelect: () => handleEdit(loc) },
+                          { label: "Delete", icon: Trash2, onSelect: () => handleDelete(loc.id), destructive: true, separatorBefore: true },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => handlePageChange(page - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => handlePageChange(page + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
       )}
+
+      <LocationFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        location={editLocation}
+        onSuccess={onDialogSuccess}
+      />
     </div>
   );
 }

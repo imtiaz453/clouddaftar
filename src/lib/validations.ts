@@ -365,10 +365,11 @@ export const stockTransferSchema = z.object({
 
 export const productLotSchema = z.object({
   productId: z.string().min(1, "Product is required"),
-  warehouseId: z.string().min(1, "Warehouse is required"),
+  locationId: z.string().min(1, "Location is required"),
   lotNumber: z.string().min(1, "Lot or serial number is required"),
   serialNumber: z.string().optional(),
   quantity: z.number().int().positive("Quantity must be greater than zero"),
+  mfgDate: z.string().optional(),
   expiryDate: z.string().optional(),
   notes: z.string().optional(),
 });

@@ -235,8 +235,8 @@ export async function receiveStockTransferAction(transferId: string) {
 }
 
 export async function cancelStockTransferAction(transferId: string) {
-  const { companyId } = await requireCompanyAuth();
-  await InventoryService.cancelStockTransfer(transferId, companyId);
+  const { companyId, id: userId } = await requireCompanyAuth();
+  await InventoryService.cancelStockTransfer(transferId, companyId, userId, true);
   revalidatePath("/inventory/transfers");
 }
 
@@ -388,7 +388,7 @@ export async function getInventoryDashboardData() {
 
 export async function getProductStockByLocationsAction(productId: string) {
   const { companyId } = await requireCompanyAuth();
-  return serialize(await InventoryService.getProductStockByLocations(productId, companyId));
+  return serialize(await InventoryService.getProductStockByLocation(productId, companyId));
 }
 
 // ============ LOCATIONS FOR SELECTS ============
