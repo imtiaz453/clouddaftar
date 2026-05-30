@@ -195,6 +195,126 @@ async function saleAlreadyMovedStock(companyId: string, saleId: string): Promise
   return netIssued > 0;
 }
 
+async function syncProductStockFromBalancesTx(tx: any, companyId: string, productId: string) {
+  const stockTotal = await tx.stockBalance.aggregate({
+    where: { companyId, productId },
+    _sum: { qtyOnHand: true },
+  });
+
+  await tx.product.update({
+    where: { id: productId },
+    data: { stock: Math.round(Number(stockTotal._sum.qtyOnHand || 0)) },
+  });
+}
+
+async function findSaleIssueLocationTx(
+  tx: any,
+  params: { companyId: string; saleId: string; productId: string },
+): Promise<string | null> {
+  const movement = await tx.stockLedger.findFirst({
+    where: {
+      companyId: params.companyId,
+      referenceId: params.saleId,
+      productId: params.productId,
+      movementType: "SALE" as any,
+    },
+    orderBy: { createdAt: "asc" },
+    select: { locationId: true },
+  });
+
+  return movement?.locationId || null;
+}
+
+async function getReturnedQtyByProductTx(
+  tx: any,
+  params: { companyId: string; saleId: string },
+): Promise<Map<string, number>> {
+  const rows = await tx.stockLedger.groupBy({
+    by: ["productId"],
+    where: {
+      companyId: params.companyId,
+      referenceId: params.saleId,
+      movementType: "SALE_RETURN" as any,
+    },
+    _sum: { quantity: true },
+  });
+
+  return new Map(
+    rows.map((row: any) => [row.productId, Number(row._sum.quantity || 0)]),
+  );
+}
+
+async function adjustSaleStockLocationTx(
+  tx: any,
+  params: {
+    companyId: string;
+    productId: string;
+    locationId: string;
+    quantity: number;
+    direction: "ISSUE" | "RESTORE";
+    reference: string;
+    referenceId: string;
+    notes: string;
+    createdById: string;
+  },
+) {
+  if (params.quantity <= 0) return null;
+
+  const balance = await tx.stockBalance.upsert({
+    where: {
+      productId_locationId_companyId: {
+        productId: params.productId,
+        locationId: params.locationId,
+        companyId: params.companyId,
+      },
+    },
+    update: {},
+    create: {
+      productId: params.productId,
+      locationId: params.locationId,
+      companyId: params.companyId,
+      qtyOnHand: 0,
+      qtyReserved: 0,
+      qtyAvailable: 0,
+      reorderPoint: 0,
+      averageCost: 0,
+    },
+  });
+
+  const beforeStock = Number(balance.qtyOnHand || 0);
+  const beforeReserved = Number(balance.qtyReserved || 0);
+  const signedDelta = params.direction === "ISSUE" ? -params.quantity : params.quantity;
+  const afterStock = beforeStock + signedDelta;
+  if (afterStock < 0) throw new Error("Insufficient stock");
+
+  await tx.stockBalance.update({
+    where: { id: balance.id },
+    data: {
+      qtyOnHand: afterStock,
+      qtyAvailable: Math.max(0, afterStock - beforeReserved),
+      lastMovementAt: new Date(),
+    },
+  });
+
+  await createSaleStockLedgerFromAdjustmentTx(tx, {
+    companyId: params.companyId,
+    productId: params.productId,
+    locationId: params.locationId,
+    movementType: params.direction === "ISSUE" ? "SALE" : "SALE_RETURN",
+    quantity: params.quantity,
+    beforeStock,
+    afterStock,
+    reference: params.reference,
+    referenceId: params.referenceId,
+    notes: params.notes,
+    createdById: params.createdById,
+  });
+
+  await syncProductStockFromBalancesTx(tx, params.companyId, params.productId);
+
+  return { beforeStock, afterStock, locationId: params.locationId, signedDelta };
+}
+
 function buildZatcaSaleLines(sale: any) {
   return sale.items.map((item: any, index: number) => {
     const quantity = Number(item.quantity || 0);
@@ -1099,17 +1219,37 @@ export async function updateSale(
       direction: "ISSUE" | "RESTORE";
       notes: string;
     }) => {
-      if (!existing.warehouseId || params.quantity <= 0) return;
+      if (params.quantity <= 0) return;
       const product = productsById.get(params.productId);
       if (!product || product.isService) return;
 
       const signedDelta = params.direction === "ISSUE" ? -params.quantity : params.quantity;
-      const { beforeStock, afterStock, locationId } = await adjustWarehouseStock(tx, {
+      const originalLocationId = await findSaleIssueLocationTx(tx, {
         companyId,
+        saleId: existing.id,
         productId: params.productId,
-        warehouseId: existing.warehouseId,
-        quantityDelta: signedDelta,
       });
+
+      const stockResult = originalLocationId
+        ? await adjustSaleStockLocationTx(tx, {
+            companyId,
+            productId: params.productId,
+            locationId: originalLocationId,
+            quantity: params.quantity,
+            direction: params.direction,
+            reference: invoiceNumber,
+            referenceId: existing.id,
+            notes: params.notes,
+            createdById: userId,
+          })
+        : await adjustWarehouseStock(tx, {
+            companyId,
+            productId: params.productId,
+            warehouseId: existing.warehouseId,
+            quantityDelta: signedDelta,
+          });
+
+      if (!stockResult) return;
 
       await tx.inventoryLog.create({
         data: {
@@ -1119,27 +1259,29 @@ export async function updateSale(
           warehouseId: existing.warehouseId,
           type: params.direction === "ISSUE" ? "SALE" : "RETURN",
           quantity: signedDelta,
-          beforeStock,
-          afterStock,
+          beforeStock: stockResult.beforeStock,
+          afterStock: stockResult.afterStock,
           reference: invoiceNumber,
           notes: params.notes,
           createdById: userId,
         },
       });
 
-      await createSaleStockLedgerFromAdjustmentTx(tx, {
-        companyId,
-        productId: params.productId,
-        locationId,
-        movementType: params.direction === "ISSUE" ? "SALE" : "SALE_RETURN",
-        quantity: params.quantity,
-        beforeStock,
-        afterStock,
-        reference: invoiceNumber,
-        referenceId: existing.id,
-        notes: params.notes,
-        createdById: userId,
-      });
+      if (!originalLocationId) {
+        await createSaleStockLedgerFromAdjustmentTx(tx, {
+          companyId,
+          productId: params.productId,
+          locationId: stockResult.locationId,
+          movementType: params.direction === "ISSUE" ? "SALE" : "SALE_RETURN",
+          quantity: params.quantity,
+          beforeStock: stockResult.beforeStock,
+          afterStock: stockResult.afterStock,
+          reference: invoiceNumber,
+          referenceId: existing.id,
+          notes: params.notes,
+          createdById: userId,
+        });
+      }
     };
 
     if (stockNeedsFullRestore) {
@@ -1386,47 +1528,120 @@ export async function refundSale(
   if (sale.status === "REFUNDED") throw new Error("Sale is already refunded");
   if (sale.status === "CANCELLED") throw new Error("Sale is cancelled");
 
-  const itemsToRefund = refundItems || sale.items;
-  for (const item of itemsToRefund) {
-    const saleItem = sale.items.find((si) => si.productId === item.productId);
-    if (!saleItem) throw new Error("Refund item does not belong to this sale");
-    if (item.quantity <= 0 || item.quantity > saleItem.quantity) {
-      throw new Error(`Invalid refund quantity for ${saleItem.productId}`);
-    }
-  }
+  const requestedRefunds = refundItems || sale.items.map((item) => ({
+    productId: item.productId,
+    quantity: Number(item.quantity || 0),
+  }));
 
   const refund = await prisma.$transaction(async (tx) => {
-    for (const item of itemsToRefund) {
-      const product = await tx.product.findFirst({
-        where: { id: item.productId, companyId, deletedAt: null },
-      });
-      if (product) {
-        const beforeStock = product.stock;
-        const afterStock = beforeStock + item.quantity;
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        });
-        await tx.inventoryLog.create({
-          data: {
-            productId: item.productId,
+    const returnedQtyByProduct = await getReturnedQtyByProductTx(tx, { companyId, saleId: id });
+    const productsById = new Map<string, any>(
+      (
+        await tx.product.findMany({
+          where: {
+            id: { in: [...new Set(requestedRefunds.map((item) => item.productId))] },
             companyId,
-            type: "RETURN",
-            quantity: item.quantity,
-            beforeStock,
-            afterStock,
-            reference: sale.invoiceNumber,
-            notes: "Sale refund",
-            createdById: userId,
+            deletedAt: null,
           },
+        })
+      ).map((product: any) => [product.id, product]),
+    );
+
+    for (const item of requestedRefunds) {
+      const saleItem = sale.items.find((si) => si.productId === item.productId);
+      if (!saleItem) throw new Error("Refund item does not belong to this sale");
+
+      const alreadyReturned = returnedQtyByProduct.get(item.productId) || 0;
+      const soldQuantity = Number(saleItem.quantity || 0);
+      const remainingQuantity = Math.max(0, soldQuantity - alreadyReturned);
+      if (item.quantity <= 0 || item.quantity > remainingQuantity) {
+        throw new Error(
+          `Invalid refund quantity for ${saleItem.productId}. Remaining refundable quantity: ${remainingQuantity}`,
+        );
+      }
+    }
+
+    for (const item of requestedRefunds) {
+      const product = productsById.get(item.productId);
+      if (!product || product.isService) continue;
+
+      const originalLocationId = await findSaleIssueLocationTx(tx, {
+        companyId,
+        saleId: id,
+        productId: item.productId,
+      });
+
+      const stockResult = originalLocationId
+        ? await adjustSaleStockLocationTx(tx, {
+            companyId,
+            productId: item.productId,
+            locationId: originalLocationId,
+            quantity: item.quantity,
+            direction: "RESTORE",
+            reference: sale.invoiceNumber,
+            referenceId: id,
+            notes: "Sale refund - quantity returned to inventory",
+            createdById: userId,
+          })
+        : await adjustWarehouseStock(tx, {
+            companyId,
+            productId: item.productId,
+            warehouseId: sale.warehouseId,
+            quantityDelta: item.quantity,
+          });
+
+      if (!stockResult) continue;
+
+      await tx.inventoryLog.create({
+        data: {
+          productId: item.productId,
+          companyId,
+          branchId: sale.branchId,
+          warehouseId: sale.warehouseId,
+          type: "RETURN",
+          quantity: item.quantity,
+          beforeStock: stockResult.beforeStock,
+          afterStock: stockResult.afterStock,
+          reference: sale.invoiceNumber,
+          notes: "Sale refund - quantity returned to inventory",
+          createdById: userId,
+        },
+      });
+
+      if (!originalLocationId) {
+        await createSaleStockLedgerFromAdjustmentTx(tx, {
+          companyId,
+          productId: item.productId,
+          locationId: stockResult.locationId,
+          movementType: "SALE_RETURN",
+          quantity: item.quantity,
+          beforeStock: stockResult.beforeStock,
+          afterStock: stockResult.afterStock,
+          reference: sale.invoiceNumber,
+          referenceId: id,
+          notes: "Sale refund - quantity returned to inventory",
+          createdById: userId,
         });
       }
     }
 
-    const isFullRefund = itemsToRefund.length === sale.items.length;
-    const refundAmount = itemsToRefund.reduce((sum, item) => {
+    const cumulativeReturnedByProduct = new Map(returnedQtyByProduct);
+    for (const item of requestedRefunds) {
+      cumulativeReturnedByProduct.set(
+        item.productId,
+        (cumulativeReturnedByProduct.get(item.productId) || 0) + item.quantity,
+      );
+    }
+
+    const isFullRefund = sale.items.every((saleItem) => {
+      return (cumulativeReturnedByProduct.get(saleItem.productId) || 0) >= Number(saleItem.quantity || 0);
+    });
+    const refundAmount = requestedRefunds.reduce((sum, item) => {
       const saleItem = sale.items.find((si) => si.productId === item.productId);
-      return sum + Number(saleItem ? Number(saleItem.subtotal) : 0);
+      if (!saleItem) return sum;
+      const soldQuantity = Number(saleItem.quantity || 0);
+      if (soldQuantity <= 0) return sum;
+      return sum + (Number(saleItem.subtotal || 0) * item.quantity) / soldQuantity;
     }, 0);
 
     const newPaid = Math.max(0, Number(sale.paid) - refundAmount);
@@ -1474,7 +1689,7 @@ export async function refundSale(
     action: "UPDATE",
     entity: "Sale",
     entityId: id,
-    metadata: { invoiceNumber: sale.invoiceNumber, type: "refund", refundAmount: refund },
+    metadata: { invoiceNumber: sale.invoiceNumber, type: "refund", refundAmount: Number(refund?.total || 0) },
   });
 
   revalidatePath("/sales");
