@@ -1189,10 +1189,10 @@ export async function updateSale(
         _sum: { allocatedAmount: true },
       });
       const journalPaid = Math.max(0, paid - Number(allocatedPaid._sum.allocatedAmount || 0));
-      const journalProducts =
+      const journalProducts: Map<string, any> =
         productsById.size > 0
-          ? productsById
-          : new Map(
+          ? (productsById as Map<string, any>)
+          : new Map<string, any>(
               (
                 await tx.product.findMany({
                   where: { id: { in: itemsInput.map((item) => item.productId) }, companyId },

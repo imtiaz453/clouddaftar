@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useMemo } from "react";
 import {
   ArrowLeft, MapPin, Building2, Package, UserCircle,
@@ -100,6 +100,7 @@ interface LocationDetailClientProps {
 
 export function LocationDetailClient({ data }: LocationDetailClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [productSearch, setProductSearch] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -128,7 +129,7 @@ export function LocationDetailClient({ data }: LocationDetailClientProps) {
     try {
       await deleteInventoryLocation(location.id);
       toast.success("Location deleted");
-      router.push("/inventory/locations");
+      router.push(dashboardHref(pathname, "/inventory/locations"));
     } catch (err) {
       toast.error("Error deleting location", {
         description: err instanceof Error ? err.message : undefined,
@@ -148,7 +149,7 @@ export function LocationDetailClient({ data }: LocationDetailClientProps) {
       <div className="flex flex-col gap-4 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/inventory/locations")}>
+            <Button variant="ghost" size="icon" onClick={() => router.push(dashboardHref(pathname, "/inventory/locations"))}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <p className="text-xs font-medium uppercase tracking-wider text-primary">Locations</p>
@@ -163,13 +164,13 @@ export function LocationDetailClient({ data }: LocationDetailClientProps) {
           <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
             <Edit className="mr-2 h-4 w-4" /> Edit
           </Button>
-          <Button size="sm" variant="outline" onClick={() => router.push(`/inventory/transfers?from=${location.id}`)}>
+          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/transfers", { from: location.id }))}>
             <ArrowUpDown className="mr-2 h-4 w-4" /> Transfer Stock
           </Button>
-          <Button size="sm" variant="outline" onClick={() => router.push(`/inventory/adjustments?locationId=${location.id}`)}>
+          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/adjustments", { locationId: location.id }))}>
             <ClipboardList className="mr-2 h-4 w-4" /> Create Adjustment
           </Button>
-          <Button size="sm" variant="outline" onClick={() => router.push(`/inventory/counts?locationId=${location.id}`)}>
+          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/stock-counts", { locationId: location.id }))}>
             <ClipboardCheck className="mr-2 h-4 w-4" /> Start Stock Count
           </Button>
           <Button size="sm" variant="destructive" onClick={handleDelete} disabled={deleting}>

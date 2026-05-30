@@ -246,9 +246,17 @@ export async function adjustWarehouseStock(
     },
   });
 
+  const productStockTotal = await tx.stockBalance.aggregate({
+    where: {
+      companyId: params.companyId,
+      productId: params.productId,
+    },
+    _sum: { qtyOnHand: true },
+  });
+
   await tx.product.update({
     where: { id: params.productId },
-    data: { stock: Math.round(afterStock) },
+    data: { stock: Math.round(Number(productStockTotal._sum.qtyOnHand || 0)) },
   });
 
   if (params.warehouseId) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Package, Trash2, ArrowLeft, Pencil,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDateTime, cn } from "@/lib/utils";
+import { dashboardHref } from "@/lib/dashboard-href";
 import { deleteProduct } from "@/actions/inventory";
 import { toast } from "sonner";
 
@@ -122,6 +123,19 @@ interface ProductDetailClientProps {
 
 export function ProductDetailClient({ data }: ProductDetailClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+
+  if (!data?.product) {
+    return (
+      <div className="rounded-2xl border border-dashed bg-muted/20 p-8 text-center">
+        <h1 className="text-lg font-semibold">Product not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">The product may have been deleted or you may not have access to it.</p>
+        <Button className="mt-4" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/products"))}>
+          Back to products
+        </Button>
+      </div>
+    );
+  }
   const [deleting, setDeleting] = useState(false);
   const { product, stockBalances, ledger, sales, purchases, lots } = data;
 
@@ -138,7 +152,7 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
     try {
       await deleteProduct(product.id);
       toast.success("Product deleted");
-      router.push("/inventory/products");
+      router.push(dashboardHref(pathname, "/inventory/products"));
     } catch (err) {
       toast.error("Error deleting product", {
         description: err instanceof Error ? err.message : undefined,
@@ -179,21 +193,21 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => router.push(`/inventory/products/${product.id}/edit`)}>
+          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/products"))}>
             <Pencil className="mr-2 h-4 w-4" /> Edit
           </Button>
-          <Button size="sm" variant="outline" onClick={() => router.push(`/inventory/products/${product.id}/adjust`)}>
+          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/adjustments", { productId: product.id }))}>
             <Package className="mr-2 h-4 w-4" /> Adjust Stock
           </Button>
-          <Button size="sm" variant="outline" onClick={() => router.push(`/inventory/products/${product.id}/transfer`)}>
+          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/transfers", { productId: product.id }))}>
             <ArrowUpDown className="mr-2 h-4 w-4" /> Transfer
           </Button>
           {product.trackingMode !== "NONE" && (
-            <Button size="sm" variant="outline" onClick={() => router.push(`/inventory/products/${product.id}/lots/new`)}>
+            <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/lots", { productId: product.id }))}>
               + Lot
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => router.push(`/inventory/products/${product.id}/ledger`)}>
+          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/ledger", { productId: product.id }))}>
             <History className="mr-2 h-4 w-4" /> Ledger
           </Button>
           <Button size="sm" variant="destructive" onClick={handleDelete} disabled={deleting}>

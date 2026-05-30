@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Package,
   Edit,
@@ -26,6 +26,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { dashboardHref } from "@/lib/dashboard-href";
+import { deleteProduct } from "@/actions/inventory";
 import { useToast } from "@/providers/toast-provider";
 
 interface StockBalance {
@@ -119,6 +121,7 @@ interface ProductDetailClientProps {
 
 export function ProductDetailClient({ data }: ProductDetailClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { addToast } = useToast();
   const [deleting, setDeleting] = useState(false);
   const { product, stockBalances, ledger, sales, purchases } = data;
@@ -133,14 +136,9 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
     if (!confirm("Delete this product? This action can be undone.")) return;
     setDeleting(true);
     try {
-      const res = await fetch("/api/inventory", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: product.id }),
-      });
-      if (!res.ok) throw new Error("Failed to delete");
+      await deleteProduct(product.id);
       addToast({ title: "Product deleted", variant: "success" });
-      router.push("../products");
+      router.push(dashboardHref(pathname, "/inventory/products"));
     } catch {
       addToast({ title: "Error deleting product", variant: "error" });
     } finally {
@@ -172,7 +170,7 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
           {product.sku && <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => router.push(`/api/inventory/products/${product.id}/edit`)}>
+          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/products"))}>
             <Edit className="mr-2 h-4 w-4" /> Edit
           </Button>
           <Button size="sm" variant="destructive" onClick={handleDelete} disabled={deleting}>

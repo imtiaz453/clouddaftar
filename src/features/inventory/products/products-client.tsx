@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import {
@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { ActionsMenu } from "@/components/shared/actions-menu";
 import { formatCurrency, cn } from "@/lib/utils";
+import { dashboardHref } from "@/lib/dashboard-href";
 import { getProducts, deleteProduct } from "@/actions/inventory";
 import { toast } from "sonner";
 import { ProductFormDialog } from "./product-form-dialog";
@@ -76,6 +77,9 @@ interface ProductsClientProps {
 
 export function ProductsClient({ initialData, categories, locations }: ProductsClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const productHref = (productId: string) => dashboardHref(pathname, `/inventory/products/${productId}`);
+  const productActionHref = (route: string, productId: string) => dashboardHref(pathname, route, { productId });
   const [data, setData] = useState<PaginatedResponse<ProductRow> | null>(initialData ?? null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -267,7 +271,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <Link
-                          href={`/inventory/products/${product.id}`}
+                          href={productHref(product.id)}
                           className="truncate font-medium hover:underline"
                         >
                           {product.name}
@@ -283,11 +287,11 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                     <ActionsMenu
                       compact
                       items={[
-                        { label: "View Detail", icon: Eye, onSelect: () => router.push(`/inventory/products/${product.id}`) },
+                        { label: "View Detail", icon: Eye, onSelect: () => router.push(productHref(product.id)) },
                         { label: "Edit", icon: Pencil, onSelect: () => handleEdit(product) },
-                        { label: "Adjust Stock", icon: Package, onSelect: () => router.push(`/inventory/products/${product.id}/adjust`) },
-                        { label: "Opening Balance", icon: MapPin, onSelect: () => router.push(`/inventory/products/${product.id}/opening-balance`) },
-                        { label: "Transfer", icon: ArrowUpDown, onSelect: () => router.push(`/inventory/products/${product.id}/transfer`) },
+                        { label: "Adjust Stock", icon: Package, onSelect: () => router.push(productActionHref("/inventory/adjustments", product.id)) },
+                        { label: "Opening Balance", icon: MapPin, onSelect: () => router.push(productActionHref("/inventory/adjustments", product.id)) },
+                        { label: "Transfer", icon: ArrowUpDown, onSelect: () => router.push(productActionHref("/inventory/transfers", product.id)) },
                         { label: "Delete", icon: Trash2, onSelect: () => handleDelete(product.id), destructive: true, separatorBefore: true },
                       ]}
                     />
@@ -357,7 +361,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                           </div>
                           <div className="min-w-0">
                             <Link
-                              href={`/inventory/products/${product.id}`}
+                              href={productHref(product.id)}
                               className="truncate font-medium hover:underline"
                             >
                               {product.name}
@@ -405,11 +409,11 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                         <ActionsMenu
                           compact
                           items={[
-                            { label: "View Detail", icon: Eye, onSelect: () => router.push(`/inventory/products/${product.id}`) },
+                            { label: "View Detail", icon: Eye, onSelect: () => router.push(productHref(product.id)) },
                             { label: "Edit", icon: Pencil, onSelect: () => handleEdit(product) },
-                            { label: "Adjust Stock", icon: Package, onSelect: () => router.push(`/inventory/products/${product.id}/adjust`) },
-                            { label: "Opening Balance", icon: MapPin, onSelect: () => router.push(`/inventory/products/${product.id}/opening-balance`) },
-                            { label: "Transfer", icon: ArrowUpDown, onSelect: () => router.push(`/inventory/products/${product.id}/transfer`) },
+                            { label: "Adjust Stock", icon: Package, onSelect: () => router.push(productActionHref("/inventory/adjustments", product.id)) },
+                            { label: "Opening Balance", icon: MapPin, onSelect: () => router.push(productActionHref("/inventory/adjustments", product.id)) },
+                            { label: "Transfer", icon: ArrowUpDown, onSelect: () => router.push(productActionHref("/inventory/transfers", product.id)) },
                             { label: "Delete", icon: Trash2, onSelect: () => handleDelete(product.id), destructive: true, separatorBefore: true },
                           ]}
                         />

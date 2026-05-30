@@ -291,31 +291,21 @@ export async function getPayrollOverview() {
       }),
     ]);
 
-  const draftByEmployee = new Map(
-    draftExpenses.map((row) => [
-      row.employeeId,
-      { amount: toNumber(row._sum.amount), count: row._count.id },
-    ]),
-  );
-  const submittedByEmployee = new Map(
-    submittedExpenses.map((row) => [
-      row.employeeId,
-      { amount: toNumber(row._sum.amount), count: row._count.id },
-    ]),
-  );
-  const approvedByEmployee = new Map(
-    approvedExpenses.map((row) => [
-      row.employeeId,
-      { amount: toNumber(row._sum.amount), count: row._count.id },
-    ]),
-  );
-  const paidByEmployee = new Map(
-    paidExpenses.map((row) => [
+  type ExpenseRollup = { amount: number; count: number };
+  type ExpenseGroupRow = { employeeId: string; _sum: { amount: unknown }; _count: { id: number } };
+  const toExpenseMap = (rows: ExpenseGroupRow[]) => new Map<string, ExpenseRollup>(
+    rows.map((row) => [
       row.employeeId,
       { amount: toNumber(row._sum.amount), count: row._count.id },
     ]),
   );
 
+  const draftByEmployee = toExpenseMap(draftExpenses as ExpenseGroupRow[]);
+  const submittedByEmployee = toExpenseMap(submittedExpenses as ExpenseGroupRow[]);
+  const approvedByEmployee = toExpenseMap(approvedExpenses as ExpenseGroupRow[]);
+  const paidByEmployee = toExpenseMap(paidExpenses as ExpenseGroupRow[]);
+
+  /* legacy inline maps replaced by typed toExpenseMap */
   const rows = members.map((member) => {
     const draft = draftByEmployee.get(member.userId) || { amount: 0, count: 0 };
     const submitted = submittedByEmployee.get(member.userId) || { amount: 0, count: 0 };

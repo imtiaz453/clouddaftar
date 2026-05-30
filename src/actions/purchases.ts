@@ -413,6 +413,15 @@ export async function updatePurchase(
   const purchase = await prisma.$transaction(async (tx) => {
     if (isPromotingFromDraft) {
       const restored = restorePurchaseReferenceNumber(existing.referenceNumber, settings);
+      if (restored) {
+        const duplicate = await tx.purchase.findFirst({
+          where: { companyId, deletedAt: null, referenceNumber: restored, id: { not: id } },
+          select: { id: true },
+        });
+        if (duplicate) {
+          throw new Error(`Cannot restore original PO number ${restored} because it is already used by another purchase.`);
+        }
+      }
       referenceNumber = restored ?? (await reserveNextDocumentNumber(tx, companyId, "purchase_order", settings));
     } else if (existing.status !== "DRAFT" && newStatus === "DRAFT") {
       referenceNumber = makeDraftPurchaseReferenceNumber(existing.referenceNumber);
@@ -844,61 +853,15 @@ export async function convertPurchaseToDraft(id: string) {
 
   const purchase = await prisma.purchase.findFirst({
     where: { id, companyId, deletedAt: null },
-    include: { items: true, supplier: true },
+    select: { id: true, status: true, referenceNumber: true },
   });
   if (!purchase) throw new Error("Purchase not found");
-  if (purchase.status !== "RECEIVED")
-    throw new Error("Only received purchases can be converted to draft");
-  const settings = await prisma.companySettings.findUnique({ where: { companyId } });
-  const draftReferenceNumber = makeDraftPurchaseReferenceNumber(purchase.referenceNumber);
+  if (purchase.status === "DRAFT") return purchase;
+  if (["CANCELLED", "RETURNED"].includes(purchase.status)) {
+    throw new Error("Cancelled or returned purchases cannot be converted to draft");
+  }
 
-  await prisma.$transaction(async (tx) => {
-    for (const item of purchase.items) {
-      const product = await tx.product.findFirst({
-        where: { id: item.productId, companyId, deletedAt: null },
-      });
-      if (product) {
-        const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
-          companyId,
-          productId: item.productId,
-          warehouseId: purchase.warehouseId,
-          quantityDelta: -Number(item.quantity),
-        });
-        await tx.inventoryLog.create({
-          data: {
-            productId: item.productId,
-            companyId,
-            type: "ADJUSTMENT",
-            quantity: -item.quantity,
-            beforeStock,
-            afterStock,
-            reference: draftReferenceNumber,
-            notes: "Converted to draft",
-            createdById: userId,
-          },
-        });
-      }
-    }
-
-    await tx.purchase.update({
-      where: { id },
-      data: {
-        referenceNumber: draftReferenceNumber,
-        status: "DRAFT",
-        paymentStatus: "UNPAID",
-        paid: 0,
-        due: Number(purchase.total),
-        updatedById: userId,
-      },
-    });
-
-    await tx.ledgerEntry.deleteMany({ where: { referenceId: id, companyId } });
-    await deleteOperationalJournal(tx, companyId, `PURCHASE:${id}`);
-    if (purchase.supplierId) {
-      await recalculateLedgerBalances(tx, companyId, null, purchase.supplierId);
-      await recalculateSupplierTotalSales(tx, companyId, purchase.supplierId);
-    }
-  });
+  const updated = await updatePurchase(id, { status: "DRAFT" });
 
   await createAuditLog({
     userId,
@@ -906,10 +869,15 @@ export async function convertPurchaseToDraft(id: string) {
     action: "UPDATE",
     entity: "Purchase",
     entityId: id,
-    metadata: { referenceNumber: draftReferenceNumber, originalReferenceNumber: purchase.referenceNumber, type: "convert-to-draft" },
+    metadata: {
+      referenceNumber: updated.referenceNumber,
+      originalReferenceNumber: purchase.referenceNumber,
+      type: "convert-to-draft",
+    },
   });
 
   revalidatePath("/purchases");
+  return updated;
 }
 
 export async function getSuppliers(search?: string) {
