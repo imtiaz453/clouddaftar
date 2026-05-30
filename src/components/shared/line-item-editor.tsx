@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -202,6 +202,7 @@ export function LineItemEditor({
   const [focusId, setFocusId] = useState<string | null>(null);
   const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
   const [dropdownRect, setDropdownRect] = useState<{
     top: number;
     left: number;
@@ -294,6 +295,74 @@ export function LineItemEditor({
       onChange(items.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
     },
     [items, onChange],
+  );
+
+  const getQuantityInputValue = useCallback(
+    (item: LineItem) => {
+      if (Object.prototype.hasOwnProperty.call(quantityInputs, item.id)) {
+        return quantityInputs[item.id];
+      }
+
+      return Number.isFinite(item.quantity) ? String(item.quantity) : "1";
+    },
+    [quantityInputs],
+  );
+
+  const handleQuantityFocus = useCallback(
+    (e: React.FocusEvent<HTMLInputElement>, item: LineItem) => {
+      const currentValue = Number.isFinite(item.quantity) ? String(item.quantity) : "1";
+
+      setQuantityInputs((prev) => ({
+        ...prev,
+        [item.id]: currentValue,
+      }));
+
+      requestAnimationFrame(() => {
+        e.currentTarget.select();
+      });
+    },
+    [],
+  );
+
+  const handleQuantityChange = useCallback(
+    (itemId: string, rawValue: string) => {
+      setQuantityInputs((prev) => ({
+        ...prev,
+        [itemId]: rawValue,
+      }));
+
+      if (rawValue.trim() === "") {
+        updateRow(itemId, "quantity", 0);
+        return;
+      }
+
+      const nextQuantity = Number(rawValue);
+
+      if (!Number.isFinite(nextQuantity)) return;
+
+      updateRow(itemId, "quantity", Math.max(0, Math.floor(nextQuantity)));
+    },
+    [updateRow],
+  );
+
+  const handleQuantityBlur = useCallback(
+    (itemId: string, rawValue: string) => {
+      const nextQuantity = Number(rawValue);
+
+      setQuantityInputs((prev) => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
+
+      if (!Number.isFinite(nextQuantity) || nextQuantity <= 0) {
+        updateRow(itemId, "quantity", 1);
+        return;
+      }
+
+      updateRow(itemId, "quantity", Math.floor(nextQuantity));
+    },
+    [updateRow],
   );
 
   const selectProduct = useCallback(
@@ -590,9 +659,14 @@ export function LineItemEditor({
                       <span className="block text-sm">{item.quantity}</span>
                     ) : (
                       <input
-                        type="number" min={0} step={1}
-                        value={Number.isFinite(item.quantity) ? item.quantity : 1}
-                        onChange={(e) => updateRow(item.id, "quantity", Math.max(0, parseInt(e.target.value) || 0))}
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step={1}
+                        value={getQuantityInputValue(item)}
+                        onFocus={(e) => handleQuantityFocus(e, item)}
+                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                        onBlur={(e) => handleQuantityBlur(item.id, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, item.id, isLast)}
                         className="h-8 w-full rounded-md border border-input bg-background px-2 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       />
@@ -883,12 +957,13 @@ export function LineItemEditor({
                     ) : (
                       <input
                         type="number"
+                        inputMode="numeric"
                         min={0}
                         step={1}
-                        value={Number.isFinite(item.quantity) ? item.quantity : 1}
-                        onChange={(e) =>
-                          updateRow(item.id, "quantity", Math.max(0, parseInt(e.target.value) || 0))
-                        }
+                        value={getQuantityInputValue(item)}
+                        onFocus={(e) => handleQuantityFocus(e, item)}
+                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                        onBlur={(e) => handleQuantityBlur(item.id, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, item.id, isLast)}
                         className="h-8 w-full rounded-md border border-input bg-background px-2 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       />
