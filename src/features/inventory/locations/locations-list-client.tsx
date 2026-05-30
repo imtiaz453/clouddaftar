@@ -19,7 +19,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { LocationCreateDialog } from "./location-create-dialog";
 
 const LOCATION_TYPES = [
-  { value: "", label: "All Types" },
+  { value: "all", label: "All Types" },
   { value: "MAIN_WAREHOUSE", label: "Main Warehouse" },
   { value: "BRANCH_STORE", label: "Branch Store" },
   { value: "POS_STORE", label: "POS Store" },

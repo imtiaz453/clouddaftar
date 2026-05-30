@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { LocationFormDialog } from "./location-form-dialog";
 
 const LOCATION_TYPES = [
-  { value: "", label: "All Types" },
+  { value: "all", label: "All Types" },
   { value: "MAIN_WAREHOUSE", label: "Main Warehouse" },
   { value: "BRANCH_STORE", label: "Branch Store" },
   { value: "POS_STORE", label: "POS Store" },
@@ -81,7 +81,7 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
     try {
       const result = await getInventoryLocations({
         search: search || undefined,
-        type: typeFilter || undefined,
+        type: typeFilter && typeFilter !== "all" ? typeFilter : undefined,
       });
       setLocations(result as unknown as LocationRow[]);
     } catch (err) {

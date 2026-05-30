@@ -76,25 +76,99 @@ export async function importProducts(rows: Record<string, unknown>[], companyId:
 
       const categoryId = await validateAndGetCategoryId(row.categoryname as string, companyId);
 
-      await prisma.product.create({
-        data: {
-          name: String(row.name),
-          sku: String(row.sku || ""),
-          barcode: String(row.barcode || ""),
-          description: String(row.description || ""),
-          purchasePrice: parseFloat(String(row.purchaseprice)) || 0,
-          sellingPrice: parseFloat(String(row.sellingprice)) || 0,
-          wholesalePrice: row.wholesaleprice ? parseFloat(String(row.wholesaleprice)) : null,
-          stock: parseInt(String(row.stock)) || 0,
-          minStock: parseInt(String(row.minstock)) || 10,
-          unit: String(row.unit || "pcs"),
-          tax: parseFloat(String(row.tax || 0)),
-          discount: parseFloat(String(row.discount || 0)),
-          categoryId,
-          isService: ["true", "1", "yes"].includes(String(row.isservice).toLowerCase()),
-          expiryDate: row.expirydate ? new Date(String(row.expirydate)) : null,
-          companyId,
-        },
+      const openingStock = parseInt(String(row.stock)) || 0;
+      const purchasePrice = parseFloat(String(row.purchaseprice)) || 0;
+
+      await prisma.$transaction(async (tx) => {
+        const product = await tx.product.create({
+          data: {
+            name: String(row.name),
+            sku: String(row.sku || ""),
+            barcode: String(row.barcode || ""),
+            description: String(row.description || ""),
+            purchasePrice,
+            sellingPrice: parseFloat(String(row.sellingprice)) || 0,
+            wholesalePrice: row.wholesaleprice ? parseFloat(String(row.wholesaleprice)) : null,
+            stock: openingStock,
+            minStock: parseInt(String(row.minstock)) || 10,
+            unit: String(row.unit || "pcs"),
+            tax: parseFloat(String(row.tax || 0)),
+            discount: parseFloat(String(row.discount || 0)),
+            categoryId,
+            isService: ["true", "1", "yes"].includes(String(row.isservice).toLowerCase()),
+            expiryDate: row.expirydate ? new Date(String(row.expirydate)) : null,
+            companyId,
+          },
+        });
+
+        if (openingStock > 0) {
+          let location = await tx.stockLocation.findFirst({
+            where: {
+              companyId,
+              deletedAt: null,
+              isActive: true,
+              OR: [{ isDefault: true }, { type: "MAIN_WAREHOUSE" }],
+            },
+            orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+          });
+
+          if (!location) {
+            location = await tx.stockLocation.create({
+              data: {
+                companyId,
+                name: "Main Stock",
+                code: `MAIN-STOCK-${companyId.slice(-6)}`.toUpperCase(),
+                type: "MAIN_WAREHOUSE",
+                isDefault: true,
+                isActive: true,
+                isSellable: true,
+              },
+            });
+          }
+
+          await tx.stockBalance.upsert({
+            where: {
+              productId_locationId_companyId: {
+                productId: product.id,
+                locationId: location.id,
+                companyId,
+              },
+            },
+            update: {
+              qtyOnHand: openingStock,
+              qtyAvailable: openingStock,
+              averageCost: purchasePrice,
+              lastMovementAt: new Date(),
+            },
+            create: {
+              productId: product.id,
+              locationId: location.id,
+              companyId,
+              qtyOnHand: openingStock,
+              qtyReserved: 0,
+              qtyAvailable: openingStock,
+              reorderPoint: parseInt(String(row.minstock)) || 0,
+              averageCost: purchasePrice,
+              lastMovementAt: new Date(),
+            },
+          });
+
+          await tx.stockLedger.create({
+            data: {
+              productId: product.id,
+              locationId: location.id,
+              companyId,
+              movementType: "OPENING_BALANCE",
+              quantity: openingStock,
+              qtyOnHandBefore: 0,
+              qtyOnHandAfter: openingStock,
+              qtyReservedBefore: 0,
+              qtyReservedAfter: 0,
+              reference: "PRODUCT_IMPORT",
+              notes: "Opening stock from product import",
+            },
+          });
+        }
       });
       success++;
     } catch (err) {

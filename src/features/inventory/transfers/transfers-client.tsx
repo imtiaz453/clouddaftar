@@ -47,7 +47,7 @@ import {
 import { TransferFormDialog } from "./transfer-form-dialog";
 
 const STATUS_OPTIONS = [
-  { value: "", label: "All Statuses" },
+  { value: "all", label: "All Statuses" },
   { value: "DRAFT", label: "Draft" },
   { value: "ISSUED", label: "Issued" },
   { value: "PARTIALLY_RECEIVED", label: "Partially Received" },
@@ -107,7 +107,7 @@ export function TransfersClient({ initialData }: TransfersClientProps) {
       setLoading(true);
       try {
         const result = (await getStockTransfers({
-          status: params.status || undefined,
+          status: params.status && params.status !== "all" ? params.status : undefined,
           page: params.page || 1,
           pageSize: 20,
         })) as unknown as PaginatedResult;

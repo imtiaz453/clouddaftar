@@ -418,23 +418,88 @@ export async function resolveLocationIdFromWarehouseId(
   warehouseId: string | null,
   companyId: string,
 ): Promise<string | null> {
-  if (!warehouseId) {
-    const defaultLocation = await prisma.stockLocation.findFirst({
-      where: { companyId, type: "MAIN_WAREHOUSE", isDefault: true, deletedAt: null },
-      select: { id: true },
+  if (warehouseId) {
+    const warehouse = await prisma.warehouse.findFirst({
+      where: { id: warehouseId, companyId, deletedAt: null },
+      select: { code: true, name: true },
     });
-    return defaultLocation?.id || null;
+
+    if (warehouse) {
+      const location = await prisma.stockLocation.findFirst({
+        where: { companyId, code: warehouse.code, deletedAt: null, isActive: true },
+        select: { id: true },
+      });
+      if (location?.id) return location.id;
+
+      const safeCode = (warehouse.code || warehouse.name || `WH-${warehouseId.slice(-6)}`)
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      try {
+        const created = await prisma.stockLocation.create({
+          data: {
+            companyId,
+            name: warehouse.name || "Warehouse Stock",
+            code: safeCode,
+            type: "MAIN_WAREHOUSE",
+            isActive: true,
+            isSellable: true,
+          },
+          select: { id: true },
+        });
+        return created.id;
+      } catch {
+        const existing = await prisma.stockLocation.findFirst({
+          where: { companyId, code: safeCode, deletedAt: null },
+          select: { id: true },
+        });
+        if (existing?.id) return existing.id;
+      }
+    }
   }
 
-  const warehouse = await prisma.warehouse.findUnique({
-    where: { id: warehouseId },
-    select: { code: true },
-  });
-  if (!warehouse) return null;
-
-  const location = await prisma.stockLocation.findFirst({
-    where: { companyId, code: warehouse.code },
+  const defaultLocation = await prisma.stockLocation.findFirst({
+    where: {
+      companyId,
+      deletedAt: null,
+      isActive: true,
+      OR: [{ isDefault: true }, { type: "MAIN_WAREHOUSE" }],
+    },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     select: { id: true },
   });
-  return location?.id || null;
+  if (defaultLocation?.id) return defaultLocation.id;
+
+  const anyLocation = await prisma.stockLocation.findFirst({
+    where: { companyId, deletedAt: null, isActive: true },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (anyLocation?.id) return anyLocation.id;
+
+  const code = `MAIN-STOCK-${companyId.slice(-6)}`.toUpperCase();
+  try {
+    const created = await prisma.stockLocation.create({
+      data: {
+        companyId,
+        name: "Main Stock",
+        code,
+        type: "MAIN_WAREHOUSE",
+        isDefault: true,
+        isActive: true,
+        isSellable: true,
+      },
+      select: { id: true },
+    });
+    return created.id;
+  } catch {
+    const fallback = await prisma.stockLocation.findFirst({
+      where: { companyId, deletedAt: null },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+      select: { id: true },
+    });
+    return fallback?.id || null;
+  }
 }

@@ -14,7 +14,6 @@ import {
 } from "@/lib/accounting";
 import { deleteOperationalJournal, postPurchaseJournal } from "@/lib/operational-journals";
 import { adjustWarehouseStock, resolveOperationalLocation } from "@/lib/locations";
-import { receiveStockForPurchaseTx, resolveLocationIdFromWarehouseId } from "@/lib/inventory";
 
 type PurchaseLineInput = {
   productId: string;
@@ -234,19 +233,6 @@ export async function createPurchase(data: {
               createdById: userId,
             },
           });
-          const stockLocationId = await resolveLocationIdFromWarehouseId(location.warehouseId, companyId);
-          if (stockLocationId) {
-            await receiveStockForPurchaseTx(tx, {
-              locationId: stockLocationId,
-              productId: item.productId,
-              companyId,
-              quantity: item.quantity,
-              reference: refNumber,
-              referenceId: purchase.id,
-              notes: null,
-              createdById: userId,
-            });
-          }
         }
       }
     }
@@ -398,9 +384,11 @@ export async function updatePurchase(
             where: { id: oldItem.productId, companyId, deletedAt: null },
           });
           if (product) {
-            await tx.product.update({
-              where: { id: oldItem.productId },
-              data: { stock: { decrement: oldItem.quantity } },
+            await adjustWarehouseStock(tx, {
+              companyId,
+              productId: oldItem.productId,
+              warehouseId: existing.warehouseId,
+              quantityDelta: -Number(oldItem.quantity),
             });
           }
         }
@@ -457,18 +445,21 @@ export async function updatePurchase(
         for (const item of data.items) {
           const product = productsById.get(item.productId);
           if (product) {
-            await tx.product.update({
-              where: { id: item.productId },
-              data: { stock: { increment: item.quantity } },
+            const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
+              companyId,
+              productId: item.productId,
+              warehouseId: existing.warehouseId,
+              quantityDelta: Number(item.quantity),
             });
             await tx.inventoryLog.create({
               data: {
                 productId: item.productId,
                 companyId,
+                warehouseId: existing.warehouseId,
                 type: "PURCHASE",
                 quantity: item.quantity,
-                beforeStock: product.stock,
-                afterStock: product.stock + item.quantity,
+                beforeStock,
+                afterStock,
                 reference: referenceNumber,
                 notes: "Purchase edit",
                 createdById: userId,
@@ -568,11 +559,11 @@ export async function updatePurchase(
               `Insufficient stock to convert ${product.name} to draft. Available: ${product.stock}, required: ${oldItem.quantity}`,
             );
           }
-          const beforeStock = product.stock;
-          const afterStock = beforeStock - oldItem.quantity;
-          await tx.product.update({
-            where: { id: oldItem.productId },
-            data: { stock: { decrement: oldItem.quantity } },
+          const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
+            companyId,
+            productId: oldItem.productId,
+            warehouseId: existing.warehouseId,
+            quantityDelta: -Number(oldItem.quantity),
           });
           await tx.inventoryLog.create({
             data: {
@@ -595,11 +586,11 @@ export async function updatePurchase(
       const productsById = await getProductsForPurchase(tx, companyId, statusLineItems);
       for (const item of statusLineItems) {
         const product = productsById.get(item.productId);
-        const beforeStock = product.stock;
-        const afterStock = beforeStock + item.quantity;
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
+        const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
+          companyId,
+          productId: item.productId,
+          warehouseId: existing.warehouseId,
+          quantityDelta: Number(item.quantity),
         });
         await tx.inventoryLog.create({
           data: {
@@ -750,18 +741,21 @@ export async function returnPurchase(id: string) {
             `Insufficient stock to return ${product.name}. Available: ${product.stock}, required: ${item.quantity}`,
           );
         }
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
+        const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
+          companyId,
+          productId: item.productId,
+          warehouseId: purchase.warehouseId,
+          quantityDelta: -Number(item.quantity),
         });
         await tx.inventoryLog.create({
           data: {
             productId: item.productId,
             companyId,
+            warehouseId: purchase.warehouseId,
             type: "RETURN",
             quantity: -item.quantity,
-            beforeStock: product.stock,
-            afterStock: product.stock - item.quantity,
+            beforeStock,
+            afterStock,
             reference: purchase.referenceNumber,
             notes: "Purchase return",
             createdById: userId,
@@ -838,11 +832,11 @@ export async function convertPurchaseToDraft(id: string) {
             `Insufficient stock to convert ${product.name} to draft. Available: ${product.stock}, required: ${item.quantity}`,
           );
         }
-        const beforeStock = product.stock;
-        const afterStock = beforeStock - item.quantity;
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
+        const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
+          companyId,
+          productId: item.productId,
+          warehouseId: purchase.warehouseId,
+          quantityDelta: -Number(item.quantity),
         });
         await tx.inventoryLog.create({
           data: {

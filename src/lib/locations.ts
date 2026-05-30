@@ -18,8 +18,6 @@ export const DEFAULT_WAREHOUSE_LOCATIONS = [
   },
 ] as const;
 
-// ============ NEW STOCK LOCATION HELPERS ============
-
 export async function getUserAccessibleLocationIds(
   prismaClient: typeof prisma,
   companyId: string,
@@ -28,10 +26,9 @@ export async function getUserAccessibleLocationIds(
 ): Promise<string[]> {
   if (role === "OWNER" || role === "ADMIN") {
     const locations = await prismaClient.stockLocation.findMany({
-      where: { companyId, deletedAt: null },
+      where: { companyId, deletedAt: null, isActive: true },
       select: { id: true },
     });
-
     return locations.map((location) => location.id);
   }
 
@@ -44,34 +41,20 @@ export async function getUserAccessibleLocationIds(
 
   if (membership?.branchId) {
     const branchLocations = await prismaClient.stockLocation.findMany({
-      where: {
-        companyId,
-        branchId: membership.branchId,
-        deletedAt: null,
-      },
+      where: { companyId, branchId: membership.branchId, deletedAt: null, isActive: true },
       select: { id: true },
     });
-
     branchLocations.forEach((location) => ids.add(location.id));
   }
 
   const assignedLocations = await prismaClient.stockLocation.findMany({
-    where: {
-      companyId,
-      assignedEmployeeId: userId,
-      deletedAt: null,
-    },
+    where: { companyId, assignedEmployeeId: userId, deletedAt: null, isActive: true },
     select: { id: true },
   });
-
   assignedLocations.forEach((location) => ids.add(location.id));
 
   return Array.from(ids);
 }
-
-// ============ BACKWARD-COMPATIBLE WRAPPERS ============
-// These exist so other modules such as purchases and sales can keep working.
-// They wrap the new stock location / stock balance system.
 
 export async function ensureDefaultBranchAndWarehouse(tx: Tx, companyId: string) {
   let branch = await tx.branch.findFirst({
@@ -79,31 +62,20 @@ export async function ensureDefaultBranchAndWarehouse(tx: Tx, companyId: string)
   });
 
   if (!branch) {
-    branch = await tx.branch.findFirst({
-      where: { companyId, deletedAt: null },
-    });
+    branch = await tx.branch.findFirst({ where: { companyId, deletedAt: null } });
   }
 
   if (!branch) {
     try {
       branch = await tx.branch.create({
-        data: {
-          companyId,
-          name: "Main Branch",
-          code: "MAIN",
-          isDefault: true,
-        },
+        data: { companyId, name: "Main Branch", code: "MAIN", isDefault: true },
       });
     } catch {
-      branch = await tx.branch.findFirst({
-        where: { companyId, deletedAt: null },
-      });
+      branch = await tx.branch.findFirst({ where: { companyId, deletedAt: null } });
     }
   }
 
-  if (!branch) {
-    throw new Error("Could not resolve or create default branch");
-  }
+  if (!branch) throw new Error("Could not resolve or create default branch");
 
   return { branch, warehouse: null };
 }
@@ -113,7 +85,6 @@ export async function ensureDefaultWarehouseLocations(
   companyId: string,
   warehouse: { id: string; code: string },
 ) {
-  // No-op: new architecture uses StockLocation.
   void tx;
   void companyId;
   void warehouse;
@@ -121,40 +92,92 @@ export async function ensureDefaultWarehouseLocations(
 
 export async function resolveOperationalLocation(
   tx: Tx,
-  params: {
-    companyId: string;
-    userId?: string;
-    branchId?: string | null;
-    warehouseId?: string | null;
-  },
+  params: { companyId: string; userId?: string; branchId?: string | null; warehouseId?: string | null },
 ) {
   const fallback = await ensureDefaultBranchAndWarehouse(tx, params.companyId);
   const branchId = params.branchId || fallback.branch.id;
-
-  return { branchId, warehouseId: null };
+  return { branchId, warehouseId: params.warehouseId || null };
 }
 
-async function findDefaultStockLocation(tx: Tx, companyId: string) {
-  const mainWarehouseLocation = await tx.stockLocation.findFirst({
-    where: {
-      companyId,
-      type: "MAIN_WAREHOUSE",
-      deletedAt: null,
-      isActive: true,
-    },
-    orderBy: { isDefault: "desc" },
-  });
+async function normalizeCode(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
 
-  if (mainWarehouseLocation) return mainWarehouseLocation;
-
-  return tx.stockLocation.findFirst({
+async function getOrCreateDefaultStockLocation(tx: Tx, companyId: string) {
+  const existing = await tx.stockLocation.findFirst({
     where: {
       companyId,
       deletedAt: null,
       isActive: true,
+      OR: [{ isDefault: true }, { type: "MAIN_WAREHOUSE" }],
     },
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
   });
+  if (existing) return existing;
+
+  const anyLocation = await tx.stockLocation.findFirst({
+    where: { companyId, deletedAt: null, isActive: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (anyLocation) return anyLocation;
+
+  const code = await normalizeCode(`MAIN-STOCK-${companyId.slice(-6)}`);
+  try {
+    return await tx.stockLocation.create({
+      data: {
+        companyId,
+        name: "Main Stock",
+        code,
+        type: "MAIN_WAREHOUSE",
+        isDefault: true,
+        isActive: true,
+        isSellable: true,
+      },
+    });
+  } catch {
+    return tx.stockLocation.findFirst({
+      where: { companyId, deletedAt: null, isActive: true },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    });
+  }
+}
+
+async function resolveStockLocation(tx: Tx, companyId: string, warehouseId: string | null) {
+  if (warehouseId) {
+    const warehouse = await tx.warehouse.findFirst({
+      where: { id: warehouseId, companyId, deletedAt: null },
+      select: { code: true, name: true },
+    });
+
+    if (warehouse) {
+      const byCode = await tx.stockLocation.findFirst({
+        where: { companyId, code: warehouse.code, deletedAt: null, isActive: true },
+      });
+      if (byCode) return byCode;
+
+      const code = await normalizeCode(warehouse.code || warehouse.name || `WH-${warehouseId.slice(-6)}`);
+      try {
+        return await tx.stockLocation.create({
+          data: {
+            companyId,
+            name: warehouse.name || "Warehouse Stock",
+            code,
+            type: "MAIN_WAREHOUSE",
+            isDefault: false,
+            isActive: true,
+            isSellable: true,
+          },
+        });
+      } catch {
+        const createdByAnotherRequest = await tx.stockLocation.findFirst({
+          where: { companyId, code, deletedAt: null },
+        });
+        if (createdByAnotherRequest) return createdByAnotherRequest;
+      }
+    }
+  }
+
+  return getOrCreateDefaultStockLocation(tx, companyId);
 }
 
 export async function getProductStockAtWarehouse(
@@ -163,77 +186,83 @@ export async function getProductStockAtWarehouse(
   companyId: string,
   warehouseId: string | null,
 ): Promise<number> {
-  void warehouseId;
-
-  const defaultLocation = await findDefaultStockLocation(tx, companyId);
-
-  if (!defaultLocation) {
-    return Number(product.stock || 0);
-  }
+  const stockLocation = await resolveStockLocation(tx, companyId, warehouseId);
+  if (!stockLocation) return Number(product.stock || 0);
 
   const balance = await tx.stockBalance.findUnique({
     where: {
       productId_locationId_companyId: {
         productId: product.id,
-        locationId: defaultLocation.id,
+        locationId: stockLocation.id,
         companyId,
       },
     },
   });
 
-  return balance ? Number(balance.qtyOnHand) : 0;
+  return balance ? Number(balance.qtyAvailable) : 0;
 }
 
 export async function adjustWarehouseStock(
   tx: Tx,
-  params: {
-    companyId: string;
-    productId: string;
-    warehouseId: string | null;
-    quantityDelta: number;
-  },
+  params: { companyId: string; productId: string; warehouseId: string | null; quantityDelta: number },
 ) {
-  const defaultLocation = await findDefaultStockLocation(tx, params.companyId);
+  const stockLocation = await resolveStockLocation(tx, params.companyId, params.warehouseId);
+  if (!stockLocation) throw new Error("Could not resolve stock location");
 
-  let beforeStock = 0;
-
-  if (defaultLocation) {
-    const balance = await tx.stockBalance.findUnique({
-      where: {
-        productId_locationId_companyId: {
-          productId: params.productId,
-          locationId: defaultLocation.id,
-          companyId: params.companyId,
-        },
+  const balance = await tx.stockBalance.upsert({
+    where: {
+      productId_locationId_companyId: {
+        productId: params.productId,
+        locationId: stockLocation.id,
+        companyId: params.companyId,
       },
-    });
+    },
+    update: {},
+    create: {
+      companyId: params.companyId,
+      productId: params.productId,
+      locationId: stockLocation.id,
+      qtyOnHand: 0,
+      qtyReserved: 0,
+      qtyAvailable: 0,
+      reorderPoint: 0,
+      averageCost: 0,
+    },
+  });
 
-    beforeStock = balance ? Number(balance.qtyOnHand) : 0;
-  }
+  const beforeStock = Number(balance.qtyOnHand);
+  const beforeReserved = Number(balance.qtyReserved);
+  const afterStock = beforeStock + Number(params.quantityDelta);
+  if (afterStock < 0) throw new Error("Insufficient stock");
 
-  const afterStock = beforeStock + params.quantityDelta;
+  const afterAvailable = Math.max(0, afterStock - beforeReserved);
 
-  // Keep ProductStock updated for backward compatibility because some older
-  // purchase/sales screens may still read it.
+  await tx.stockBalance.update({
+    where: { id: balance.id },
+    data: {
+      qtyOnHand: afterStock,
+      qtyAvailable: afterAvailable,
+      lastMovementAt: new Date(),
+    },
+  });
+
+  await tx.product.update({
+    where: { id: params.productId },
+    data: { stock: Math.round(afterStock) },
+  });
+
   if (params.warehouseId) {
     await tx.productStock.upsert({
-      where: {
-        productId_warehouseId: {
-          productId: params.productId,
-          warehouseId: params.warehouseId,
-        },
-      },
+      where: { productId_warehouseId: { productId: params.productId, warehouseId: params.warehouseId } },
       create: {
         companyId: params.companyId,
         productId: params.productId,
         warehouseId: params.warehouseId,
-        quantity: afterStock,
+        quantity: Math.round(afterStock),
       },
-      update: {
-        quantity: afterStock,
-      },
+      update: { quantity: Math.round(afterStock) },
     });
   }
 
-  return { beforeStock, afterStock };
+  return { beforeStock, afterStock, locationId: stockLocation.id };
 }

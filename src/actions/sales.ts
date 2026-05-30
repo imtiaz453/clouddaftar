@@ -31,7 +31,7 @@ import {
   resolveOperationalLocation,
   getUserAccessibleLocationIds,
 } from "@/lib/locations";
-import { consumeStockForSaleTx, receiveStockForPurchaseTx, resolveLocationIdFromWarehouseId, getProductStockByLocation } from "@/lib/inventory";
+import { consumeStockForSaleTx, getProductStockByLocation } from "@/lib/inventory";
 
 type SaleLineInput = {
   productId: string;
@@ -591,18 +591,6 @@ export async function createSale(data: {
                 createdById: userId,
               },
             });
-            const stockLocationId = await resolveLocationIdFromWarehouseId(location.warehouseId, companyId);
-            if (stockLocationId) {
-              await consumeStockForSaleTx(tx, {
-                locationId: stockLocationId,
-                productId: item.productId,
-                companyId,
-                quantity: item.quantity,
-                reference: invoiceNumber,
-                referenceId: sale.id,
-                createdById: userId,
-              });
-            }
           }
         }
       }
@@ -948,19 +936,6 @@ export async function updateSale(
               createdById: userId,
             },
           });
-          const restoreLocId = await resolveLocationIdFromWarehouseId(existing.warehouseId, companyId);
-          if (restoreLocId) {
-            await receiveStockForPurchaseTx(tx, {
-              locationId: restoreLocId,
-              productId: oldItem.productId,
-              companyId,
-              quantity: oldItem.quantity,
-              reference: invoiceNumber,
-              referenceId: existing.id,
-              notes: data.items ? "Invoice items edited - stock restored" : "Invoice converted to non-posting - stock restored",
-              createdById: userId,
-            });
-          }
         }
       }
     }
@@ -999,18 +974,6 @@ export async function updateSale(
             createdById: userId,
           },
         });
-        const issueLocId = await resolveLocationIdFromWarehouseId(existing.warehouseId, companyId);
-        if (issueLocId) {
-          await consumeStockForSaleTx(tx, {
-            locationId: issueLocId,
-            productId: item.productId,
-            companyId,
-            quantity: item.quantity,
-            reference: invoiceNumber,
-            referenceId: existing.id,
-            createdById: userId,
-          });
-        }
       }
     }
 
@@ -1208,11 +1171,11 @@ export async function refundSale(
         where: { id: item.productId, companyId, deletedAt: null },
       });
       if (product) {
-        const beforeStock = product.stock;
-        const afterStock = beforeStock + item.quantity;
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
+        const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
+          companyId,
+          productId: item.productId,
+          warehouseId: sale.warehouseId,
+          quantityDelta: Number(item.quantity),
         });
         await tx.inventoryLog.create({
           data: {
