@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   Truck,
@@ -45,20 +45,20 @@ interface Location {
 interface TransferItem {
   id: string;
   quantity: number;
-  product: { name: string; sku: string | null };
+  product?: { name?: string | null; sku?: string | null } | null;
 }
 
 interface Transfer {
   id: string;
   referenceNumber: string;
   status: string;
-  sourceLocation: Location;
-  destinationLocation: Location;
-  createdBy: { id: string; name: string | null };
-  items: TransferItem[];
+  sourceLocation?: Location | null;
+  destinationLocation?: Location | null;
+  createdBy?: { id?: string; name?: string | null } | null;
+  items?: TransferItem[] | null;
   createdAt: string;
-  issuedAt: string | null;
-  receivedAt: string | null;
+  issuedAt?: string | null;
+  receivedAt?: string | null;
 }
 
 interface PaginatedResult {
@@ -73,9 +73,22 @@ interface TransfersListClientProps {
   initialData: PaginatedResult;
 }
 
+const ALL_STATUSES = "ALL";
+
+const EMPTY_DATA: PaginatedResult = {
+  data: [],
+  total: 0,
+  page: 1,
+  pageSize: 20,
+  totalPages: 0,
+};
+
 const STATUS_OPTIONS = [
-  { value: "", label: "All Statuses" },
+  { value: ALL_STATUSES, label: "All Statuses" },
   { value: "DRAFT", label: "Draft" },
+  { value: "ISSUED", label: "Issued" },
+  { value: "PARTIALLY_RECEIVED", label: "Partially Received" },
+  { value: "RECEIVED", label: "Received" },
   { value: "PENDING", label: "Pending" },
   { value: "IN_TRANSIT", label: "In Transit" },
   { value: "COMPLETED", label: "Completed" },
@@ -84,54 +97,115 @@ const STATUS_OPTIONS = [
 
 const STATUS_STYLES: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  ISSUED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  PARTIALLY_RECEIVED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  RECEIVED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   IN_TRANSIT: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   COMPLETED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
+function normalizePaginatedResult(result: unknown): PaginatedResult {
+  if (!result || typeof result !== "object") return EMPTY_DATA;
+
+  const value = result as Partial<PaginatedResult> & { data?: unknown };
+  const data = Array.isArray(value.data) ? (value.data as Transfer[]) : [];
+
+  return {
+    data,
+    total: typeof value.total === "number" ? value.total : data.length,
+    page: typeof value.page === "number" && value.page > 0 ? value.page : 1,
+    pageSize: typeof value.pageSize === "number" && value.pageSize > 0 ? value.pageSize : 20,
+    totalPages:
+      typeof value.totalPages === "number" && value.totalPages >= 0
+        ? value.totalPages
+        : data.length > 0
+          ? 1
+          : 0,
+  };
+}
+
+function normalizeLocations(locations: unknown): Location[] {
+  if (!Array.isArray(locations)) return [];
+
+  return locations
+    .filter((loc): loc is Location => {
+      if (!loc || typeof loc !== "object") return false;
+      const value = loc as Partial<Location>;
+      return typeof value.id === "string" && value.id.trim().length > 0;
+    })
+    .map((loc) => ({
+      id: loc.id,
+      name: loc.name || "Unnamed location",
+      code: loc.code || "—",
+    }));
+}
+
+function getStatusLabel(status: string) {
+  return status ? status.replace(/_/g, " ") : "UNKNOWN";
+}
+
 export function TransfersListClient({ initialData }: TransfersListClientProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const searchParams = useSearchParams();
   const { addToast } = useToast();
 
-  const [data, setData] = useState<PaginatedResult>(initialData);
+  const safeInitialData = useMemo(() => normalizePaginatedResult(initialData), [initialData]);
+
+  const [data, setData] = useState<PaginatedResult>(safeInitialData);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [search, setSearch] = useState(searchParams?.get("search") ?? "");
+  const [statusFilter, setStatusFilter] = useState(searchParams?.get("status") || ALL_STATUSES);
   const [createOpen, setCreateOpen] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
 
   useEffect(() => {
-    loadLocations();
-  }, []);
+    setData(safeInitialData);
+  }, [safeInitialData]);
 
-  async function loadLocations() {
-    try {
-      const locs = await getLocationsForSelect();
-      setLocations(locs as unknown as Location[]);
-    } catch {
-      // silent
+  useEffect(() => {
+    let alive = true;
+
+    async function loadLocations() {
+      try {
+        const locs = await getLocationsForSelect();
+        if (alive) setLocations(normalizeLocations(locs));
+      } catch (error) {
+        console.error("Failed to load transfer locations:", error);
+        if (alive) setLocations([]);
+      }
     }
-  }
+
+    loadLocations();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const loadData = useCallback(
     async (params: { status?: string; search?: string; page?: number }) => {
       setLoading(true);
       try {
-        const result: PaginatedResult = await getStockTransfers({
-          status: params.status || undefined,
+        const selectedStatus = params.status && params.status !== ALL_STATUSES ? params.status : undefined;
+        const result = await getStockTransfers({
+          status: selectedStatus,
+          search: params.search?.trim() || undefined,
           page: params.page || 1,
           pageSize: 20,
-        }) as unknown as PaginatedResult;
-        setData(result);
+        } as any);
+
+        setData(normalizePaginatedResult(result));
       } catch (err) {
+        console.error("Failed to load transfers:", err);
         addToast({
           title: "Failed to load transfers",
-          description: String(err),
+          description: err instanceof Error ? err.message : String(err),
           variant: "error",
         });
+        setData(EMPTY_DATA);
       } finally {
         setLoading(false);
       }
@@ -139,12 +213,29 @@ export function TransfersListClient({ initialData }: TransfersListClientProps) {
     [addToast],
   );
 
+  function updateUrl(params: { status?: string; search?: string; page?: number }) {
+    const nextParams = new URLSearchParams(searchParams?.toString() ?? "");
+
+    const selectedStatus = params.status ?? statusFilter;
+    const selectedSearch = params.search ?? search;
+    const selectedPage = params.page ?? 1;
+
+    if (selectedStatus && selectedStatus !== ALL_STATUSES) nextParams.set("status", selectedStatus);
+    else nextParams.delete("status");
+
+    if (selectedSearch.trim()) nextParams.set("search", selectedSearch.trim());
+    else nextParams.delete("search");
+
+    if (selectedPage > 1) nextParams.set("page", String(selectedPage));
+    else nextParams.delete("page");
+
+    const query = nextParams.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+  }
+
   function handleStatusChange(value: string) {
     setStatusFilter(value);
-    const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set("status", value);
-    else params.delete("status");
-    router.push(`${pathname}?${params}`);
+    updateUrl({ status: value, search, page: 1 });
     loadData({ status: value, search, page: 1 });
   }
 
@@ -153,22 +244,17 @@ export function TransfersListClient({ initialData }: TransfersListClientProps) {
   }
 
   function handleSearchSubmit() {
-    const params = new URLSearchParams(searchParams.toString());
-    if (search) params.set("search", search);
-    else params.delete("search");
-    params.set("page", "1");
-    router.push(`${pathname}?${params}`);
+    updateUrl({ status: statusFilter, search, page: 1 });
     loadData({ status: statusFilter, search, page: 1 });
   }
 
   function goToPage(page: number) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", String(page));
-    router.push(`${pathname}?${params}`);
+    updateUrl({ status: statusFilter, search, page });
     loadData({ status: statusFilter, search, page });
   }
 
   function viewDetail(id: string) {
+    if (!id) return;
     router.push(`${pathname}/${id}`);
   }
 
@@ -199,7 +285,7 @@ export function TransfersListClient({ initialData }: TransfersListClientProps) {
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            {STATUS_OPTIONS.filter((opt) => typeof opt.value === "string" && opt.value.trim() !== "").map((opt) => (
+            {STATUS_OPTIONS.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>
@@ -230,81 +316,97 @@ export function TransfersListClient({ initialData }: TransfersListClientProps) {
                   <TableHead>Status</TableHead>
                   <TableHead>Items</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.data.map((t) => (
-                  <TableRow
-                    key={t.id}
-                    className="cursor-pointer"
-                    onClick={() => viewDetail(t.id)}
-                  >
-                    <TableCell className="font-medium">{t.referenceNumber}</TableCell>
-                    <TableCell className="text-sm">{t.sourceLocation.name}</TableCell>
-                    <TableCell className="text-sm">{t.destinationLocation.name}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={`border-0 ${STATUS_STYLES[t.status] || ""}`}
-                        variant="outline"
-                      >
-                        {t.status.replace(/_/g, " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {t.items.length}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(t.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          viewDetail(t.id);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {data.data.map((t) => {
+                  const items = Array.isArray(t.items) ? t.items : [];
+                  const status = t.status || "UNKNOWN";
+
+                  return (
+                    <TableRow
+                      key={t.id}
+                      className="cursor-pointer"
+                      onClick={() => viewDetail(t.id)}
+                    >
+                      <TableCell className="font-medium">
+                        {t.referenceNumber || "Untitled transfer"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {t.sourceLocation?.name || "Unknown source"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {t.destinationLocation?.name || "Unknown destination"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={`border-0 ${STATUS_STYLES[status] || "bg-muted text-muted-foreground"}`}
+                          variant="outline"
+                        >
+                          {getStatusLabel(status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {items.length}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {t.createdAt ? formatDate(t.createdAt) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            viewDetail(t.id);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
 
           <div className="space-y-3 md:hidden">
-            {data.data.map((t) => (
-              <Card
-                key={t.id}
-                className="cursor-pointer p-4 transition hover:bg-accent/50"
-                onClick={() => viewDetail(t.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{t.referenceNumber}</span>
-                  <Badge
-                    className={`border-0 ${STATUS_STYLES[t.status] || ""}`}
-                    variant="outline"
-                  >
-                    {t.status.replace(/_/g, " ")}
-                  </Badge>
-                </div>
-                <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{t.sourceLocation.name}</span>
-                  <ArrowRightLeft className="h-3 w-3" />
-                  <span>{t.destinationLocation.name}</span>
-                </div>
-                <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Package className="h-3 w-3" />
-                    {t.items.length} items
-                  </span>
-                  <span>{formatDate(t.createdAt)}</span>
-                </div>
-              </Card>
-            ))}
+            {data.data.map((t) => {
+              const items = Array.isArray(t.items) ? t.items : [];
+              const status = t.status || "UNKNOWN";
+
+              return (
+                <Card
+                  key={t.id}
+                  className="cursor-pointer p-4 transition hover:bg-accent/50"
+                  onClick={() => viewDetail(t.id)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{t.referenceNumber || "Untitled transfer"}</span>
+                    <Badge
+                      className={`border-0 ${STATUS_STYLES[status] || "bg-muted text-muted-foreground"}`}
+                      variant="outline"
+                    >
+                      {getStatusLabel(status)}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="truncate">{t.sourceLocation?.name || "Unknown source"}</span>
+                    <ArrowRightLeft className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{t.destinationLocation?.name || "Unknown destination"}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Package className="h-3 w-3" />
+                      {items.length} items
+                    </span>
+                    <span>{t.createdAt ? formatDate(t.createdAt) : "—"}</span>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
 
           {data.totalPages > 1 && (
@@ -338,7 +440,7 @@ export function TransfersListClient({ initialData }: TransfersListClientProps) {
       <TransferCreateDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        locations={locations as any}
+        locations={locations}
       />
     </div>
   );
