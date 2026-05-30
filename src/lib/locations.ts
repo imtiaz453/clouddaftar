@@ -95,8 +95,58 @@ export async function resolveOperationalLocation(
   params: { companyId: string; userId?: string; branchId?: string | null; warehouseId?: string | null },
 ) {
   const fallback = await ensureDefaultBranchAndWarehouse(tx, params.companyId);
-  const branchId = params.branchId || fallback.branch.id;
-  return { branchId, warehouseId: params.warehouseId || null };
+
+  if (params.warehouseId) {
+    const selectedWarehouse = await tx.warehouse.findFirst({
+      where: {
+        id: params.warehouseId,
+        companyId: params.companyId,
+        deletedAt: null,
+        isActive: true,
+      },
+      select: { id: true, branchId: true },
+    });
+
+    if (!selectedWarehouse) {
+      throw new Error("Selected receiving store/warehouse was not found or is inactive");
+    }
+
+    return {
+      branchId: params.branchId || selectedWarehouse.branchId || fallback.branch.id,
+      warehouseId: selectedWarehouse.id,
+    };
+  }
+
+  const defaultReceivingWarehouse = await tx.warehouse.findFirst({
+    where: {
+      companyId: params.companyId,
+      deletedAt: null,
+      isActive: true,
+      isDefault: true,
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, branchId: true },
+  });
+
+  const firstActiveWarehouse = defaultReceivingWarehouse
+    ? null
+    : await tx.warehouse.findFirst({
+        where: {
+          companyId: params.companyId,
+          deletedAt: null,
+          isActive: true,
+        },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+        select: { id: true, branchId: true },
+      });
+
+  const receivingWarehouse = defaultReceivingWarehouse || firstActiveWarehouse;
+  const branchId = params.branchId || receivingWarehouse?.branchId || fallback.branch.id;
+
+  return {
+    branchId,
+    warehouseId: receivingWarehouse?.id || null,
+  };
 }
 
 async function normalizeCode(value: string) {

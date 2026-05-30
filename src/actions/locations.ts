@@ -271,6 +271,13 @@ export async function createWarehouse(data: {
   }
 
   const warehouse = await prisma.$transaction(async (tx) => {
+    if (data.isDefault) {
+      await tx.warehouse.updateMany({
+        where: { companyId, deletedAt: null, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
     const created = await tx.warehouse.create({
       data: {
         companyId,
@@ -332,18 +339,34 @@ export async function updateWarehouse(data: {
 
   const code = data.code ? normalizeCode(data.code) : existing.code;
 
-  const updated = await prisma.warehouse.update({
-    where: { id: data.id },
-    data: {
-      name: data.name.trim(),
-      code,
-      type,
-      branchId,
-      assignedEmployeeId,
-      isDefault: data.isDefault ?? existing.isDefault,
-      isActive: data.isActive ?? existing.isActive,
-      notes: data.notes !== undefined ? data.notes : existing.notes,
-    },
+  const nextIsDefault = data.isDefault ?? existing.isDefault;
+  const nextIsActive = data.isActive ?? existing.isActive;
+
+  if (nextIsDefault && !nextIsActive) {
+    throw new Error("The purchase receiving warehouse must be active");
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (nextIsDefault) {
+      await tx.warehouse.updateMany({
+        where: { companyId, deletedAt: null, isDefault: true, id: { not: data.id } },
+        data: { isDefault: false },
+      });
+    }
+
+    return tx.warehouse.update({
+      where: { id: data.id },
+      data: {
+        name: data.name.trim(),
+        code,
+        type,
+        branchId,
+        assignedEmployeeId,
+        isDefault: nextIsDefault,
+        isActive: nextIsActive,
+        notes: data.notes !== undefined ? data.notes : existing.notes,
+      },
+    });
   });
 
   await createAuditLog({
@@ -391,6 +414,10 @@ export async function toggleWarehouseStatus(id: string, isActive: boolean) {
     where: { id, companyId, deletedAt: null },
   });
   if (!warehouse) throw new Error("Store not found");
+
+  if (!isActive && warehouse.isDefault) {
+    throw new Error("Cannot disable the purchase receiving warehouse. Select another default receiving store first.");
+  }
 
   const updated = await prisma.warehouse.update({
     where: { id },

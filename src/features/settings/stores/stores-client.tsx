@@ -192,7 +192,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
     <div className="space-y-6">
       <PageHeader
         title="Stores"
-        description="Manage inventory locations, warehouses, and employee stores"
+        description="Choose the main receiving warehouse for purchase orders and manage POS/employee stores"
       >
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
@@ -264,15 +264,25 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                 <label className="text-sm font-medium">Notes</label>
                 <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes" />
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isDefault"
-                  checked={form.isDefault}
-                  onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                <label htmlFor="isDefault" className="text-sm">Set as default store</label>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="isDefault"
+                    checked={form.isDefault}
+                    onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300"
+                  />
+                  <div>
+                    <label htmlFor="isDefault" className="text-sm font-semibold">
+                      Use this store as the main PO receiving warehouse
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Purchase orders without an explicitly selected store will receive stock into this location.
+                      Only one store can be the main receiving warehouse at a time.
+                    </p>
+                  </div>
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
@@ -307,6 +317,30 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
         </Select>
       </div>
 
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Main PO receiving warehouse</p>
+            <p className="mt-2 text-lg font-semibold">{stores.find((s) => s.isDefault)?.name || "Not selected"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">All new purchase receipts use this store when no specific store is selected.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Active stores</p>
+            <p className="mt-2 text-lg font-semibold">{stores.filter((s) => s.isActive).length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Warehouses, POS stores and employee stores available for operations.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Linked branches</p>
+            <p className="mt-2 text-lg font-semibold">{stores.filter((s) => s.branchId).length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Branch/showroom stores connected to physical counters.</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -317,7 +351,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                 <TableHead>Type</TableHead>
                 <TableHead>Branch</TableHead>
                 <TableHead>Employee</TableHead>
-                <TableHead className="text-center">Default</TableHead>
+                <TableHead className="text-center">PO Receiving</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -343,7 +377,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                     <TableCell className="text-muted-foreground">{store.branch?.name || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{store.assignedEmployee?.name || "-"}</TableCell>
                     <TableCell className="text-center">
-                      {store.isDefault ? <Badge variant="outline">Default</Badge> : "-"}
+                      {store.isDefault ? <Badge variant="outline">Main receiving WH</Badge> : "-"}
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={store.isActive ? "default" : "secondary"}>
