@@ -375,7 +375,7 @@ export function renderAdvancedDocument(
 
     <footer>
       <span class="footer-text">${esc(d.content.footerText || opts.footerText || "")}</span>
-      ${d.visibility.pageNumbers ? "<span style="text-align:right;">Page 1 of 1</span>" : ""}
+      ${d.visibility.pageNumbers ? `<span style="text-align:right;">Page 1 of 1</span>` : ""}
     </footer>
   </main>
 </body>
