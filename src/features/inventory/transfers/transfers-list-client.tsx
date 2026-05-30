@@ -40,6 +40,7 @@ interface Location {
   id: string;
   name: string;
   code: string;
+  [key: string]: unknown;
 }
 
 interface TransferItem {
