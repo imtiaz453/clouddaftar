@@ -158,6 +158,7 @@ export function AppTopbar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [openModuleMenu, setOpenModuleMenu] = useState<string | null>(null);
 
   const segments = pathname.split("/").filter(Boolean);
   const tenant =
@@ -165,6 +166,14 @@ export function AppTopbar({
 
   function tenantHref(href: string) {
     return tenant ? `/${tenant}${href === "/" ? "" : href}` : href;
+  }
+
+  function navigateTo(href: string) {
+    setOpenModuleMenu(null);
+    setNotifOpen(false);
+    setSearchOpen(false);
+    setSearchQuery("");
+    router.push(tenantHref(href));
   }
 
   const moduleMenus = useMemo(() => {
@@ -330,7 +339,7 @@ export function AppTopbar({
       });
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       setUnreadCount((prev) => Math.max(0, prev - 1));
-      if (link) router.push(tenantHref(link));
+      if (link) navigateTo(link);
     } catch {
       // silent
     }
@@ -360,7 +369,7 @@ export function AppTopbar({
 
         <button
           type="button"
-          onClick={() => router.push(tenantHref("/apps"))}
+          onClick={() => navigateTo("/apps")}
           className="hidden h-11 items-center gap-2 rounded-full bg-foreground px-4 text-sm font-bold text-background shadow-sm transition hover:opacity-90 sm:inline-flex"
         >
           <LayoutGrid className="h-4 w-4" />
@@ -391,7 +400,11 @@ export function AppTopbar({
                 const featuredItems = group.items.slice(0, 6);
                 const moreItems = group.items.slice(6, 14);
                 return (
-                  <DropdownMenu key={group.label}>
+                  <DropdownMenu
+                    key={group.label}
+                    open={openModuleMenu === group.label}
+                    onOpenChange={(open) => setOpenModuleMenu(open ? group.label : null)}
+                  >
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
@@ -420,7 +433,7 @@ export function AppTopbar({
                               <button
                                 key={item.href}
                                 type="button"
-                                onClick={() => router.push(tenantHref(item.href))}
+                                onClick={() => navigateTo(item.href)}
                                 className="group flex items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-muted"
                               >
                                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition-colors group-hover:bg-foreground group-hover:text-background">
@@ -443,7 +456,7 @@ export function AppTopbar({
                                 <button
                                   key={item.href}
                                   type="button"
-                                  onClick={() => router.push(tenantHref(item.href))}
+                                  onClick={() => navigateTo(item.href)}
                                   className="flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                 >
                                   <span className="truncate">{item.label}</span>
@@ -466,7 +479,7 @@ export function AppTopbar({
                             </p>
                             <button
                               type="button"
-                              onClick={() => router.push(tenantHref(featuredItems[0]?.href || "/apps"))}
+                              onClick={() => navigateTo(featuredItems[0]?.href || "/apps")}
                               className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition hover:opacity-90"
                             >
                               Open module
@@ -566,7 +579,7 @@ export function AppTopbar({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="justify-center text-xs text-muted-foreground"
-                    onClick={() => router.push(tenantHref("/notifications"))}
+                    onClick={() => navigateTo("/notifications")}
                   >
                     View all
                   </DropdownMenuItem>
@@ -595,23 +608,23 @@ export function AppTopbar({
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push(tenantHref("/profile"))}>
+                  <DropdownMenuItem onClick={() => navigateTo("/profile")}>
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(tenantHref("/settings"))}>
+                  <DropdownMenuItem onClick={() => navigateTo("/settings")}>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(tenantHref("/billing"))}>
+                  <DropdownMenuItem onClick={() => navigateTo("/billing")}>
                     <CreditCard className="mr-2 h-4 w-4" />
                     Billing
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(tenantHref("/settings?tab=theme"))}>
+                  <DropdownMenuItem onClick={() => navigateTo("/settings?tab=theme")}>
                     <Palette className="mr-2 h-4 w-4" />
                     Theme
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(tenantHref("/profile"))}>
+                  <DropdownMenuItem onClick={() => navigateTo("/profile")}>
                     <Lock className="mr-2 h-4 w-4" />
                     Password
                   </DropdownMenuItem>
@@ -663,11 +676,7 @@ export function AppTopbar({
                   <button
                     key={`${item.group}-${item.href}`}
                     type="button"
-                    onClick={() => {
-                      setSearchOpen(false);
-                      setSearchQuery("");
-                      router.push(tenantHref(item.href));
-                    }}
+                    onClick={() => navigateTo(item.href)}
                     className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent"
                   >
                     <span>

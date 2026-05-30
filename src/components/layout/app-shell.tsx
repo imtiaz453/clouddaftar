@@ -77,7 +77,7 @@ export function AppShell({
         />
 
         <main className="min-w-0 flex-1 overflow-x-hidden">
-          <div className="content-area mx-auto w-full max-w-[1440px]">{children}</div>
+          <div className="content-area mx-auto w-full max-w-[1920px]">{children}</div>
         </main>
       </div>
 

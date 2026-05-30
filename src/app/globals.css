@@ -213,7 +213,7 @@
 
 @layer utilities {
   .content-area {
-    @apply min-w-0 px-4 py-5 md:px-6 md:py-6 lg:px-8 lg:py-7;
+    @apply min-w-0 px-4 py-5 md:px-6 md:py-6 lg:px-8 lg:py-7 2xl:px-10;
   }
 
   .page-stack {
