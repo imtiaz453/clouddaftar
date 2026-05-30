@@ -74,6 +74,12 @@ export const DEFAULT_ADVANCED_DESIGN = {
     baseSize: 12,
     titleSize: 28,
     lineHeight: 1.45,
+    titleAlign: "right",
+    headerTextAlign: "left",
+    footerTextAlign: "center",
+    notesAlign: "left",
+    termsAlign: "left",
+    signatureAlign: "center",
   },
   content: {
     headerText: "",
@@ -115,6 +121,10 @@ function esc(value: unknown) {
 function base64(value: string) {
   if (typeof btoa === "function") return btoa(unescape(encodeURIComponent(value)));
   return Buffer.from(value).toString("base64");
+}
+
+function textAlign(value: unknown, fallback = "left") {
+  return value === "left" || value === "center" || value === "right" ? value : fallback;
 }
 
 function buildQrPayload(data: RenderData) {
@@ -175,6 +185,12 @@ export function renderAdvancedDocument(
   const pad = Number(d.layout.sidePadding || 32);
   const border = "#d9e0ea";
   const muted = "#64748b";
+  const titleAlign = textAlign(d.text.titleAlign, "right");
+  const headerTextAlign = textAlign(d.text.headerTextAlign, "left");
+  const footerTextAlign = textAlign(d.text.footerTextAlign, "center");
+  const notesAlign = textAlign(d.text.notesAlign, "left");
+  const termsAlign = textAlign(d.text.termsAlign, "left");
+  const signatureAlign = textAlign(d.text.signatureAlign, "center");
   const shouldShowQr = Boolean(opts.showQR && d.visibility.qrCode && isTaxInvoiceDocument(data));
   const qrUrl = shouldShowQr ? qrDataUrl(buildQrPayload(data)) : "";
   const headerCellStyle = d.table.headerFill
@@ -215,8 +231,8 @@ export function renderAdvancedDocument(
     h1 { margin:0; color:${primary}; font-size:${Number(d.text.titleSize)}px; letter-spacing:0; }
     .company-name { margin:0 0 5px; font-size:18px; font-weight:700; color:${primary}; }
     .muted { color:${muted}; }
-    .doc-box { text-align:right; border-left:4px solid ${accent}; padding-left:18px; min-width:190px; }
-    .header-note { margin-top:16px; padding:10px 12px; border:1px solid ${border}; border-left:4px solid ${accent}; border-radius:${Number(d.layout.borderRadius)}px; }
+    .doc-box { text-align:${titleAlign}; border-left:4px solid ${accent}; padding-left:18px; min-width:190px; }
+    .header-note { margin-top:16px; padding:10px 12px; border:1px solid ${border}; border-left:4px solid ${accent}; border-radius:${Number(d.layout.borderRadius)}px; text-align:${headerTextAlign}; white-space:pre-wrap; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:${Number(d.layout.sectionGap)}px; margin-top:24px; }
     .panel { border:1px solid ${border}; border-radius:${Number(d.layout.borderRadius)}px; padding:14px; min-height:116px; }
     .panel-title { color:${muted}; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px; }
@@ -237,8 +253,11 @@ export function renderAdvancedDocument(
     .total-row:last-child { border-bottom:0; background:${primary}; color:#fff; font-weight:700; }
     .notes { margin-top:22px; display:grid; grid-template-columns:1fr 1fr; gap:${Number(d.layout.sectionGap)}px; }
     .signatures { margin-top:42px; display:grid; grid-template-columns:1fr 1fr; gap:40px; }
-    .sig-line { border-top:1px solid ${primary}; padding-top:8px; text-align:center; color:${muted}; }
-    footer { margin-top:28px; padding-top:12px; border-top:1px solid ${border}; display:flex; justify-content:space-between; gap:20px; color:${muted}; font-size:11px; }
+    .sig-line { border-top:1px solid ${primary}; padding-top:8px; text-align:${signatureAlign}; color:${muted}; }
+    .notes-text { white-space:pre-wrap; text-align:${notesAlign}; }
+    .terms-text { white-space:pre-wrap; text-align:${termsAlign}; }
+    footer { margin-top:28px; padding-top:12px; border-top:1px solid ${border}; display:grid; grid-template-columns:1fr auto; align-items:start; gap:20px; color:${muted}; font-size:11px; }
+    .footer-text { text-align:${footerTextAlign}; white-space:pre-wrap; }
     @media print { body { background:#fff; } .page { margin:0; width:auto; min-height:auto; } }
   </style>
 </head>
@@ -341,8 +360,8 @@ export function renderAdvancedDocument(
     </section>
 
     <section class="notes">
-      ${d.visibility.notes ? `<div class="panel"><div class="panel-title">${esc(d.labels.notes)}</div>${esc(d.content.notes || data.document.notes || "")}</div>` : ""}
-      ${d.visibility.terms ? `<div class="panel"><div class="panel-title">${esc(d.labels.terms)}</div><div style="white-space:pre-wrap;">${esc(data.document.terms || d.content.terms || "")}</div></div>` : ""}
+      ${d.visibility.notes ? `<div class="panel"><div class="panel-title">${esc(d.labels.notes)}</div><div class="notes-text">${esc(d.content.notes || data.document.notes || "")}</div></div>` : ""}
+      ${d.visibility.terms ? `<div class="panel"><div class="panel-title">${esc(d.labels.terms)}</div><div class="terms-text">${esc(data.document.terms || d.content.terms || "")}</div></div>` : ""}
     </section>
 
     ${
@@ -355,8 +374,8 @@ export function renderAdvancedDocument(
     }
 
     <footer>
-      <span>${esc(d.content.footerText || opts.footerText || "")}</span>
-      ${d.visibility.pageNumbers ? "<span>Page 1 of 1</span>" : ""}
+      <span class="footer-text">${esc(d.content.footerText || opts.footerText || "")}</span>
+      ${d.visibility.pageNumbers ? "<span style="text-align:right;">Page 1 of 1</span>" : ""}
     </footer>
   </main>
 </body>

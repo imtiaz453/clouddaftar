@@ -446,9 +446,10 @@ function AdvancedTemplateEditor({
     setFormData({ ...formData, [key]: value });
   }
 
-  function setDesign(section: string, key: string, value: any) {
+  function setDesign(section: string, key: string, value: any, extraFields: Record<string, any> = {}) {
     setFormData({
       ...formData,
+      ...extraFields,
       advancedDesign: {
         ...design,
         [section]: {
@@ -457,6 +458,15 @@ function AdvancedTemplateEditor({
         },
       },
     });
+  }
+
+  function setDocumentTitle(value: string) {
+    setFormData({ ...formData, advancedDesign: { ...design, documentTitle: value } });
+  }
+
+  function setContentText(key: "headerText" | "footerText" | "notes" | "terms", value: string) {
+    const extraFields = key === "headerText" || key === "footerText" ? { [key]: value } : {};
+    setDesign("content", key, value, extraFields);
   }
 
   function setLabel(key: string, value: string) {
@@ -644,32 +654,49 @@ function AdvancedTemplateEditor({
                 onChange={(v) => setField("accentColor", v)}
               />
             </div>
-            <Control label="Document Title">
-              <Input
-                value={design.documentTitle ?? ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    advancedDesign: { ...design, documentTitle: e.target.value },
-                  })
-                }
+            <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+              <Control label="Document Title">
+                <Input
+                  value={design.documentTitle ?? ""}
+                  onChange={(e) => setDocumentTitle(e.target.value)}
+                />
+              </Control>
+              <AlignmentControl
+                label="Title Align"
+                value={design.text.titleAlign}
+                onChange={(v) => setDesign("text", "titleAlign", v)}
               />
-            </Control>
-            <Control label="Header Text">
-              <Input
-                value={design.content.headerText ?? ""}
-                onChange={(e) => setDesign("content", "headerText", e.target.value)}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+              <Control label="Header Text">
+                <textarea
+                  value={design.content.headerText ?? ""}
+                  onChange={(e) => setContentText("headerText", e.target.value)}
+                  className="min-h-[78px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Optional header note shown under the document heading"
+                />
+              </Control>
+              <AlignmentControl
+                label="Header Align"
+                value={design.text.headerTextAlign}
+                onChange={(v) => setDesign("text", "headerTextAlign", v)}
               />
-            </Control>
-            <Control label="Footer Text">
-              <Input
-                value={design.content.footerText ?? ""}
-                onChange={(e) => {
-                  setDesign("content", "footerText", e.target.value);
-                  setField("footerText", e.target.value);
-                }}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+              <Control label="Footer Text">
+                <textarea
+                  value={design.content.footerText ?? formData.footerText ?? ""}
+                  onChange={(e) => setContentText("footerText", e.target.value)}
+                  className="min-h-[86px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Type your own footer text here"
+                />
+              </Control>
+              <AlignmentControl
+                label="Footer Align"
+                value={design.text.footerTextAlign}
+                onChange={(v) => setDesign("text", "footerTextAlign", v)}
               />
-            </Control>
+            </div>
           </div>
         </Card>
 
@@ -802,23 +829,44 @@ function AdvancedTemplateEditor({
         </Card>
 
         <Card className="p-3">
-          <h3 className="mb-3 text-sm font-semibold">Notes and Terms</h3>
-          <Control label="Note">
-            <textarea
-              value={design.content.notes ?? ""}
-              onChange={(e) => setDesign("content", "notes", e.target.value)}
-              rows={3}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          <h3 className="mb-3 text-sm font-semibold">Notes, Terms and Signatures</h3>
+          <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+            <Control label="Note">
+              <textarea
+                value={design.content.notes ?? ""}
+                onChange={(e) => setContentText("notes", e.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </Control>
+            <AlignmentControl
+              label="Notes Align"
+              value={design.text.notesAlign}
+              onChange={(v) => setDesign("text", "notesAlign", v)}
             />
-          </Control>
-          <Control label="Terms and Conditions">
-            <textarea
-              value={design.content.terms ?? ""}
-              onChange={(e) => setDesign("content", "terms", e.target.value)}
-              rows={4}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_150px]">
+            <Control label="Terms and Conditions">
+              <textarea
+                value={design.content.terms ?? ""}
+                onChange={(e) => setContentText("terms", e.target.value)}
+                rows={4}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </Control>
+            <AlignmentControl
+              label="Terms Align"
+              value={design.text.termsAlign}
+              onChange={(v) => setDesign("text", "termsAlign", v)}
             />
-          </Control>
+          </div>
+          <div className="mt-3">
+            <AlignmentControl
+              label="Signature Align"
+              value={design.text.signatureAlign}
+              onChange={(v) => setDesign("text", "signatureAlign", v)}
+            />
+          </div>
         </Card>
       </div>
 
@@ -845,6 +893,34 @@ function Control({ label, children }: { label: string; children: ReactNode }) {
       <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
+  );
+}
+
+function AlignmentControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value?: string | null;
+  onChange: (value: "left" | "center" | "right") => void;
+}) {
+  return (
+    <Control label={label}>
+      <Select
+        value={value === "left" || value === "center" || value === "right" ? value : "left"}
+        onValueChange={(next) => onChange(next as "left" | "center" | "right")}
+      >
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="left">Left</SelectItem>
+          <SelectItem value="center">Center</SelectItem>
+          <SelectItem value="right">Right</SelectItem>
+        </SelectContent>
+      </Select>
+    </Control>
   );
 }
 

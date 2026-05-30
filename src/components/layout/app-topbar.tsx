@@ -5,7 +5,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import type { CSSProperties } from "react";
 import {
   Search,
   Bell,
@@ -22,6 +21,7 @@ import {
   Menu,
   LayoutGrid,
   ChevronDown,
+  ArrowRight,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -98,23 +98,6 @@ const MODULE_MENU_GROUPS = new Set([
   "Reports",
   "Administration",
 ]);
-
-const moduleGlowColors: Record<string, string> = {
-  POS: "37 99 235",
-  Sales: "37 99 235",
-  Purchases: "239 68 68",
-  Inventory: "124 58 237",
-  Contacts: "37 99 235",
-  Accounting: "124 58 237",
-  Expenses: "239 68 68",
-  Employees: "124 58 237",
-  Reports: "37 99 235",
-  Administration: "124 58 237",
-};
-
-function moduleGlowStyle(label: string): CSSProperties {
-  return { "--menu-glow": moduleGlowColors[label] || "37 99 235" } as CSSProperties;
-}
 
 const ALL_PERMISSION_VALUES = new Set(Object.values(PERMISSIONS));
 const NOTIFICATION_CACHE_KEY = "cloud-daftar-navbar-notifications";
@@ -365,11 +348,11 @@ export function AppTopbar({
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/95 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-background/95 sm:px-5">
+      <header className="sticky top-0 z-30 flex h-[68px] shrink-0 items-center gap-3 border-b border-border/70 bg-background/98 px-4 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-background/95 sm:px-6">
         <button
           type="button"
           onClick={onMenuClick}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground lg:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground lg:hidden"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
@@ -378,10 +361,10 @@ export function AppTopbar({
         <button
           type="button"
           onClick={() => router.push(tenantHref("/apps"))}
-          className="hidden h-9 items-center gap-2 rounded-lg border border-border/80 bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground sm:inline-flex"
+          className="hidden h-11 items-center gap-2 rounded-full bg-foreground px-4 text-sm font-bold text-background shadow-sm transition hover:opacity-90 sm:inline-flex"
         >
           <LayoutGrid className="h-4 w-4" />
-          <span className="hidden md:inline">Apps</span>
+          <span className="hidden md:inline">Apps</span><ArrowRight className="hidden h-4 w-4 md:inline" />
         </button>
 
         {mounted && (
@@ -389,7 +372,7 @@ export function AppTopbar({
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="topbar-glass-search flex h-9 w-full items-center gap-2 rounded-lg border border-border/80 bg-card/80 px-3 text-left text-sm text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-card"
+              className="flex h-11 w-full items-center gap-2 rounded-full border border-border/80 bg-card/90 px-4 text-left text-sm text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-card"
             >
               <Search className="h-4 w-4 shrink-0" />
               <span className="flex-1 truncate">Search screens and actions…</span>
@@ -401,47 +384,103 @@ export function AppTopbar({
         )}
 
         {moduleMenus.length > 0 && mounted && (
-          <div className="hidden min-w-0 flex-1 items-center justify-center lg:flex">
-            <div className="topbar-glass-menu-shell flex max-w-full items-center gap-1.5 overflow-x-auto rounded-2xl p-1.5">
+          <nav className="hidden min-w-0 flex-1 items-center justify-center lg:flex" aria-label="Main modules">
+            <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-transparent p-1">
               {moduleMenus.map((group) => {
                 const active = group.label === activeModuleLabel;
+                const featuredItems = group.items.slice(0, 6);
+                const moreItems = group.items.slice(6, 14);
                 return (
                   <DropdownMenu key={group.label}>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        style={moduleGlowStyle(group.label)}
-                        className={`topbar-glass-menu-button h-9 shrink-0 gap-1.5 rounded-xl border px-3 text-sm transition-all duration-200 ${
+                      <button
+                        type="button"
+                        className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[15px] font-semibold tracking-tight transition-colors ${
                           active
-                            ? "is-active border-primary/30 bg-primary/10 text-foreground shadow-sm"
-                            : "border-border/70 bg-card/50 text-muted-foreground hover:border-primary/30 hover:bg-accent hover:text-foreground"
+                            ? "bg-foreground text-background"
+                            : "text-foreground/80 hover:bg-muted hover:text-foreground"
                         }`}
                       >
                         {group.label}
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
+                        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                      </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                      align="start"
-                      style={moduleGlowStyle(group.label)}
-                      className="topbar-glass-menu-content w-64 border-border bg-popover p-2 shadow-md"
+                      align="center"
+                      sideOffset={14}
+                      className="w-[min(760px,calc(100vw-3rem))] overflow-hidden rounded-[1.75rem] border border-border/70 bg-background p-0 shadow-2xl"
                     >
-                      {group.items.map((item) => (
-                        <DropdownMenuItem
-                          key={item.href}
-                          onClick={() => router.push(tenantHref(item.href))}
-                          className="topbar-glass-menu-item py-2.5 text-sm transition-colors"
-                        >
-                          {item.label}
-                        </DropdownMenuItem>
-                      ))}
+                      <div className="grid gap-0 md:grid-cols-[1.15fr_.85fr]">
+                        <div className="p-5 sm:p-6">
+                          <div className="mb-4 text-sm font-bold text-muted-foreground">
+                            Cloud Daftar for {group.label}
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {featuredItems.map((item) => (
+                              <button
+                                key={item.href}
+                                type="button"
+                                onClick={() => router.push(tenantHref(item.href))}
+                                className="group flex items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-muted"
+                              >
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition-colors group-hover:bg-foreground group-hover:text-background">
+                                  <LayoutGrid className="h-5 w-5" />
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-bold text-foreground">
+                                    {item.label}
+                                  </span>
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    Open {group.label.toLowerCase()} screen
+                                  </span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                          {moreItems.length > 0 && (
+                            <div className="mt-4 grid gap-1 border-t border-border/70 pt-4 sm:grid-cols-2">
+                              {moreItems.map((item) => (
+                                <button
+                                  key={item.href}
+                                  type="button"
+                                  onClick={() => router.push(tenantHref(item.href))}
+                                  className="flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                >
+                                  <span className="truncate">{item.label}</span>
+                                  <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="hidden border-l border-border/70 bg-muted/45 p-6 md:block">
+                          <div className="rounded-3xl border border-border/70 bg-background p-4 shadow-sm">
+                            <div className="mb-4 flex h-32 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-muted to-primary/5">
+                              <LayoutGrid className="h-12 w-12 text-primary" />
+                            </div>
+                            <div className="text-base font-black text-foreground">
+                              Work faster in {group.label}
+                            </div>
+                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                              Quick access to daily operations, reports, and related module tools.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => router.push(tenantHref(featuredItems[0]?.href || "/apps"))}
+                              className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition hover:opacity-90"
+                            >
+                              Open module
+                              <ArrowRight className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 );
               })}
             </div>
-          </div>
+          </nav>
         )}
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
@@ -450,7 +489,7 @@ export function AppTopbar({
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
                 aria-label="Search"
               >
                 <Search className="h-5 w-5" />
@@ -462,7 +501,7 @@ export function AppTopbar({
                   setTheme(next);
                   localStorage.setItem("theme-preference", next);
                 }}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title="Toggle theme"
               >
                 {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -471,7 +510,7 @@ export function AppTopbar({
               <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     title="Notifications"
                   >
                     {unreadCount > 0 ? (
