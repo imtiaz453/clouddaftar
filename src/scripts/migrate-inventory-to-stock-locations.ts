@@ -68,7 +68,13 @@ async function main() {
 
       // Upsert StockBalance
       const existingBalance = await prisma.stockBalance.findUnique({
-        where: { productId_locationId: { productId: ps.productId, locationId } },
+        where: {
+          productId_locationId_companyId: {
+            productId: ps.productId,
+            locationId,
+            companyId: company.id,
+          },
+        },
       });
 
       if (!existingBalance) {

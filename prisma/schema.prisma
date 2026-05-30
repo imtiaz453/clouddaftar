@@ -561,7 +561,7 @@ model StockBalance {
   location StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
   company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, locationId])
+ @@unique([productId, locationId, companyId], name: "productId_locationId_companyId")
   @@index([companyId])
   @@index([productId])
   @@index([locationId])

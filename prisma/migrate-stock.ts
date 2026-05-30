@@ -81,7 +81,13 @@ async function main() {
     if (ps.quantity <= 0) continue;
 
     const existingBalance = await prisma.stockBalance.findUnique({
-      where: { productId_locationId: { productId: ps.productId, locationId: location.id } },
+      where: {
+        productId_locationId_companyId: {
+          productId: ps.productId,
+          locationId: location.id,
+          companyId: ps.companyId,
+        },
+      },
     });
     if (existingBalance) {
       console.log(`  Balance already exists for product ${ps.productId} at ${location.code}, skipping`);

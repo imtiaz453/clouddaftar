@@ -662,7 +662,11 @@ async function seedInventory() {
   for (const bd of balanceData) {
     await prisma.stockBalance.upsert({
       where: {
-        productId_locationId: { productId: bd.product.id, locationId: mainWarehouse.id },
+        productId_locationId_companyId: {
+          productId: bd.product.id,
+          locationId: mainWarehouse.id,
+          companyId: company.id,
+        },
       },
       update: {},
       create: {

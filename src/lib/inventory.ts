@@ -15,7 +15,7 @@ async function upsertBalance(
   companyId: string,
 ): Promise<{ id: string; qtyOnHand: number; qtyReserved: number }> {
   const balance = await tx.stockBalance.upsert({
-    where: { productId_locationId: { productId, locationId } },
+    where: { productId_locationId_companyId: { productId, locationId, companyId } },
     update: {},
     create: {
       productId,
@@ -72,7 +72,7 @@ export async function getProductStockByLocation(
   companyId: string,
 ): Promise<{ qtyOnHand: number; qtyReserved: number; qtyAvailable: number } | null> {
   const balance = await prisma.stockBalance.findUnique({
-    where: { productId_locationId: { productId, locationId } },
+    where: { productId_locationId_companyId: { productId, locationId, companyId } },
   });
   if (!balance) return null;
   return {
