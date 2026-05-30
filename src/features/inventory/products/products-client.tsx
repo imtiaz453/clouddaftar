@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, useCallback } from "react";
 import {
   Search, Plus, ArrowUpDown, Eye, Pencil, Trash2,
-  Package, MapPin,
+  Package, MapPin, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { getProducts, deleteProduct } from "@/actions/inventory";
 import { toast } from "sonner";
 import { ProductFormDialog } from "./product-form-dialog";
+import { ImportDialog } from "@/components/shared/import/import-dialog";
 import type { PaginatedResponse } from "@/types";
 
 interface StockLocation {
@@ -83,6 +84,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
   const [locationId, setLocationId] = useState("");
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<ProductRow | null>(null);
 
   const fetchProducts = useCallback(async (opts: {
@@ -175,6 +177,9 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
       <PageHeader title="Products" description="Manage your product catalog and stock levels">
         <Button size="sm" onClick={handleAdd}>
           <Plus className="mr-2 h-4 w-4" /> New Product
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+          <Upload className="mr-2 h-4 w-4" /> Import Products
         </Button>
       </PageHeader>
 
@@ -441,6 +446,14 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
           )}
         </>
       )}
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        type="products"
+        title="Import Products"
+        description="Upload an Excel or CSV file to bulk import products"
+      />
 
       <ProductFormDialog
         open={dialogOpen}
