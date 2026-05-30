@@ -944,7 +944,9 @@ export async function updateSale(
   const isConvertingPostedDocumentToDraft =
     newStatus === "DRAFT" && existing.status !== "DRAFT" && existingKind !== newKind;
   const isPromotingPreservedDraftDocument =
-    existing.status === "DRAFT" && newStatus !== "DRAFT" && /^DRAFT\//i.test(existing.invoiceNumber);
+    ["DRAFT", "CONFIRMED"].includes(existing.status) &&
+    newStatus !== "DRAFT" &&
+    /^DRAFT\//i.test(existing.invoiceNumber);
   const needsDocumentNumber =
     (isStatusKindChange && !isConvertingPostedDocumentToDraft && !isPromotingPreservedDraftDocument) ||
     (newStatus !== "DRAFT" && isLegacyDraftDocumentNumber(existing.invoiceNumber));
@@ -971,6 +973,8 @@ export async function updateSale(
         });
 
         if (duplicate) {
+          // Do not silently assign the next invoice number because that breaks the
+          // invoice -> draft -> invoice promise. Surface a clear conflict instead.
           throw new Error(
             `Cannot restore original invoice number ${preservedInvoiceNumber} because it is already used by another document.`,
           );

@@ -109,11 +109,27 @@ const movementVariants: Record<string, "default" | "secondary" | "destructive" |
 const movementTypeOptions = Object.keys(movementLabels);
 
 interface StockLedgerClientProps {
-  initialData: PaginatedData;
+  initialData: PaginatedData | null | undefined;
+}
+
+const emptyStockLedgerData: PaginatedData = {
+  data: [],
+  total: 0,
+  page: 1,
+  pageSize: 50,
+  totalPages: 0,
+};
+
+function normalizeStockLedgerData(value: PaginatedData | null | undefined): PaginatedData {
+  return {
+    ...emptyStockLedgerData,
+    ...(value || {}),
+    data: Array.isArray(value?.data) ? value.data : [],
+  };
 }
 
 export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
-  const [data, setData] = useState(initialData);
+  const [data, setData] = useState<PaginatedData>(() => normalizeStockLedgerData(initialData));
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -133,7 +149,7 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
   const { addToast } = useToast();
 
   useEffect(() => {
-    setData(initialData);
+    setData(normalizeStockLedgerData(initialData));
     setPage(1);
   }, [initialData]);
 
@@ -178,14 +194,14 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
       try {
         const result = await getStockLedgerData({
           productId: productId || undefined,
-          locationId: locationId || undefined,
-          movementType: movementType || undefined,
+          locationId: locationId && locationId !== "all" ? locationId : undefined,
+          movementType: movementType && movementType !== "all" ? movementType : undefined,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
           page: newPage,
           pageSize: 50,
         });
-        setData(result as unknown as PaginatedData);
+        setData(normalizeStockLedgerData(result as unknown as PaginatedData));
       } catch {
         addToast({ title: "Failed to load ledger", variant: "error" });
       } finally {
@@ -282,7 +298,7 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
           </div>
           <div>
             <Label className="text-xs">Location</Label>
-            <Select value={locationId} onValueChange={setLocationId}>
+            <Select value={locationId || "all"} onValueChange={(value) => setLocationId(value === "all" ? "" : value)}>
               <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="All locations" />
               </SelectTrigger>
@@ -298,7 +314,7 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
           </div>
           <div>
             <Label className="text-xs">Movement Type</Label>
-            <Select value={movementType} onValueChange={setMovementType}>
+            <Select value={movementType || "all"} onValueChange={(value) => setMovementType(value === "all" ? "" : value)}>
               <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
@@ -362,7 +378,7 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
                   <div key={entry.id} className="space-y-1.5 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{entry.productName}</p>
+                        <p className="truncate text-sm font-medium">{entry.productName || "Unknown product"}</p>
                       </div>
                       <Badge
                         variant={movementVariants[entry.movementType] || "secondary"}
@@ -373,7 +389,7 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>{formatDateTime(entry.createdAt)}</span>
-                      <span>{entry.locationName}</span>
+                      <span>{entry.locationName || "Unknown location"}</span>
                       <span>
                         Qty:{" "}
                         <span
@@ -423,13 +439,13 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
                         </TableCell>
                         <TableCell>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{entry.productName}</p>
+                            <p className="truncate text-sm font-medium">{entry.productName || "Unknown product"}</p>
                             {entry.productSku && (
                               <p className="font-mono text-xs text-muted-foreground">{entry.productSku}</p>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">{entry.locationName}</TableCell>
+                        <TableCell className="text-sm">{entry.locationName || "Unknown location"}</TableCell>
                         <TableCell>
                           <Badge
                             variant={movementVariants[entry.movementType] || "secondary"}

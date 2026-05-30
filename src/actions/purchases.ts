@@ -405,7 +405,9 @@ export async function updatePurchase(
   });
 
   const newStatus = data.status || existing.status;
-  const isPromotingFromDraft = existing.status === "DRAFT" && newStatus !== "DRAFT";
+  const isPromotingFromDraft =
+    newStatus !== "DRAFT" &&
+    (existing.status === "DRAFT" || /^DRAFT\//i.test(existing.referenceNumber));
   const existingAffectsStock = existing.status !== "DRAFT";
   const updatedAffectsStock = newStatus !== "DRAFT";
   let referenceNumber = existing.referenceNumber;

@@ -31,9 +31,15 @@ interface LedgerEntry {
   reference: string | null;
   notes: string | null;
   createdAt: string;
-  product: { id: string; name: string; sku: string | null };
-  location: { id: string; name: string };
-  createdBy: { id: string; name: string; email: string } | null;
+  product?: { id: string; name: string; sku: string | null };
+  location?: { id: string; name: string };
+  createdBy?: { id: string; name?: string | null; email?: string | null } | string | null;
+  productId?: string;
+  productName?: string;
+  productSku?: string | null;
+  locationId?: string;
+  locationName?: string;
+  createdByName?: string | null;
 }
 
 interface PaginatedData {
@@ -98,11 +104,27 @@ const movementLabels: Record<string, string> = {
 };
 
 interface LedgerClientProps {
-  initialData: PaginatedData;
+  initialData: PaginatedData | null | undefined;
+}
+
+const emptyLedgerData: PaginatedData = {
+  data: [],
+  total: 0,
+  page: 1,
+  pageSize: 50,
+  totalPages: 0,
+};
+
+function normalizeLedgerData(value: PaginatedData | null | undefined): PaginatedData {
+  return {
+    ...emptyLedgerData,
+    ...(value || {}),
+    data: Array.isArray(value?.data) ? value.data : [],
+  };
 }
 
 export function LedgerClient({ initialData }: LedgerClientProps) {
-  const [data, setData] = useState(initialData);
+  const [data, setData] = useState<PaginatedData>(() => normalizeLedgerData(initialData));
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -120,7 +142,7 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
   const [movementTypes, setMovementTypes] = useState<string[]>([]);
 
   useEffect(() => {
-    setData(initialData);
+    setData(normalizeLedgerData(initialData));
     setPage(1);
   }, [initialData]);
 
@@ -150,15 +172,15 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
     try {
       const result = await getStockLedgerData({
         productId: productId || undefined,
-        locationId: locationId || undefined,
-        movementType: movementType || undefined,
+        locationId: locationId && locationId !== "all" ? locationId : undefined,
+        movementType: movementType && movementType !== "all" ? movementType : undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
         reference: reference || undefined,
         page: p,
         pageSize: 50,
       });
-      setData(result as unknown as PaginatedData);
+      setData(normalizeLedgerData(result as unknown as PaginatedData));
       setPage(p);
     } catch {
       toast.error("Failed to load ledger entries");
@@ -184,6 +206,23 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
 
   function handlePageChange(newPage: number) {
     fetchData(newPage);
+  }
+
+  function getProductName(entry: LedgerEntry) {
+    return entry.productName || entry.product?.name || "Unknown product";
+  }
+
+  function getProductSku(entry: LedgerEntry) {
+    return entry.productSku || entry.product?.sku || null;
+  }
+
+  function getLocationName(entry: LedgerEntry) {
+    return entry.locationName || entry.location?.name || "Unknown location";
+  }
+
+  function getCreatedBy(entry: LedgerEntry) {
+    if (typeof entry.createdBy === "string") return entry.createdBy;
+    return entry.createdByName || entry.createdBy?.name || entry.createdBy?.email || "-";
   }
 
   const hasFilters = productId || locationId || movementType || dateFrom || dateTo || reference;
@@ -227,7 +266,7 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
           </div>
           <div>
             <p className="mb-1 text-xs text-muted-foreground">Location</p>
-            <Select value={locationId} onValueChange={setLocationId}>
+            <Select value={locationId || "all"} onValueChange={(value) => setLocationId(value === "all" ? "" : value)}>
               <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="All locations" />
               </SelectTrigger>
@@ -241,7 +280,7 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
           </div>
           <div>
             <p className="mb-1 text-xs text-muted-foreground">Movement Type</p>
-            <Select value={movementType} onValueChange={setMovementType}>
+            <Select value={movementType || "all"} onValueChange={(value) => setMovementType(value === "all" ? "" : value)}>
               <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
@@ -340,12 +379,12 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
                         {formatDateTime(entry.createdAt)}
                       </TableCell>
                       <TableCell className="text-sm font-medium max-w-[200px] truncate">
-                        {entry.product.name}
+                        {getProductName(entry)}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
-                        {entry.product.sku || "-"}
+                        {getProductSku(entry) || "-"}
                       </TableCell>
-                      <TableCell className="text-xs">{entry.location.name}</TableCell>
+                      <TableCell className="text-xs">{getLocationName(entry)}</TableCell>
                       <TableCell>
                         <Badge
                           variant={movementTypeVariants[entry.movementType] || "secondary"}
@@ -372,7 +411,7 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
                         {entry.reference || "-"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {entry.createdBy?.name || entry.createdBy?.email || "-"}
+                        {getCreatedBy(entry)}
                       </TableCell>
                     </TableRow>
                   ))}
