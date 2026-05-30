@@ -80,7 +80,7 @@ export async function resolveOperationalLocation(
   params: { companyId: string; userId?: string; branchId?: string | null; warehouseId?: string | null },
 ) {
   const fallback = await ensureDefaultBranchAndWarehouse(tx, params.companyId);
-  let branchId = params.branchId || fallback.branch.id;
+  const branchId = params.branchId || fallback.branch.id;
   return { branchId, warehouseId: null };
 }
 

@@ -14,6 +14,7 @@ async function main() {
   // Seed initial super admin (owner)
   if (superAdminEmail && superAdminPassword) {
     const superAdminHash = await hash(superAdminPassword, 12);
+    try {
     await prisma.systemAdmin.upsert({
       where: { email: superAdminEmail },
       update: {
@@ -30,67 +31,67 @@ async function main() {
         isActive: true,
       },
     });
+  } catch {}
     console.log(`Super admin ready: ${superAdminEmail}`);
   } else {
     console.log("Skipping super admin seed. Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD.");
   }
 
-  const user = await prisma.user.upsert({
-    where: { email: "admin@clouddaftar.com" },
-    update: {},
-    create: {
-      name: "Admin User",
-      email: "admin@clouddaftar.com",
-      passwordHash,
-      phone: "+92 300 1234567",
-    },
-  });
-
-  const company = await prisma.company.upsert({
-    where: { slug: "demo-pharmacy" },
-    update: {},
-    create: {
-      name: "Demo Pharmacy",
-      slug: "demo-pharmacy",
-      phone: "+92 300 1234567",
-      email: "info@demopharmacy.com",
-      address: "123 Main Street",
-      city: "Karachi",
-      state: "Sindh",
-      country: "PK",
-      taxId: "NTN-1234567",
-      taxRate: 0,
-      currency: "PKR",
-      currencySymbol: "Rs",
-      timezone: "Asia/Karachi",
-      dateFormat: "DD/MM/YYYY",
-      settings: {
-        create: {
-          invoicePrefix: "INV",
-          salesOrderPrefix: "SORD",
-          proformaInvoicePrefix: "PI",
-          quotationPrefix: "QUOT",
-          purchaseOrderPrefix: "PO",
-          invoiceNumberLength: 5,
-          lowStockThreshold: 10,
-          autoGenerateSKU: true,
-          skuPrefix: "DMO",
-          enableBarcodeScanning: true,
-        },
+  let user = await prisma.user.findUnique({ where: { email: "admin@clouddaftar.com" } });
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        name: "Admin User",
+        email: "admin@clouddaftar.com",
+        passwordHash,
+        phone: "+92 300 1234567",
       },
-      theme: {
-        create: {
-          sidebarColor: "slate",
-          sidebarStyle: "gradient",
-          primaryColor: "blue",
-          fontFamily: "inter",
-          borderRadius: "normal",
-          layoutDensity: "comfortable",
-        },
-      },
-    },
-  });
+    });
+  }
 
+  let company = await prisma.company.findUnique({ where: { slug: "demo-pharmacy" } });
+  if (!company) {
+    try {
+      company = await prisma.company.create({
+        data: {
+          name: "Demo Pharmacy",
+          slug: "demo-pharmacy",
+          phone: "+92 300 1234567",
+          email: "info@demopharmacy.com",
+          address: "123 Main Street",
+          city: "Karachi",
+          state: "Sindh",
+          country: "Pakistan",
+          currency: "PKR",
+          currencySymbol: "₨",
+          timezone: "Asia/Karachi",
+          taxName: "GST",
+          taxRate: 0,
+          settings: {
+            create: {
+              invoicePrefix: "INV-",
+              salesOrderPrefix: "SORD-",
+              proformaInvoicePrefix: "PI-",
+              quotationPrefix: "QUOT-",
+              purchaseOrderPrefix: "PO-",
+              invoiceNumberLength: 5,
+              autoGenerateSKU: true,
+              skuPrefix: "DEM",
+              defaultTaxRate: 0,
+              taxComplianceMode: "NON_COMPLIANT",
+            },
+          },
+          theme: {
+            create: {},
+          },
+        },
+      });
+    } catch {
+      company = await prisma.company.findUnique({ where: { slug: "demo-pharmacy" } });
+    }
+  }
+
+  if (!company) throw new Error("Failed to create/get company");
   await prisma.companyMembership.upsert({
     where: { userId_companyId: { userId: user.id, companyId: company.id } },
     update: {},
@@ -561,6 +562,9 @@ async function main() {
     "Subscription plans seeded: Starter (free), Business (Rs 1,999/mo), Enterprise (Rs 4,999/mo)",
   );
   console.log("AR/AP data seeded: Sales (8 invoices), Purchases (6 POs), Reminders (3)");
+  
+  // Seed inventory data (stock locations, balances, etc.)
+  await seedInventory();
 }
 
 main()
@@ -805,11 +809,3 @@ async function seedInventory() {
 
   console.log("Inventory seed data created successfully!");
 }
-
-seedInventory()
-  .catch((e) => {
-    console.error("Inventory seed error:", e);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });

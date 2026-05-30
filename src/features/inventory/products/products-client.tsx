@@ -93,9 +93,9 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
     try {
       const result = await getProducts({
         search: opts.search || undefined,
-        categoryId: opts.categoryId || undefined,
-        stockStatus: (opts.stockStatus || undefined) as "all" | "low" | "out" | undefined,
-        locationId: opts.locationId || undefined,
+        categoryId: opts.categoryId && opts.categoryId !== "all" ? opts.categoryId : undefined,
+        stockStatus: (opts.stockStatus && opts.stockStatus !== "all" ? opts.stockStatus : undefined) as "low" | "out" | undefined,
+        locationId: opts.locationId && opts.locationId !== "all" ? opts.locationId : undefined,
         page: opts.page || 1,
         pageSize: 50,
       });
@@ -196,7 +196,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((c) => (
                   <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
@@ -207,7 +207,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                 <SelectValue placeholder="Stock Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Stock</SelectItem>
+                <SelectItem value="all">All Stock</SelectItem>
                 <SelectItem value="low">Low Stock</SelectItem>
                 <SelectItem value="out">Out of Stock</SelectItem>
               </SelectContent>
@@ -217,7 +217,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                 <SelectValue placeholder="Location" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Locations</SelectItem>
+                <SelectItem value="all">All Locations</SelectItem>
                 {locations.map((l) => (
                   <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                 ))}
