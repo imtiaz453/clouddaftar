@@ -18,56 +18,41 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-const variants = {
+type ToastVariantConfig = {
+  panel: string;
+  icon: JSX.Element;
+};
+
+const variants: Record<NonNullable<Toast["variant"]>, ToastVariantConfig> = {
   default: {
-    accent: "from-slate-500/20 via-slate-400/10 to-transparent",
-    ring: "ring-slate-400/25",
-    iconWrap: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-    title: "text-slate-900 dark:text-slate-50",
-    desc: "text-slate-600 dark:text-slate-300",
-    bar: "bg-slate-500",
-    svg: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+    panel: "bg-sky-500",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.9" stroke="currentColor" className="size-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a3 3 0 1 1-5.714 0" />
       </svg>
     ),
   },
   success: {
-    accent: "from-emerald-500/20 via-emerald-400/10 to-transparent",
-    ring: "ring-emerald-400/25",
-    iconWrap: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200",
-    title: "text-emerald-950 dark:text-emerald-50",
-    desc: "text-emerald-700/90 dark:text-emerald-200/90",
-    bar: "bg-emerald-500",
-    svg: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    panel: "bg-green-500",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.9" stroke="currentColor" className="size-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9 9.75h.008v.008H9V9.75Zm6 0h.008v.008H15V9.75Z" />
       </svg>
     ),
   },
   error: {
-    accent: "from-rose-500/20 via-rose-400/10 to-transparent",
-    ring: "ring-rose-400/25",
-    iconWrap: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200",
-    title: "text-rose-950 dark:text-rose-50",
-    desc: "text-rose-700/90 dark:text-rose-200/90",
-    bar: "bg-rose-500",
-    svg: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+    panel: "bg-red-500",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.9" stroke="currentColor" className="size-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm8.485 1.515a2.25 2.25 0 0 1-1.948 3.375H5.463a2.25 2.25 0 0 1-1.948-3.375L10.052 5.7a2.25 2.25 0 0 1 3.896 0l6.537 12.315Z" />
       </svg>
     ),
   },
   warning: {
-    accent: "from-amber-500/25 via-amber-400/10 to-transparent",
-    ring: "ring-amber-400/30",
-    iconWrap: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200",
-    title: "text-amber-950 dark:text-amber-50",
-    desc: "text-amber-700/90 dark:text-amber-200/90",
-    bar: "bg-amber-500",
-    svg: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+    panel: "bg-yellow-400",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.9" stroke="currentColor" className="size-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 7.5h16.5m-16.5 4.5h16.5m-12 4.5h7.5m-9.75-13.5 12 18" />
       </svg>
     ),
   },
@@ -87,7 +72,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => [...prev, { ...toast, id }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 10000);
+    }, 6000);
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -102,20 +87,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         closeButton
         richColors={false}
         expand={false}
-        duration={3800}
+        duration={4200}
         toastOptions={{
           classNames: {
             toast:
-              "group max-w-[340px] rounded-xl border border-border/70 bg-background/95 px-3 py-2.5 text-foreground shadow-xl shadow-black/10 backdrop-blur-xl dark:shadow-black/40",
-            title: "text-[13px] font-bold leading-4 tracking-tight text-foreground",
-            description: "text-[11px] leading-4 text-muted-foreground",
-            actionButton: "rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground",
-            cancelButton: "rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground",
-            closeButton: "border-border/70 bg-background/90 text-muted-foreground hover:text-foreground",
+              "group relative min-h-[74px] w-[min(600px,calc(100vw-2rem))] overflow-hidden rounded-xl border-0 bg-white py-4 pl-[92px] pr-12 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.12)] dark:bg-slate-950 dark:text-slate-50",
+            success: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-green-500 before:content-['']",
+            info: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-sky-500 before:content-['']",
+            warning: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-yellow-400 before:content-['']",
+            error: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-red-500 before:content-['']",
+            icon: "absolute left-0 top-0 z-10 flex h-full w-[74px] items-center justify-center text-white",
+            content: "relative z-10 min-w-0 gap-0",
+            title: "text-[15px] font-extrabold leading-5 tracking-tight text-slate-950 dark:text-slate-50",
+            description: "mt-1 line-clamp-2 text-[14px] leading-5 text-slate-800 dark:text-slate-200",
+            actionButton: "rounded-full bg-slate-950 px-3 py-1.5 text-xs font-bold text-white dark:bg-white dark:text-slate-950",
+            cancelButton: "rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+            closeButton:
+              "absolute right-4 top-1/2 z-20 h-7 w-7 -translate-y-1/2 rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white",
           },
         }}
       />
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[9999] flex w-[calc(100vw-2rem)] max-w-[360px] flex-col gap-2 sm:bottom-5 sm:right-5">
+      <div className="pointer-events-none fixed bottom-5 right-5 z-[9999] flex w-[calc(100vw-2.5rem)] max-w-[600px] flex-col gap-4">
         {toasts.map((toast) => {
           const v = variants[toast.variant || "default"];
 
@@ -123,35 +115,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={toast.id}
               role="alert"
-              className={`pointer-events-auto group relative overflow-hidden rounded-2xl border border-white/70 bg-background/92 p-3 shadow-xl shadow-slate-900/10 ring-1 backdrop-blur-xl transition-all duration-300 ease-out dark:border-white/10 dark:bg-slate-950/92 dark:shadow-black/40 ${v.ring}`}
+              className="pointer-events-auto relative min-h-[74px] overflow-hidden rounded-xl bg-white py-4 pl-[92px] pr-12 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition-all duration-300 ease-out dark:bg-slate-950 dark:text-slate-50"
             >
-              <div className={`absolute inset-x-0 top-0 h-12 bg-gradient-to-b ${v.accent}`} />
-              <div className={`absolute bottom-0 left-0 h-0.5 w-full ${v.bar} opacity-80`} />
-              <div className="relative flex items-start gap-2.5">
-                <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 ${v.iconWrap}`}>
-                  {v.svg}
-                </div>
-                <div className="min-w-0 flex-1 pr-1">
-                  <strong className={`block text-[13px] font-extrabold leading-4 tracking-tight ${v.title}`}>
-                    {toast.title}
-                  </strong>
-                  {toast.description && (
-                    <p className={`mt-0.5 line-clamp-2 text-[12px] leading-4 ${v.desc}`}>
-                      {toast.description}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeToast(toast.id)}
-                  className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                  aria-label="Close notification"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="size-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                  </svg>
-                </button>
+              <div className={`absolute inset-y-0 left-0 flex w-[74px] items-center justify-center text-white ${v.panel}`}>
+                {v.icon}
               </div>
+
+              <div className="min-w-0">
+                <strong className="block text-[15px] font-extrabold leading-5 tracking-tight text-slate-950 dark:text-slate-50">
+                  {toast.title}
+                </strong>
+                {toast.description && (
+                  <p className="mt-1 line-clamp-2 text-[14px] leading-5 text-slate-800 dark:text-slate-200">
+                    {toast.description}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => removeToast(toast.id)}
+                className="absolute right-4 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                aria-label="Close notification"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor" className="size-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           );
         })}
