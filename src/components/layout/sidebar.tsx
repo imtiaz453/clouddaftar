@@ -184,7 +184,7 @@ function hasAnyPermission(itemPerms: string[] | undefined, userPerms: string[]):
 }
 
 function filterNavGroups(groups: NavGroup[], permissions: string[]): NavGroup[] {
-  if (permissions.length === 0 || permissions.length >= ALL_PERMISSION_VALUES.size) return groups;
+  if (permissions.length >= ALL_PERMISSION_VALUES.size) return groups;
   return groups
     .map((group) => ({
       ...group,
@@ -194,7 +194,7 @@ function filterNavGroups(groups: NavGroup[], permissions: string[]): NavGroup[] 
 }
 
 function filterBottomItems(items: NavItem[], permissions: string[]): NavItem[] {
-  if (permissions.length === 0 || permissions.length >= ALL_PERMISSION_VALUES.size) return items;
+  if (permissions.length >= ALL_PERMISSION_VALUES.size) return items;
   return items.filter((item) => hasAnyPermission(item.permissions, permissions));
 }
 

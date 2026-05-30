@@ -123,7 +123,7 @@ function hasAnyPermission(itemPerms: string[] | undefined, userPerms: string[]):
 }
 
 function filterModuleMenus(groups: NavGroup[], permissions: string[]): NavGroup[] {
-  const allowedAll = permissions.length === 0 || permissions.length >= ALL_PERMISSION_VALUES.size;
+  const allowedAll = permissions.length >= ALL_PERMISSION_VALUES.size;
 
   return groups
     .filter((group) => MODULE_MENU_GROUPS.has(group.label))
