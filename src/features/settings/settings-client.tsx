@@ -389,10 +389,10 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
   );
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader title="Settings" description="Manage your business settings and preferences" />
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
         <TabsList className="w-full justify-start">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="business">Business</TabsTrigger>
