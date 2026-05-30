@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireCompanyAuth, checkPermission } from "@/lib/auth-helper";
 import { PERMISSIONS } from "@/lib/constants";
-import { isLegacyDraftDocumentNumber, reserveNextDocumentNumber } from "@/lib/document-numbers";
+import {
+  getPrefixForKind,
+  isLegacyDraftDocumentNumber,
+  reserveNextDocumentNumber,
+} from "@/lib/document-numbers";
 import { createAuditLog, createNotification } from "@/lib/audit";
 import { sendPushNotificationWithAdmins } from "@/lib/push";
 import {
@@ -28,6 +32,38 @@ function parseOptionalDate(value?: string | null) {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function makeDraftPurchaseReferenceNumber(referenceNumber: string): string {
+  const value = String(referenceNumber || "").trim();
+  if (!value) return value;
+  if (/^DRAFT\//i.test(value) || /^DRAFT-/i.test(value)) return value;
+
+  const parts = value.split("/");
+  if (parts.length >= 4) {
+    return ["DRAFT", ...parts.slice(1)].join("/");
+  }
+
+  return `DRAFT/${value}`;
+}
+
+function restorePurchaseReferenceNumber(
+  referenceNumber: string,
+  settings?: Parameters<typeof getPrefixForKind>[1],
+): string | null {
+  const value = String(referenceNumber || "").trim();
+  if (!value) return null;
+
+  if (/^DRAFT\//i.test(value)) {
+    const parts = value.split("/");
+    if (parts.length >= 4) {
+      const prefix = getPrefixForKind("purchase_order", settings);
+      return [prefix, ...parts.slice(1)].join("/");
+    }
+  }
+
+  if (/^DRAFT\//i.test(value)) return value.replace(/^DRAFT/i, getPrefixForKind("purchase_order", settings));
+  return null;
 }
 
 async function getProductsForPurchase(
@@ -165,6 +201,9 @@ export async function createPurchase(data: {
 
   const purchase = await prisma.$transaction(async (tx) => {
     refNumber = await reserveNextDocumentNumber(tx, companyId, "purchase_order", settings);
+    if (data.status === "DRAFT") {
+      refNumber = makeDraftPurchaseReferenceNumber(refNumber);
+    }
 
     const productsById = await getProductsForPurchase(tx, companyId, data.items);
     const location = await resolveOperationalLocation(tx, {
@@ -372,7 +411,12 @@ export async function updatePurchase(
   let referenceNumber = existing.referenceNumber;
 
   const purchase = await prisma.$transaction(async (tx) => {
-    if (isPromotingFromDraft && isLegacyDraftDocumentNumber(existing.referenceNumber)) {
+    if (isPromotingFromDraft) {
+      const restored = restorePurchaseReferenceNumber(existing.referenceNumber, settings);
+      referenceNumber = restored ?? (await reserveNextDocumentNumber(tx, companyId, "purchase_order", settings));
+    } else if (existing.status !== "DRAFT" && newStatus === "DRAFT") {
+      referenceNumber = makeDraftPurchaseReferenceNumber(existing.referenceNumber);
+    } else if (isLegacyDraftDocumentNumber(existing.referenceNumber) && newStatus !== "DRAFT") {
       referenceNumber = await reserveNextDocumentNumber(tx, companyId, "purchase_order", settings);
     }
 
@@ -550,15 +594,6 @@ export async function updatePurchase(
           where: { id: oldItem.productId, companyId, deletedAt: null },
         });
         if (product) {
-          if (
-            !settings?.enableNegativeStock &&
-            !product.isService &&
-            product.stock < oldItem.quantity
-          ) {
-            throw new Error(
-              `Insufficient stock to convert ${product.name} to draft. Available: ${product.stock}, required: ${oldItem.quantity}`,
-            );
-          }
           const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
             companyId,
             productId: oldItem.productId,
@@ -736,11 +771,6 @@ export async function returnPurchase(id: string) {
         where: { id: item.productId, companyId, deletedAt: null },
       });
       if (product) {
-        if (!settings?.enableNegativeStock && !product.isService && product.stock < item.quantity) {
-          throw new Error(
-            `Insufficient stock to return ${product.name}. Available: ${product.stock}, required: ${item.quantity}`,
-          );
-        }
         const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
           companyId,
           productId: item.productId,
@@ -820,6 +850,7 @@ export async function convertPurchaseToDraft(id: string) {
   if (purchase.status !== "RECEIVED")
     throw new Error("Only received purchases can be converted to draft");
   const settings = await prisma.companySettings.findUnique({ where: { companyId } });
+  const draftReferenceNumber = makeDraftPurchaseReferenceNumber(purchase.referenceNumber);
 
   await prisma.$transaction(async (tx) => {
     for (const item of purchase.items) {
@@ -827,11 +858,6 @@ export async function convertPurchaseToDraft(id: string) {
         where: { id: item.productId, companyId, deletedAt: null },
       });
       if (product) {
-        if (!settings?.enableNegativeStock && !product.isService && product.stock < item.quantity) {
-          throw new Error(
-            `Insufficient stock to convert ${product.name} to draft. Available: ${product.stock}, required: ${item.quantity}`,
-          );
-        }
         const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
           companyId,
           productId: item.productId,
@@ -846,7 +872,7 @@ export async function convertPurchaseToDraft(id: string) {
             quantity: -item.quantity,
             beforeStock,
             afterStock,
-            reference: purchase.referenceNumber,
+            reference: draftReferenceNumber,
             notes: "Converted to draft",
             createdById: userId,
           },
@@ -857,6 +883,7 @@ export async function convertPurchaseToDraft(id: string) {
     await tx.purchase.update({
       where: { id },
       data: {
+        referenceNumber: draftReferenceNumber,
         status: "DRAFT",
         paymentStatus: "UNPAID",
         paid: 0,
@@ -879,7 +906,7 @@ export async function convertPurchaseToDraft(id: string) {
     action: "UPDATE",
     entity: "Purchase",
     entityId: id,
-    metadata: { referenceNumber: purchase.referenceNumber, type: "convert-to-draft" },
+    metadata: { referenceNumber: draftReferenceNumber, originalReferenceNumber: purchase.referenceNumber, type: "convert-to-draft" },
   });
 
   revalidatePath("/purchases");

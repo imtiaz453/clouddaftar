@@ -6,6 +6,7 @@ import { requireCompanyAuth, checkPermission, requireTaxSetup } from "@/lib/auth
 import { PERMISSIONS } from "@/lib/constants";
 import {
   documentKindForSaleStatus,
+  getPrefixForKind,
   isLegacyDraftDocumentNumber,
   reserveNextDocumentNumber,
 } from "@/lib/document-numbers";
@@ -31,7 +32,7 @@ import {
   resolveOperationalLocation,
   getUserAccessibleLocationIds,
 } from "@/lib/locations";
-import { consumeStockForSaleTx, getProductStockByLocation } from "@/lib/inventory";
+import { consumeStockForSaleTx, receiveStockForPurchaseTx, resolveLocationIdFromWarehouseId, getProductStockByLocation } from "@/lib/inventory";
 
 type SaleLineInput = {
   productId: string;
@@ -71,6 +72,36 @@ function computeSalePaymentFields(status: string, total: number, requestedPaid?:
     due: Math.max(0, total - paid),
     paymentStatus: computePaymentStatus(total, paid),
   };
+}
+
+
+function normalizeLocalDocumentPrefix(prefix: string): string {
+  return prefix.trim().replace(/[-_./]+$/g, "");
+}
+
+function hasPeriodDocumentNumber(value: string): boolean {
+  return /^[^/]+\/\d{4}\/\d{2}\/.+$/i.test(value);
+}
+
+function replacePeriodDocumentPrefix(value: string, nextPrefix: string): string | null {
+  if (!hasPeriodDocumentNumber(value)) return null;
+  const normalizedPrefix = normalizeLocalDocumentPrefix(nextPrefix);
+  if (!normalizedPrefix) return null;
+  return value.replace(/^[^/]+/, normalizedPrefix);
+}
+
+function draftNumberFromPostedDocument(value: string): string | null {
+  return replacePeriodDocumentPrefix(value, "DRAFT");
+}
+
+function postedNumberFromDraftDocument(
+  value: string,
+  kind: ReturnType<typeof documentKindForSaleStatus>,
+  settings: Parameters<typeof getPrefixForKind>[1],
+): string | null {
+  if (!hasPeriodDocumentNumber(value)) return null;
+  if (!/^DRAFT\//i.test(value)) return null;
+  return replacePeriodDocumentPrefix(value, getPrefixForKind(kind, settings));
 }
 
 function buildZatcaSaleLines(sale: any) {
@@ -591,6 +622,18 @@ export async function createSale(data: {
                 createdById: userId,
               },
             });
+            const stockLocationId = await resolveLocationIdFromWarehouseId(location.warehouseId, companyId);
+            if (stockLocationId) {
+              await consumeStockForSaleTx(tx, {
+                locationId: stockLocationId,
+                productId: item.productId,
+                companyId,
+                quantity: item.quantity,
+                reference: invoiceNumber,
+                referenceId: sale.id,
+                createdById: userId,
+              });
+            }
           }
         }
       }
@@ -897,12 +940,47 @@ export async function updateSale(
   );
   const effectiveCustomerId = data.customerId ?? existing.customerId;
   let invoiceNumber = existing.invoiceNumber;
+  const isStatusKindChange = newStatus !== existing.status && existingKind !== newKind;
+  const isConvertingPostedDocumentToDraft =
+    newStatus === "DRAFT" && existing.status !== "DRAFT" && existingKind !== newKind;
+  const isPromotingPreservedDraftDocument =
+    existing.status === "DRAFT" && newStatus !== "DRAFT" && /^DRAFT\//i.test(existing.invoiceNumber);
   const needsDocumentNumber =
-    (newStatus !== existing.status && existingKind !== newKind) ||
+    (isStatusKindChange && !isConvertingPostedDocumentToDraft && !isPromotingPreservedDraftDocument) ||
     (newStatus !== "DRAFT" && isLegacyDraftDocumentNumber(existing.invoiceNumber));
 
   const sale = await prisma.$transaction(async (tx) => {
-    if (needsDocumentNumber) {
+    if (isConvertingPostedDocumentToDraft) {
+      invoiceNumber = draftNumberFromPostedDocument(existing.invoiceNumber) ?? existing.invoiceNumber;
+    } else if (isPromotingPreservedDraftDocument) {
+      const preservedInvoiceNumber = postedNumberFromDraftDocument(
+        existing.invoiceNumber,
+        newKind,
+        settings,
+      );
+
+      if (preservedInvoiceNumber) {
+        const duplicate = await tx.sale.findFirst({
+          where: {
+            companyId,
+            deletedAt: null,
+            invoiceNumber: preservedInvoiceNumber,
+            id: { not: id },
+          },
+          select: { id: true },
+        });
+
+        if (duplicate) {
+          throw new Error(
+            `Cannot restore original invoice number ${preservedInvoiceNumber} because it is already used by another document.`,
+          );
+        }
+
+        invoiceNumber = preservedInvoiceNumber;
+      } else if (needsDocumentNumber) {
+        invoiceNumber = await reserveNextDocumentNumber(tx, companyId, newKind, settings);
+      }
+    } else if (needsDocumentNumber) {
       invoiceNumber = await reserveNextDocumentNumber(tx, companyId, newKind, settings);
     }
 
@@ -936,6 +1014,19 @@ export async function updateSale(
               createdById: userId,
             },
           });
+          const restoreLocId = await resolveLocationIdFromWarehouseId(existing.warehouseId, companyId);
+          if (restoreLocId) {
+            await receiveStockForPurchaseTx(tx, {
+              locationId: restoreLocId,
+              productId: oldItem.productId,
+              companyId,
+              quantity: oldItem.quantity,
+              reference: invoiceNumber,
+              referenceId: existing.id,
+              notes: data.items ? "Invoice items edited - stock restored" : "Invoice converted to non-posting - stock restored",
+              createdById: userId,
+            });
+          }
         }
       }
     }
@@ -974,6 +1065,18 @@ export async function updateSale(
             createdById: userId,
           },
         });
+        const issueLocId = await resolveLocationIdFromWarehouseId(existing.warehouseId, companyId);
+        if (issueLocId) {
+          await consumeStockForSaleTx(tx, {
+            locationId: issueLocId,
+            productId: item.productId,
+            companyId,
+            quantity: item.quantity,
+            reference: invoiceNumber,
+            referenceId: existing.id,
+            createdById: userId,
+          });
+        }
       }
     }
 
@@ -1171,11 +1274,11 @@ export async function refundSale(
         where: { id: item.productId, companyId, deletedAt: null },
       });
       if (product) {
-        const { beforeStock, afterStock } = await adjustWarehouseStock(tx, {
-          companyId,
-          productId: item.productId,
-          warehouseId: sale.warehouseId,
-          quantityDelta: Number(item.quantity),
+        const beforeStock = product.stock;
+        const afterStock = beforeStock + item.quantity;
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
         });
         await tx.inventoryLog.create({
           data: {
