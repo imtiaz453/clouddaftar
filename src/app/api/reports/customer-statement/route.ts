@@ -10,6 +10,24 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+function startOfDay(value: string | Date) {
+  const date = value instanceof Date ? new Date(value) : new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function endOfDay(value: string | Date) {
+  const date = value instanceof Date ? new Date(value) : new Date(value);
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+function todayEnd() {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const user = await requireCompanyAuth();
@@ -27,20 +45,25 @@ export async function GET(req: NextRequest) {
     });
     if (!customer) return errorResponse("Customer not found", 404);
 
-    const fromDate = from ? new Date(from) : new Date(0);
-    const toDate = to ? new Date(to) : new Date("2099-12-31");
+    const requestedToDate = to ? endOfDay(to) : todayEnd();
 
     const entries = await prisma.ledgerEntry.findMany({
       where: {
         companyId: user.companyId,
         customerId,
-        entryDate: { lte: toDate },
+        entryDate: { lte: requestedToDate },
       },
       orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
     });
 
+    // When the user does not choose a date range, show a real business range:
+    // first transaction date up to today. Do not expose technical sentinel dates
+    // like Jan 01, 1970 or Dec 31, 2099 in the statement/PDF.
+    const fromDate = from ? startOfDay(from) : entries[0]?.entryDate ? startOfDay(entries[0].entryDate) : startOfDay(requestedToDate);
+    const toDate = requestedToDate;
+
     const priorEntries = entries.filter((e) => e.entryDate < fromDate);
-    const periodEntries = entries.filter((e) => e.entryDate >= fromDate);
+    const periodEntries = entries.filter((e) => e.entryDate >= fromDate && e.entryDate <= toDate);
 
     const openingBalance = priorEntries.length > 0 ? Number(priorEntries[priorEntries.length - 1].balance) : 0;
     const closingBalance = periodEntries.length > 0 ? Number(periodEntries[periodEntries.length - 1].balance) : openingBalance;
