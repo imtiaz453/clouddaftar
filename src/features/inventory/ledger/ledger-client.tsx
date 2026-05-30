@@ -233,7 +233,7 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                {locations.map((l) => (
+                {locations.filter((l) => typeof l.id === "string" && l.id.trim() !== "").map((l) => (
                   <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -247,7 +247,7 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {movementTypes.map((t) => (
+                {movementTypes.filter((t) => typeof t === "string" && t.trim() !== "").map((t) => (
                   <SelectItem key={t} value={t}>
                     {movementLabels[t] || t.replace(/_/g, " ")}
                   </SelectItem>

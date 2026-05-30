@@ -490,7 +490,7 @@ function CreateLotDialog({
                   {locations.length === 0 ? (
                     <SelectItem value="__loading" disabled>Loading...</SelectItem>
                   ) : (
-                    locations.map((loc) => (
+                    locations.filter((loc) => typeof loc.id === "string" && loc.id.trim() !== "").map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.name} ({loc.code})
                       </SelectItem>

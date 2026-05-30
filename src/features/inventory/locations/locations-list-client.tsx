@@ -97,7 +97,7 @@ export function LocationsListClient({ locations }: LocationsListClientProps) {
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
-                {LOCATION_TYPES.map((t) => (
+                {LOCATION_TYPES.filter((t) => typeof t.value === "string" && t.value.trim() !== "").map((t) => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
               </SelectContent>

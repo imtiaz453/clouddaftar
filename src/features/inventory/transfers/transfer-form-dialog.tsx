@@ -184,7 +184,7 @@ export function TransferFormDialog({ open, onOpenChange }: TransferFormDialogPro
                   <SelectValue placeholder="Select source" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((l) => (
+                  {locations.filter((l) => typeof l.id === "string" && l.id.trim() !== "").map((l) => (
                     <SelectItem key={l.id} value={l.id}>
                       {l.name} ({l.code})
                     </SelectItem>

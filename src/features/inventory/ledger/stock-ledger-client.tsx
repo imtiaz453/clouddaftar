@@ -288,7 +288,7 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                {locations.map((loc) => (
+                {locations.filter((loc) => typeof loc.id === "string" && loc.id.trim() !== "").map((loc) => (
                   <SelectItem key={loc.id} value={loc.id}>
                     {loc.name}
                   </SelectItem>
@@ -304,7 +304,7 @@ export function StockLedgerClient({ initialData }: StockLedgerClientProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {movementTypeOptions.map((type) => (
+                {movementTypeOptions.filter((type) => typeof type === "string" && type.trim() !== "").map((type) => (
                   <SelectItem key={type} value={type}>
                     {movementLabels[type] || type.replace(/_/g, " ")}
                   </SelectItem>

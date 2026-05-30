@@ -199,7 +199,7 @@ export function TransfersListClient({ initialData }: TransfersListClientProps) {
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            {STATUS_OPTIONS.map((opt) => (
+            {STATUS_OPTIONS.filter((opt) => typeof opt.value === "string" && opt.value.trim() !== "").map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>

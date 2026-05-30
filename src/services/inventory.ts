@@ -1,4 +1,4 @@
-import { PrismaClient, StockMovementType, TransferStatus, AdjustmentReason, StockCountStatus } from "@prisma/client";
+import { PrismaClient, StockMovementType, AdjustmentReason } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type Tx = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
@@ -15,7 +15,7 @@ async function getOrCreateStockBalance(
   companyId: string,
 ): Promise<{ id: string; qtyOnHand: number; qtyReserved: number; qtyAvailable: number; averageCost: number }> {
   const balance = await tx.stockBalance.upsert({
-    where: { productId_locationId: { productId, locationId } },
+    where: { productId_locationId_companyId: { productId, locationId, companyId } },
     update: {},
     create: {
       productId,
@@ -143,7 +143,7 @@ export async function getStockBalance(
   companyId: string,
 ): Promise<{ qtyOnHand: number; qtyReserved: number; qtyAvailable: number; averageCost: number } | null> {
   const balance = await prisma.stockBalance.findUnique({
-    where: { productId_locationId: { productId, locationId } },
+    where: { productId_locationId_companyId: { productId, locationId, companyId } },
   });
   if (!balance) return null;
   return {
@@ -256,7 +256,7 @@ export async function validateStockAvailability(
   allowNegative = false,
 ): Promise<{ valid: boolean; available: number; onHand: number }> {
   const balance = await prisma.stockBalance.findUnique({
-    where: { productId_locationId: { productId, locationId } },
+    where: { productId_locationId_companyId: { productId, locationId, companyId } },
   });
   const onHand = balance ? Number(balance.qtyOnHand) : 0;
   const reserved = balance ? Number(balance.qtyReserved) : 0;
@@ -510,19 +510,57 @@ export async function createInventoryLocation(data: {
 }
 
 export async function updateInventoryLocation(
-  id: string, data: {
-    name?: string; code?: string; type?: string; branchId?: string | null; assignedEmployeeId?: string | null;
-    isDefault?: boolean; isSellable?: boolean; address?: string | null; notes?: string | null; isActive?: boolean;
-  }, companyId: string,
+  id: string,
+  data: {
+    name?: string;
+    code?: string;
+    type?: string;
+    branchId?: string | null;
+    assignedEmployeeId?: string | null;
+    isDefault?: boolean;
+    isSellable?: boolean;
+    address?: string | null;
+    notes?: string | null;
+    isActive?: boolean;
+  },
+  companyId: string,
 ) {
-  return prisma.stockLocation.update({
+  const existing = await prisma.stockLocation.findFirst({
     where: { id, companyId },
+    select: { id: true, type: true, branchId: true, assignedEmployeeId: true },
+  });
+
+  if (!existing) throw new Error("Location not found");
+
+  const nextType = data.type ?? existing.type;
+
+  let nextBranchId = data.branchId !== undefined ? data.branchId : existing.branchId;
+  let nextAssignedEmployeeId =
+    data.assignedEmployeeId !== undefined ? data.assignedEmployeeId : existing.assignedEmployeeId;
+
+  if (nextType === "MAIN_WAREHOUSE") {
+    nextBranchId = null;
+    nextAssignedEmployeeId = null;
+  }
+
+  if (nextType === "BRANCH_STORE" || nextType === "POS_STORE") {
+    nextAssignedEmployeeId = null;
+    if (!nextBranchId) throw new Error("Branch store or POS store must be linked to a branch");
+  }
+
+  if (nextType === "EMPLOYEE_STORE") {
+    nextBranchId = null;
+    if (!nextAssignedEmployeeId) throw new Error("Employee store must be linked to an employee");
+  }
+
+  return prisma.stockLocation.update({
+    where: { id },
     data: {
       ...(data.name !== undefined && { name: data.name }),
       ...(data.code !== undefined && { code: data.code }),
       ...(data.type !== undefined && { type: data.type as any }),
-      ...(data.branchId !== undefined && { branchId: data.branchId ?? null }),
-      ...(data.assignedEmployeeId !== undefined && { assignedEmployeeId: data.assignedEmployeeId ?? null }),
+      branchId: nextBranchId,
+      assignedEmployeeId: nextAssignedEmployeeId,
       ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
       ...(data.isSellable !== undefined && { isSellable: data.isSellable }),
       ...(data.address !== undefined && { address: data.address ?? null }),
@@ -543,7 +581,7 @@ export async function getInventoryLocations(companyId: string, accessibleIds?: s
 }
 
 export async function getInventoryLocationDetail(locationId: string, companyId: string) {
-  const location = await prisma.stockLocation.findUnique({
+  const location = await prisma.stockLocation.findFirst({
     where: { id: locationId, companyId },
     include: { branch: { select: { id: true, name: true } }, assignedEmployee: { select: { id: true, name: true, email: true } } },
   });
@@ -586,7 +624,13 @@ export async function createStockTransfer(data: {
   return prisma.$transaction(async (tx) => {
     for (const item of data.items) {
       const bal = await tx.stockBalance.findUnique({
-        where: { productId_locationId: { productId: item.productId, locationId: data.sourceLocationId } },
+        where: {
+          productId_locationId_companyId: {
+            productId: item.productId,
+            locationId: data.sourceLocationId,
+            companyId: data.companyId,
+          },
+        },
       });
       const onHand = bal ? Number(bal.qtyOnHand) : 0;
       if (onHand < item.quantity) {
@@ -607,7 +651,7 @@ export async function createStockTransfer(data: {
 }
 
 export async function issueStockTransfer(transferId: string, companyId: string, userId: string) {
-  const transfer = await prisma.stockTransfer.findUnique({
+  const transfer = await prisma.stockTransfer.findFirst({
     where: { id: transferId, companyId }, include: { items: true },
   });
   if (!transfer) throw new Error("Transfer not found");
@@ -640,7 +684,7 @@ export async function issueStockTransfer(transferId: string, companyId: string, 
 }
 
 export async function receiveStockTransfer(transferId: string, companyId: string, userId: string) {
-  const transfer = await prisma.stockTransfer.findUnique({
+  const transfer = await prisma.stockTransfer.findFirst({
     where: { id: transferId, companyId }, include: { items: true },
   });
   if (!transfer) throw new Error("Transfer not found");
@@ -674,7 +718,7 @@ export async function receiveStockTransfer(transferId: string, companyId: string
 }
 
 export async function cancelStockTransfer(transferId: string, companyId: string, userId: string, allowReverseSource?: boolean) {
-  const transfer = await prisma.stockTransfer.findUnique({
+  const transfer = await prisma.stockTransfer.findFirst({
     where: { id: transferId, companyId }, include: { items: true },
   });
   if (!transfer) throw new Error("Transfer not found");
@@ -769,7 +813,7 @@ export async function createStockAdjustment(data: {
 }
 
 export async function postStockAdjustment(adjustmentId: string, companyId: string, userId: string) {
-  const adjustment = await prisma.stockAdjustment.findUnique({
+  const adjustment = await prisma.stockAdjustment.findFirst({
     where: { id: adjustmentId, companyId }, include: { items: true },
   });
   if (!adjustment) throw new Error("Adjustment not found");
@@ -851,7 +895,7 @@ export async function updateStockCountItem(countId: string, itemId: string, coun
 }
 
 export async function reviewStockCount(countId: string, companyId: string, userId: string) {
-  const count = await prisma.stockCount.findUnique({ where: { id: countId, companyId } });
+  const count = await prisma.stockCount.findFirst({ where: { id: countId, companyId } });
   if (!count) throw new Error("Stock count not found");
   if (count.status !== "DRAFT" && count.status !== "IN_PROGRESS") {
     throw new Error("Stock count must be in DRAFT or IN_PROGRESS status to review");
@@ -863,7 +907,7 @@ export async function reviewStockCount(countId: string, companyId: string, userI
 }
 
 export async function postStockCount(countId: string, companyId: string, userId: string) {
-  const count = await prisma.stockCount.findUnique({
+  const count = await prisma.stockCount.findFirst({
     where: { id: countId, companyId }, include: { items: true },
   });
   if (!count) throw new Error("Stock count not found");
@@ -1076,7 +1120,7 @@ export async function getInventoryDashboard(companyId: string) {
 // ========== LOCATION VALIDATION ==========
 
 export async function validateLocationRules(locationId: string, companyId: string): Promise<{ valid: boolean; errors: string[] }> {
-  const location = await prisma.stockLocation.findUnique({ where: { id: locationId, companyId } });
+  const location = await prisma.stockLocation.findFirst({ where: { id: locationId, companyId } });
   if (!location) return { valid: false, errors: ["Location not found"] };
   const errors: string[] = [];
   if (location.type === "MAIN_WAREHOUSE" && location.branchId) errors.push("Main warehouse should not be linked to a branch");

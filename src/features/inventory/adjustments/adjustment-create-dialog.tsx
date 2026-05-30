@@ -202,7 +202,7 @@ export function AdjustmentCreateDialog({ open, onOpenChange, onCreated }: Adjust
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((loc) => (
+                  {locations.filter((loc) => typeof loc.id === "string" && loc.id.trim() !== "").map((loc) => (
                     <SelectItem key={loc.id} value={loc.id}>
                       {loc.name} ({loc.code})
                     </SelectItem>
@@ -217,7 +217,7 @@ export function AdjustmentCreateDialog({ open, onOpenChange, onCreated }: Adjust
                   <SelectValue placeholder="Select reason" />
                 </SelectTrigger>
                 <SelectContent>
-                  {reasonOptions.map((opt) => (
+                  {reasonOptions.filter((opt) => typeof opt.value === "string" && opt.value.trim() !== "").map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>

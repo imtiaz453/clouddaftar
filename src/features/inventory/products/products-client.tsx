@@ -197,7 +197,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((c) => (
+                {categories.filter((c) => typeof c.id === "string" && c.id.trim() !== "").map((c) => (
                   <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -218,7 +218,7 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                {locations.map((l) => (
+                {locations.filter((l) => typeof l.id === "string" && l.id.trim() !== "").map((l) => (
                   <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                 ))}
               </SelectContent>

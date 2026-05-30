@@ -218,7 +218,7 @@ export function TransferCreateDialog({
                   <SelectValue placeholder="Select source location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((l) => (
+                  {locations.filter((l) => typeof l.id === "string" && l.id.trim() !== "").map((l) => (
                     <SelectItem key={l.id} value={l.id}>
                       {l.name} ({l.code})
                     </SelectItem>
@@ -234,7 +234,7 @@ export function TransferCreateDialog({
                   <SelectValue placeholder="Select destination location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((l) => (
+                  {locations.filter((l) => typeof l.id === "string" && l.id.trim() !== "").map((l) => (
                     <SelectItem key={l.id} value={l.id}>
                       {l.name} ({l.code})
                     </SelectItem>

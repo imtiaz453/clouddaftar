@@ -263,7 +263,7 @@ export function ProductDialog({
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((cat) => (
+                    {categories.filter((cat) => typeof cat.id === "string" && cat.id.trim() !== "").map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>
@@ -348,7 +348,7 @@ export function ProductDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {units.map((unit) => (
+                        {units.filter((unit) => typeof unit === "string" && unit.trim() !== "").map((unit) => (
                           <SelectItem key={unit} value={unit}>
                             {unit}
                           </SelectItem>

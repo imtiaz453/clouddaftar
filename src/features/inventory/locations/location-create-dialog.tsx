@@ -187,7 +187,7 @@ export function LocationCreateDialog({ open, onOpenChange, onSuccess, editData }
             >
               <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
               <SelectContent>
-                {LOCATION_TYPES.map((t) => (
+                {LOCATION_TYPES.filter((t) => typeof t.value === "string" && t.value.trim() !== "").map((t) => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -206,7 +206,7 @@ export function LocationCreateDialog({ open, onOpenChange, onSuccess, editData }
               >
                 <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
                 <SelectContent>
-                  {branches.map((b) => (
+                  {branches.filter((b) => typeof b.id === "string" && b.id.trim() !== "").map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.name} ({b.code})</SelectItem>
                   ))}
                 </SelectContent>
@@ -226,7 +226,7 @@ export function LocationCreateDialog({ open, onOpenChange, onSuccess, editData }
               >
                 <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
                 <SelectContent>
-                  {employees.map((e) => (
+                  {employees.filter((e) => typeof e.id === "string" && e.id.trim() !== "").map((e) => (
                     <SelectItem key={e.id} value={e.id}>{e.name}{e.email ? ` (${e.email})` : ""}</SelectItem>
                   ))}
                 </SelectContent>

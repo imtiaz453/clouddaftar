@@ -111,7 +111,7 @@ export function CountCreateDialog({ open, onOpenChange, onCreated }: CountCreate
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
               <SelectContent>
-                {locations.map((loc) => (
+                {locations.filter((loc) => typeof loc.id === "string" && loc.id.trim() !== "").map((loc) => (
                   <SelectItem key={loc.id} value={loc.id}>
                     {loc.name} ({loc.code})
                   </SelectItem>

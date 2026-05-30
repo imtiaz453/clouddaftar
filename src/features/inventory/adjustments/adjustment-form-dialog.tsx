@@ -193,7 +193,7 @@ export function AdjustmentFormDialog({ open, onOpenChange, onCreated }: Adjustme
                   {locations.length === 0 ? (
                     <SelectItem value="__loading" disabled>Loading...</SelectItem>
                   ) : (
-                    locations.map((loc) => (
+                    locations.filter((loc) => typeof loc.id === "string" && loc.id.trim() !== "").map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.name} ({loc.code})
                       </SelectItem>
@@ -209,7 +209,7 @@ export function AdjustmentFormDialog({ open, onOpenChange, onCreated }: Adjustme
                   <SelectValue placeholder="Select reason" />
                 </SelectTrigger>
                 <SelectContent>
-                  {reasonOptions.map((opt) => (
+                  {reasonOptions.filter((opt) => typeof opt.value === "string" && opt.value.trim() !== "").map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
