@@ -29,8 +29,8 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 type ToastVariant = NonNullable<Toast["variant"]>;
 
 type ToastVariantConfig = {
-  iconWrap: string;
-  ring: string;
+  accent: string;
+  dot: string;
   icon: ReactNode;
   label: string;
 };
@@ -38,41 +38,41 @@ type ToastVariantConfig = {
 const variants: Record<ToastVariant, ToastVariantConfig> = {
   default: {
     label: "Info",
-    iconWrap: "bg-sky-50 text-sky-600 ring-sky-100 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/20",
-    ring: "ring-sky-100/80 dark:ring-sky-400/15",
+    accent: "text-sky-600",
+    dot: "bg-sky-500",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm0-12a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Z" />
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+        <path fillRule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0ZM9 8a1 1 0 1 0 2 0 1 1 0 0 0-2 0Zm1 2a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 10Z" clipRule="evenodd" />
       </svg>
     ),
   },
   success: {
     label: "Success",
-    iconWrap: "bg-emerald-50 text-emerald-600 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20",
-    ring: "ring-emerald-100/80 dark:ring-emerald-400/15",
+    accent: "text-emerald-600",
+    dot: "bg-emerald-500",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.1" stroke="currentColor" className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+        <path fillRule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.31a1 1 0 0 1-1.423 0L3.29 9.23a1 1 0 1 1 1.42-1.408l4.037 4.07 6.54-6.596a1 1 0 0 1 1.416-.006Z" clipRule="evenodd" />
       </svg>
     ),
   },
   error: {
     label: "Error",
-    iconWrap: "bg-rose-50 text-rose-600 ring-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20",
-    ring: "ring-rose-100/80 dark:ring-rose-400/15",
+    accent: "text-rose-600",
+    dot: "bg-rose-500",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm8.485 1.515a2.25 2.25 0 0 1-1.948 3.375H5.463a2.25 2.25 0 0 1-1.948-3.375L10.052 5.7a2.25 2.25 0 0 1 3.896 0l6.537 12.315Z" />
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+        <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 1 0-1.06-1.06L10 8.94 8.28 7.22Z" clipRule="evenodd" />
       </svg>
     ),
   },
   warning: {
     label: "Warning",
-    iconWrap: "bg-amber-50 text-amber-600 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/20",
-    ring: "ring-amber-100/80 dark:ring-amber-400/15",
+    accent: "text-amber-600",
+    dot: "bg-amber-500",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm0-12 9 16.5H3L12 4.5Z" />
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.674 1.167-.168 2.625-1.515 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 6a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 6Zm0 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
       </svg>
     ),
   },
@@ -84,21 +84,22 @@ function ToastCard({ toast, instance, onClose }: { toast: Toast; instance?: HotT
   return (
     <div
       role="alert"
-      className={`pointer-events-auto flex w-[min(390px,calc(100vw-24px))] items-start gap-3 rounded-2xl border border-slate-200/80 bg-white px-3.5 py-3 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.16)] ring-1 ${variant.ring} transition-all duration-200 dark:border-white/10 dark:bg-slate-950 dark:text-white ${
-        instance?.visible ? "translate-y-0 scale-100 opacity-100" : "translate-y-1 scale-[0.98] opacity-0"
+      className={`pointer-events-auto flex w-[min(326px,calc(100vw-20px))] items-start gap-2.5 rounded-xl border border-slate-200/80 bg-white/95 px-3 py-2.5 text-slate-900 shadow-[0_10px_28px_rgba(15,23,42,0.12)] ring-1 ring-black/[0.03] backdrop-blur transition-all duration-200 dark:border-white/10 dark:bg-slate-950/95 dark:text-white dark:ring-white/[0.06] ${
+        instance?.visible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-[0.985] opacity-0"
       }`}
       style={{ zIndex: 2147483647 }}
     >
-      <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${variant.iconWrap}`}>
-        {variant.icon}
+      <div className="relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 ring-1 ring-slate-200/70 dark:bg-white/5 dark:ring-white/10">
+        <span className={`absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ${variant.dot} ring-2 ring-white dark:ring-slate-950`} />
+        <span className={variant.accent}>{variant.icon}</span>
       </div>
 
-      <div className="min-w-0 flex-1 pt-0.5">
-        <div className="truncate text-[14px] font-bold leading-5 tracking-tight text-slate-950 dark:text-white">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-semibold leading-4 tracking-[-0.01em] text-slate-950 dark:text-white">
           {toast.title || variant.label}
         </div>
         {toast.description ? (
-          <div className="mt-0.5 line-clamp-2 text-[12.5px] font-medium leading-5 text-slate-600 dark:text-slate-300">
+          <div className="mt-0.5 line-clamp-2 text-[11.5px] font-medium leading-4 text-slate-500 dark:text-slate-300">
             {toast.description}
           </div>
         ) : null}
@@ -107,11 +108,11 @@ function ToastCard({ toast, instance, onClose }: { toast: Toast; instance?: HotT
       <button
         type="button"
         onClick={onClose}
-        className="-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white dark:focus:ring-white/20"
+        className="-mr-1 -mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white dark:focus:ring-white/20"
         aria-label="Close notification"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor" className="h-4.5 w-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+          <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
         </svg>
       </button>
     </div>
@@ -143,7 +144,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         (instance) => <ToastCard toast={nextToast} instance={instance} onClose={() => removeToast(id)} />,
         {
           id,
-          duration: 4500,
+          duration: 3400,
           position: "top-right",
         },
       );
@@ -166,39 +167,38 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <HotToaster
         position="top-right"
         reverseOrder={false}
-        gutter={10}
+        gutter={8}
         containerClassName="!z-[2147483647]"
-        containerStyle={{ top: 18, right: 18, zIndex: 2147483647 }}
+        containerStyle={{ top: 14, right: 14, zIndex: 2147483647 }}
         toastOptions={{
-          duration: 4500,
+          duration: 3400,
           style: {
             background: "transparent",
             boxShadow: "none",
             padding: 0,
-            maxWidth: "390px",
+            maxWidth: "326px",
           },
-          success: { iconTheme: { primary: "#059669", secondary: "#ecfdf5" } },
-          error: { iconTheme: { primary: "#e11d48", secondary: "#fff1f2" } },
         }}
       />
       <SonnerToaster
         position="top-right"
         closeButton
-        richColors
+        richColors={false}
         expand={false}
-        duration={4500}
-        visibleToasts={5}
-        gap={10}
-        offset={18}
+        duration={3400}
+        visibleToasts={4}
+        gap={8}
+        offset={14}
         className="!z-[2147483646]"
         style={{ zIndex: 2147483646, pointerEvents: "auto" }}
         toastOptions={{
           classNames: {
             toast:
-              "!rounded-2xl !border !border-slate-200/80 !bg-white !px-4 !py-3 !text-slate-950 !shadow-[0_18px_45px_rgba(15,23,42,0.16)] dark:!border-white/10 dark:!bg-slate-950 dark:!text-white",
-            title: "!text-[14px] !font-bold",
-            description: "!text-[12.5px] !font-medium !text-slate-600 dark:!text-slate-300",
-            closeButton: "!border-slate-200 !bg-white !text-slate-500 dark:!border-white/10 dark:!bg-slate-900 dark:!text-slate-300",
+              "!w-[min(326px,calc(100vw-20px))] !rounded-xl !border !border-slate-200/80 !bg-white/95 !px-3 !py-2.5 !text-slate-900 !shadow-[0_10px_28px_rgba(15,23,42,0.12)] !ring-1 !ring-black/[0.03] !backdrop-blur dark:!border-white/10 dark:!bg-slate-950/95 dark:!text-white dark:!ring-white/[0.06]",
+            title: "!text-[13px] !font-semibold !leading-4 !tracking-[-0.01em]",
+            description: "!line-clamp-2 !text-[11.5px] !font-medium !leading-4 !text-slate-500 dark:!text-slate-300",
+            closeButton:
+              "!h-6 !w-6 !border-slate-200 !bg-white !text-slate-400 dark:!border-white/10 dark:!bg-slate-900 dark:!text-slate-400",
           },
         }}
       />

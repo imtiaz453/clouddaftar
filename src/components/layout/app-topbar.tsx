@@ -537,78 +537,74 @@ export function AppTopbar({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  sideOffset={12}
-                  className="w-[calc(100vw-1.5rem)] overflow-hidden rounded-3xl border border-border/70 bg-background/98 p-0 shadow-2xl shadow-slate-900/15 backdrop-blur-xl sm:w-[420px] dark:shadow-black/40"
+                  sideOffset={10}
+                  className="w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-popover p-0 shadow-xl sm:w-[360px]"
                 >
-                  <div className="border-b border-border/70 bg-gradient-to-br from-primary/10 via-background to-muted/60 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-background text-primary shadow-sm ring-1 ring-border/70">
-                            <Bell className="h-4 w-4" />
-                          </span>
-                          <div>
-                            <DropdownMenuLabel className="p-0 text-base font-black tracking-tight">
-                              Notifications
-                            </DropdownMenuLabel>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? "" : "s"}` : "Everything is up to date"}
-                            </p>
-                          </div>
+                  <div className="border-b border-border bg-popover px-3.5 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
+                          <Bell className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <DropdownMenuLabel className="truncate p-0 text-sm font-bold tracking-tight">
+                            Notifications
+                          </DropdownMenuLabel>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {unreadCount > 0 ? `${unreadCount} unread` : "No unread notifications"}
+                          </p>
                         </div>
                       </div>
                       {unreadCount > 0 && (
                         <button
                           type="button"
                           onClick={markAllRead}
-                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs font-bold text-primary shadow-sm transition-colors hover:bg-primary hover:text-primary-foreground"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
                           <CheckCheck className="h-3.5 w-3.5" />
                           Read all
                         </button>
                       )}
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <div className="mt-2 [&_*]:max-w-full [&_button]:!h-8 [&_button]:!rounded-lg [&_button]:!px-2.5 [&_button]:!text-[11px]">
                       <EnableNotifications />
                     </div>
                   </div>
 
-                  <div className="max-h-[420px] overflow-y-auto p-2">
+                  <div className="max-h-[340px] overflow-y-auto p-1.5">
                     {notifLoading ? (
                       <div className="flex justify-center py-10">
                         <LoadingSpinner size={5} />
                       </div>
                     ) : notifications.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-border/80 bg-muted/35 px-4 py-9 text-center">
-                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-background text-muted-foreground shadow-sm ring-1 ring-border/70">
-                          <BellOff className="h-5 w-5" />
+                      <div className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-7 text-center">
+                        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-background text-muted-foreground ring-1 ring-border">
+                          <BellOff className="h-4 w-4" />
                         </div>
-                        <p className="text-sm font-bold text-foreground">No new notifications</p>
+                        <p className="text-sm font-semibold text-foreground">No new notifications</p>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                          New approvals, reminders and system alerts will appear here.
+                          Alerts and approvals will appear here.
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         {notifications.slice(0, 6).map((n) => (
                           <DropdownMenuItem
                             key={n.id}
-                            className="group flex cursor-pointer items-start gap-3 whitespace-normal rounded-2xl border border-transparent p-3 outline-none transition-colors focus:bg-muted hover:border-border/70 hover:bg-muted/70"
+                            className="group flex cursor-pointer items-start gap-2.5 whitespace-normal rounded-xl border border-transparent p-2.5 outline-none transition-colors focus:bg-muted hover:bg-muted"
                             onClick={() => markRead(n.id, n.link)}
                           >
-                            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                              <Bell className="h-4 w-4" />
-                            </span>
+                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
                             <span className="min-w-0 flex-1">
-                              <span className="block break-words text-sm font-extrabold leading-5 text-foreground">
+                              <span className="line-clamp-1 block text-sm font-semibold leading-5 text-foreground">
                                 {n.title}
                               </span>
                               {n.message && (
-                                <span className="mt-1 block break-words text-xs leading-5 text-muted-foreground">
+                                <span className="mt-0.5 line-clamp-2 block text-xs leading-5 text-muted-foreground">
                                   {n.message}
                                 </span>
                               )}
-                              <span className="mt-1.5 inline-flex rounded-full bg-background px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground ring-1 ring-border/70">
+                              <span className="mt-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                                 {timeAgo(n.createdAt)}
                               </span>
                             </span>
@@ -618,14 +614,14 @@ export function AppTopbar({
                     )}
                   </div>
 
-                  <div className="border-t border-border/70 bg-muted/35 p-2">
+                  <div className="border-t border-border bg-popover p-1.5">
                     <button
                       type="button"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       onClick={() => navigateTo("/notifications")}
                     >
-                      View all notifications
-                      <ArrowRight className="h-4 w-4" />
+                      View all
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </DropdownMenuContent>
