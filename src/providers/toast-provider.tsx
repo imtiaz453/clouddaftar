@@ -41,7 +41,7 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
     accent: "text-sky-600",
     dot: "bg-sky-500",
     icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3" aria-hidden="true">
         <path fillRule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0ZM9 8a1 1 0 1 0 2 0 1 1 0 0 0-2 0Zm1 2a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 10Z" clipRule="evenodd" />
       </svg>
     ),
@@ -51,7 +51,7 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
     accent: "text-emerald-600",
     dot: "bg-emerald-500",
     icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3" aria-hidden="true">
         <path fillRule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.31a1 1 0 0 1-1.423 0L3.29 9.23a1 1 0 1 1 1.42-1.408l4.037 4.07 6.54-6.596a1 1 0 0 1 1.416-.006Z" clipRule="evenodd" />
       </svg>
     ),
@@ -61,7 +61,7 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
     accent: "text-rose-600",
     dot: "bg-rose-500",
     icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-2 w-3" aria-hidden="true">
         <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 1 0-1.06-1.06L10 8.94 8.28 7.22Z" clipRule="evenodd" />
       </svg>
     ),
@@ -71,7 +71,7 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
     accent: "text-amber-600",
     dot: "bg-amber-500",
     icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3" aria-hidden="true">
         <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.674 1.167-.168 2.625-1.515 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 6a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 6Zm0 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
       </svg>
     ),
@@ -99,7 +99,7 @@ function ToastCard({ toast, instance, onClose }: { toast: Toast; instance?: HotT
           {toast.title || variant.label}
         </div>
         {toast.description ? (
-          <div className="mt-0.5 line-clamp-2 text-[11.5px] font-medium leading-4 text-slate-500 dark:text-slate-300">
+          <div className="mt-0.5 line-clamp-2 text-[10px] font-small leading-4 text-slate-500 dark:text-slate-300">
             {toast.description}
           </div>
         ) : null}
@@ -111,7 +111,7 @@ function ToastCard({ toast, instance, onClose }: { toast: Toast; instance?: HotT
         className="-mr-1 -mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white dark:focus:ring-white/20"
         aria-label="Close notification"
       >
-        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3" aria-hidden="true">
           <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
         </svg>
       </button>
