@@ -101,17 +101,41 @@ export function TransferCreateDialog({
     loadProducts("");
   }, [open, step, loadProducts]);
 
-  async function loadStock(productId: string): Promise<number> {
+  async function loadStock(productId: string, locationId = sourceLocationId): Promise<number> {
+    if (!productId || !locationId) return 0;
     try {
       const res = await fetch(
-        `/api/inventory/product-stock?productId=${productId}&locationId=${sourceLocationId}`,
+        `/api/inventory/product-stock?productId=${encodeURIComponent(productId)}&locationId=${encodeURIComponent(locationId)}`,
+        { cache: "no-store" },
       );
       const json = await res.json();
-      return Number(json.available ?? json.qtyAvailable ?? 0);
+      if (!res.ok || json?.success === false) return 0;
+      return Math.max(0, Number(json.available ?? json.qtyAvailable ?? 0));
     } catch {
       return 0;
     }
   }
+
+  useEffect(() => {
+    if (!sourceLocationId || items.length === 0) return;
+    let alive = true;
+
+    async function refreshAvailableStock() {
+      const updated = await Promise.all(
+        items.map(async (item) => ({
+          ...item,
+          availableStock: await loadStock(item.productId, sourceLocationId),
+        })),
+      );
+      if (alive) setItems(updated);
+    }
+
+    refreshAvailableStock();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceLocationId]);
 
   const filteredProducts = products.filter(
     (p) =>
@@ -141,7 +165,11 @@ export function TransferCreateDialog({
 
   function updateQuantity(productId: string, qty: number) {
     setItems((prev) =>
-      prev.map((i) => (i.productId === productId ? { ...i, quantity: qty } : i)),
+      prev.map((i) => {
+        if (i.productId !== productId) return i;
+        const nextQty = Number.isFinite(qty) ? Math.max(0, qty) : 0;
+        return { ...i, quantity: nextQty };
+      }),
     );
   }
 
@@ -324,6 +352,9 @@ export function TransferCreateDialog({
                           onChange={(e) =>
                             updateQuantity(item.productId, Number(e.target.value))
                           }
+                          onBlur={() => {
+                            if (item.quantity <= 0) updateQuantity(item.productId, 1);
+                          }}
                           className="h-8 w-20 text-center"
                         />
                       </div>
@@ -336,9 +367,14 @@ export function TransferCreateDialog({
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
-                      {item.quantity > item.availableStock && (
+                      {item.availableStock <= 0 && (
                         <p className="col-span-full text-xs font-medium text-destructive">
-                          Exceeds available stock ({item.availableStock})
+                          No available stock in selected source location.
+                        </p>
+                      )}
+                      {item.availableStock > 0 && item.quantity > item.availableStock && (
+                        <p className="col-span-full text-xs font-medium text-destructive">
+                          Exceeds source available stock ({item.availableStock})
                         </p>
                       )}
                     </div>
