@@ -27,7 +27,7 @@ const variants = {
     desc: "text-slate-600 dark:text-slate-300",
     bar: "bg-slate-500",
     svg: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
       </svg>
     ),
@@ -40,7 +40,7 @@ const variants = {
     desc: "text-emerald-700/90 dark:text-emerald-200/90",
     bar: "bg-emerald-500",
     svg: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
       </svg>
     ),
@@ -53,7 +53,7 @@ const variants = {
     desc: "text-rose-700/90 dark:text-rose-200/90",
     bar: "bg-rose-500",
     svg: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
       </svg>
     ),
@@ -66,7 +66,7 @@ const variants = {
     desc: "text-amber-700/90 dark:text-amber-200/90",
     bar: "bg-amber-500",
     svg: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="size-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
       </svg>
     ),
@@ -102,20 +102,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         closeButton
         richColors={false}
         expand={false}
-        duration={4500}
+        duration={3800}
         toastOptions={{
           classNames: {
             toast:
-              "group rounded-2xl border border-border/70 bg-background/95 px-4 py-3 text-foreground shadow-2xl shadow-black/10 backdrop-blur-xl dark:shadow-black/40",
-            title: "text-sm font-bold tracking-tight text-foreground",
-            description: "text-xs leading-5 text-muted-foreground",
-            actionButton: "rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground",
-            cancelButton: "rounded-full bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground",
+              "group max-w-[340px] rounded-xl border border-border/70 bg-background/95 px-3 py-2.5 text-foreground shadow-xl shadow-black/10 backdrop-blur-xl dark:shadow-black/40",
+            title: "text-[13px] font-bold leading-4 tracking-tight text-foreground",
+            description: "text-[11px] leading-4 text-muted-foreground",
+            actionButton: "rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground",
+            cancelButton: "rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground",
             closeButton: "border-border/70 bg-background/90 text-muted-foreground hover:text-foreground",
           },
         }}
       />
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[9999] flex w-[calc(100vw-2rem)] max-w-[420px] flex-col gap-3 sm:bottom-6 sm:right-6">
+      <div className="pointer-events-none fixed bottom-4 right-4 z-[9999] flex w-[calc(100vw-2rem)] max-w-[360px] flex-col gap-2 sm:bottom-5 sm:right-5">
         {toasts.map((toast) => {
           const v = variants[toast.variant || "default"];
 
@@ -123,20 +123,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={toast.id}
               role="alert"
-              className={`pointer-events-auto group relative overflow-hidden rounded-3xl border border-white/70 bg-background/92 p-4 shadow-2xl shadow-slate-900/10 ring-1 backdrop-blur-xl transition-all duration-300 ease-out dark:border-white/10 dark:bg-slate-950/92 dark:shadow-black/40 ${v.ring}`}
+              className={`pointer-events-auto group relative overflow-hidden rounded-2xl border border-white/70 bg-background/92 p-3 shadow-xl shadow-slate-900/10 ring-1 backdrop-blur-xl transition-all duration-300 ease-out dark:border-white/10 dark:bg-slate-950/92 dark:shadow-black/40 ${v.ring}`}
             >
-              <div className={`absolute inset-x-0 top-0 h-16 bg-gradient-to-b ${v.accent}`} />
-              <div className={`absolute bottom-0 left-0 h-1 w-full ${v.bar} opacity-80`} />
-              <div className="relative flex items-start gap-3.5">
-                <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-sm ring-1 ring-black/5 ${v.iconWrap}`}>
+              <div className={`absolute inset-x-0 top-0 h-12 bg-gradient-to-b ${v.accent}`} />
+              <div className={`absolute bottom-0 left-0 h-0.5 w-full ${v.bar} opacity-80`} />
+              <div className="relative flex items-start gap-2.5">
+                <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 ${v.iconWrap}`}>
                   {v.svg}
                 </div>
                 <div className="min-w-0 flex-1 pr-1">
-                  <strong className={`block text-sm font-extrabold leading-5 tracking-tight ${v.title}`}>
+                  <strong className={`block text-[13px] font-extrabold leading-4 tracking-tight ${v.title}`}>
                     {toast.title}
                   </strong>
                   {toast.description && (
-                    <p className={`mt-1 line-clamp-3 text-[13px] leading-5 ${v.desc}`}>
+                    <p className={`mt-0.5 line-clamp-2 text-[12px] leading-4 ${v.desc}`}>
                       {toast.description}
                     </p>
                   )}
@@ -144,7 +144,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => removeToast(toast.id)}
-                  className="-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                  className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                   aria-label="Close notification"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="size-4">
