@@ -115,8 +115,8 @@ function ToastCard({
   return (
     <div
       role="alert"
-      className={`pointer-events-auto flex w-[min(312px,calc(100vw-20px))] items-center gap-2.5 rounded-2xl ${variant.bg} px-3 py-2.5 shadow-[0_12px_30px_rgba(15,23,42,0.14)] backdrop-blur-sm transition-all duration-200 dark:shadow-[0_12px_30px_rgba(0,0,0,0.32)] ${
-        instance?.visible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-[0.985] opacity-0"
+      className={`pointer-events-auto flex w-[min(312px,calc(100vw-20px))] items-center gap-2.5 rounded-2xl ${variant.bg} px-3 py-2.5 shadow-[0_12px_30px_rgba(15,23,42,0.14)] backdrop-blur-sm transition-all duration-1000 dark:shadow-[0_12px_30px_rgba(0,0,0,0.32)] ${
+        instance?.visible ? "translate-y-0 scale-100 opacity-50" : "-translate-y-1 scale-[0.985] opacity-0"
       }`}
       style={{ zIndex: 2147483647 }}
     >
@@ -177,7 +177,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         (instance) => <ToastCard toast={nextToast} instance={instance} onClose={() => removeToast(id)} />,
         {
           id,
-          duration: 3400,
+          duration: 10000,
           position: "top-right",
         },
       );
@@ -204,7 +204,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         containerClassName="!z-[2147483647]"
         containerStyle={{ top: 14, right: 14, zIndex: 2147483647 }}
         toastOptions={{
-          duration: 3400,
+          duration: 10000,
           style: {
             background: "transparent",
             boxShadow: "none",
@@ -218,7 +218,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         closeButton
         richColors={false}
         expand={false}
-        duration={3400}
+        duration={10000}
         visibleToasts={4}
         gap={8}
         offset={14}
