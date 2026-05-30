@@ -145,7 +145,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {
           id,
           duration: 3400,
-          position: "top-right",
+          position: "bottom-right",
         },
       );
     },
