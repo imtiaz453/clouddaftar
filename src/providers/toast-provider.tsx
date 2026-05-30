@@ -20,7 +20,7 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 type ToastVariantConfig = {
   panel: string;
-  icon: JSX.Element;
+  icon: ReactNode;
 };
 
 const variants: Record<NonNullable<Toast["variant"]>, ToastVariantConfig> = {
