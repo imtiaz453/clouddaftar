@@ -116,7 +116,7 @@ function ToastCard({
     <div
       role="alert"
       className={`pointer-events-auto flex w-[min(312px,calc(100vw-20px))] items-center gap-2.5 rounded-2xl ${variant.bg} px-3 py-2.5 shadow-[0_12px_30px_rgba(15,23,42,0.14)] backdrop-blur-sm transition-all duration-1000 dark:shadow-[0_12px_30px_rgba(0,0,0,0.32)] ${
-        instance?.visible ? "translate-y-0 scale-100 opacity-50" : "-translate-y-1 scale-[0.985] opacity-0"
+        instance?.visible ? "translate-y-0 scale-100 opacity-400" : "-translate-y-1 scale-[0.985] opacity-0"
       }`}
       style={{ zIndex: 2147483647 }}
     >
