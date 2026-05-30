@@ -31,6 +31,7 @@ import { TEMPLATE_DEFINITIONS } from "@/lib/template-registry";
 import { getLocalityPreset } from "@/lib/locality";
 import { TaxComplianceTab } from "./tax-compliance-tab";
 import { TemplatesClient } from "./templates/templates-client";
+import { StoresClient } from "./stores/stores-client";
 
 interface SettingsClientProps {
   companyData: Company & {
@@ -40,6 +41,9 @@ interface SettingsClientProps {
     zatcaSetting?: ZatcaSetting | null;
   };
   templates?: any[];
+  stores?: any[];
+  branches?: any[];
+  employees?: any[];
 }
 
 type PrinterBridgeSettings = {
@@ -72,7 +76,13 @@ const defaultPrinterBridgeSettings: PrinterBridgeSettings = {
   authToken: "",
 };
 
-export function SettingsClient({ companyData, templates = [] }: SettingsClientProps) {
+export function SettingsClient({
+  companyData,
+  templates = [],
+  stores = [],
+  branches = [],
+  employees = [],
+}: SettingsClientProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams() ?? new URLSearchParams();
@@ -87,6 +97,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
       "preferences",
       "pos-printer",
       "units",
+      "stores",
       "templates",
       "theme",
       "tax-compliance",
@@ -173,6 +184,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
         "preferences",
         "pos-printer",
         "units",
+        "stores",
         "templates",
         "theme",
         "tax-compliance",
@@ -398,6 +410,7 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="pos-printer">POS Printer</TabsTrigger>
+          <TabsTrigger value="stores">Stores</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="tax-compliance">Tax Compliance</TabsTrigger>
@@ -1199,6 +1212,10 @@ export function SettingsClient({ companyData, templates = [] }: SettingsClientPr
               </form>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="stores" className="mt-4 space-y-4">
+          <StoresClient stores={stores} branches={branches} employees={employees} />
         </TabsContent>
 
         <TabsContent value="templates" className="mt-4 space-y-4">
