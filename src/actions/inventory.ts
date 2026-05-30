@@ -55,25 +55,80 @@ export async function getProducts(params?: {
   const allBalances = productIds.length > 0
     ? await prisma.stockBalance.findMany({
         where: { productId: { in: productIds }, companyId },
-        select: { productId: true, qtyOnHand: true, qtyReserved: true, qtyAvailable: true, averageCost: true, location: { select: { id: true, name: true } } },
+        select: { productId: true, locationId: true, qtyOnHand: true, qtyReserved: true, qtyAvailable: true, averageCost: true, location: { select: { id: true, name: true, code: true, type: true } } },
       })
     : [];
 
-  const balancesByProduct = new Map<string, { totalOnHand: number; totalReserved: number; totalAvailable: number; stockValue: number; locations: Array<{ id: string; name: string; qtyOnHand: number }> }>();
+  type ProductStockSummary = {
+    totalOnHand: number;
+    totalReserved: number;
+    totalAvailable: number;
+    stockValue: number;
+    locations: Array<{
+      id: string;
+      name: string;
+      code: string | null;
+      type: string | null;
+      qtyOnHand: number;
+      qtyReserved: number;
+      qtyAvailable: number;
+    }>;
+    allLocationTotals: {
+      totalOnHand: number;
+      totalReserved: number;
+      totalAvailable: number;
+      stockValue: number;
+    };
+    isLocationFiltered: boolean;
+  };
+
+  const emptyStock = (): ProductStockSummary => ({
+    totalOnHand: 0,
+    totalReserved: 0,
+    totalAvailable: 0,
+    stockValue: 0,
+    locations: [],
+    allLocationTotals: { totalOnHand: 0, totalReserved: 0, totalAvailable: 0, stockValue: 0 },
+    isLocationFiltered: Boolean(params?.locationId),
+  });
+
+  const balancesByProduct = new Map<string, ProductStockSummary>();
   for (const b of allBalances) {
     const key = b.productId;
-    const existing = balancesByProduct.get(key) || { totalOnHand: 0, totalReserved: 0, totalAvailable: 0, stockValue: 0, locations: [] };
+    const existing = balancesByProduct.get(key) || emptyStock();
     const qoh = Number(b.qtyOnHand);
-    existing.totalOnHand += qoh;
-    existing.totalReserved += Number(b.qtyReserved);
-    existing.totalAvailable += Number(b.qtyAvailable);
-    existing.stockValue += qoh * Number(b.averageCost);
-    existing.locations.push({ id: b.location.id, name: b.location.name, qtyOnHand: qoh });
+    const reserved = Number(b.qtyReserved);
+    const available = Number(b.qtyAvailable);
+    const value = qoh * Number(b.averageCost);
+
+    existing.allLocationTotals.totalOnHand += qoh;
+    existing.allLocationTotals.totalReserved += reserved;
+    existing.allLocationTotals.totalAvailable += available;
+    existing.allLocationTotals.stockValue += value;
+
+    const shouldCountInVisibleStock = !params?.locationId || b.locationId === params.locationId;
+    if (shouldCountInVisibleStock) {
+      existing.totalOnHand += qoh;
+      existing.totalReserved += reserved;
+      existing.totalAvailable += available;
+      existing.stockValue += value;
+      existing.locations.push({
+        id: b.location.id,
+        name: b.location.name,
+        code: b.location.code,
+        type: b.location.type,
+        qtyOnHand: qoh,
+        qtyReserved: reserved,
+        qtyAvailable: available,
+      });
+    }
+
     balancesByProduct.set(key, existing);
   }
 
   const enhancedProducts = products.map((product) => {
-    const stock = balancesByProduct.get(product.id) || { totalOnHand: 0, totalReserved: 0, totalAvailable: 0, stockValue: 0, locations: [] };
+    const stock = balancesByProduct.get(product.id) || emptyStock();
+    stock.locations.sort((a, b) => b.qtyOnHand - a.qtyOnHand || a.name.localeCompare(b.name));
     return { ...product, stockSummary: stock };
   });
 

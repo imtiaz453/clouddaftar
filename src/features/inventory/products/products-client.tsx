@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, useCallback } from "react";
 import {
   Search, Plus, ArrowUpDown, Eye, Pencil, Trash2,
-  Package, MapPin, Upload,
+  Package, MapPin, Upload, ShieldCheck, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,11 @@ import type { PaginatedResponse } from "@/types";
 interface StockLocation {
   id: string;
   name: string;
+  code: string | null;
+  type: string | null;
   qtyOnHand: number;
+  qtyReserved: number;
+  qtyAvailable: number;
 }
 
 interface ProductRow {
@@ -55,6 +59,13 @@ interface ProductRow {
     totalAvailable: number;
     stockValue: number;
     locations: StockLocation[];
+    allLocationTotals?: {
+      totalOnHand: number;
+      totalReserved: number;
+      totalAvailable: number;
+      stockValue: number;
+    };
+    isLocationFiltered?: boolean;
   };
 }
 
@@ -179,6 +190,95 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
   const lowStockCount = products.filter((p) => !p.isService && p.stockSummary.totalOnHand > 0 && p.stockSummary.totalOnHand <= p.minStock).length;
   const outOfStockCount = products.filter((p) => !p.isService && p.stockSummary.totalOnHand === 0).length;
   const availableQty = products.reduce((sum, p) => sum + p.stockSummary.totalAvailable, 0);
+  const selectedLocation = locationId && locationId !== "all"
+    ? locations.find((loc) => loc.id === locationId)
+    : null;
+  const stockScopeLabel = selectedLocation
+    ? `Showing stock in ${selectedLocation.name} only`
+    : "Showing total stock across all stores";
+
+  function getStockStatus(product: ProductRow) {
+    if (product.isService) return { label: "Service", className: "bg-slate-100 text-slate-700", isLow: false, isOut: false };
+    const onHand = product.stockSummary.totalOnHand;
+    if (onHand <= 0) return { label: "Out", className: "bg-red-50 text-red-700 border-red-200", isLow: false, isOut: true };
+    if (onHand <= product.minStock) return { label: "Low", className: "bg-amber-50 text-amber-700 border-amber-200", isLow: true, isOut: false };
+    return { label: "OK", className: "bg-emerald-50 text-emerald-700 border-emerald-200", isLow: false, isOut: false };
+  }
+
+  function formatQty(value: number, unit?: string) {
+    return `${Number(value || 0).toLocaleString()}${unit ? ` ${unit}` : ""}`;
+  }
+
+  function StockPills({ product }: { product: ProductRow }) {
+    const status = getStockStatus(product);
+    if (product.isService) {
+      return (
+        <div className="inline-flex items-center rounded-full border bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+          Service item — no stock tracking
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <span className="rounded-full border bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">
+            On hand: {formatQty(product.stockSummary.totalOnHand, product.unit)}
+          </span>
+          <span className="rounded-full border bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+            Available: {formatQty(product.stockSummary.totalAvailable, product.unit)}
+          </span>
+          {product.stockSummary.totalReserved > 0 && (
+            <span className="rounded-full border bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+              Reserved: {formatQty(product.stockSummary.totalReserved, product.unit)}
+            </span>
+          )}
+          <span className={cn("rounded-full border px-2.5 py-1 text-xs font-semibold", status.className)}>{status.label}</span>
+        </div>
+        {selectedLocation && product.stockSummary.allLocationTotals && (
+          <p className="text-right text-[11px] text-muted-foreground">
+            All stores total: {formatQty(product.stockSummary.allLocationTotals.totalOnHand, product.unit)} on hand · {formatQty(product.stockSummary.allLocationTotals.totalAvailable, product.unit)} available
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  function LocationBreakdown({ product }: { product: ProductRow }) {
+    if (product.isService) return <span className="text-xs text-muted-foreground">Not applicable</span>;
+    const visibleLocations = product.stockSummary.locations.filter((loc) => loc.qtyOnHand !== 0 || loc.qtyReserved !== 0 || loc.qtyAvailable !== 0);
+    if (visibleLocations.length === 0) {
+      return (
+        <div className="inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground">
+          <AlertTriangle className="h-3.5 w-3.5" /> No stock in selected store
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex max-w-[420px] flex-wrap gap-1.5">
+        {visibleLocations.slice(0, 4).map((loc) => (
+          <div
+            key={loc.id}
+            title={`${loc.name}: ${loc.qtyOnHand} on hand, ${loc.qtyAvailable} available, ${loc.qtyReserved} reserved`}
+            className="inline-flex max-w-[210px] items-center gap-1.5 rounded-xl border bg-white px-2.5 py-1 text-[11px] shadow-sm"
+          >
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate font-medium text-slate-700">{loc.name}</span>
+            <span className="shrink-0 tabular-nums text-slate-900">{formatQty(loc.qtyOnHand, product.unit)}</span>
+            {loc.qtyAvailable !== loc.qtyOnHand && (
+              <span className="shrink-0 text-muted-foreground">/ {formatQty(loc.qtyAvailable)} avail</span>
+            )}
+          </div>
+        ))}
+        {visibleLocations.length > 4 && (
+          <span className="rounded-xl border bg-slate-50 px-2.5 py-1 text-[11px] text-muted-foreground">
+            +{visibleLocations.length - 4} more
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="cd-page">
@@ -262,8 +362,12 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
           </div>
         </div>
         {!loading && (
-          <div className="mt-2 text-xs text-muted-foreground">
-            {total} product{total !== 1 ? "s" : ""} &middot; Stock value: {formatCurrency(totalStockValue)}
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>{total} product{total !== 1 ? "s" : ""}</span>
+            <span>&middot;</span>
+            <span>{stockScopeLabel}</span>
+            <span>&middot;</span>
+            <span>Visible stock value: {formatCurrency(totalStockValue)}</span>
           </div>
         )}
       </Card>
@@ -323,47 +427,49 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                       ]}
                     />
                   </div>
+                  <div className="mt-3 rounded-2xl border bg-slate-50/80 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stock</span>
+                      <span className="text-[11px] text-muted-foreground">{selectedLocation ? selectedLocation.name : "All stores"}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 text-xs">
+                      <span className="rounded-full border bg-white px-2.5 py-1 font-semibold">On hand: {formatQty(product.stockSummary.totalOnHand, product.unit)}</span>
+                      <span className="rounded-full border bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">Available: {formatQty(product.stockSummary.totalAvailable, product.unit)}</span>
+                      {product.stockSummary.totalReserved > 0 && (
+                        <span className="rounded-full border bg-blue-50 px-2.5 py-1 font-semibold text-blue-700">Reserved: {formatQty(product.stockSummary.totalReserved, product.unit)}</span>
+                      )}
+                    </div>
+                  </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <span className={cn(isOutOfStock ? "text-red-600 font-medium" : isLowStock ? "text-amber-600 font-medium" : "")}>
-                      On Hand: {product.stockSummary.totalOnHand} {product.unit}
-                    </span>
-                    <span className="text-muted-foreground">Available: {product.stockSummary.totalAvailable}</span>
                     <span>Price: {formatCurrency(product.sellingPrice)}</span>
                     {product.category && (
                       <Badge variant="secondary" className="text-[10px]">{product.category.name}</Badge>
                     )}
                   </div>
-                  {product.stockSummary.locations.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {product.stockSummary.locations.map((loc) => (
-                        <span
-                          key={loc.id}
-                          className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] tabular-nums"
-                        >
-                          <MapPin className="h-3 w-3 text-muted-foreground" />
-                          <span className="max-w-[60px] truncate text-muted-foreground">{loc.name}:</span>
-                          <span className="font-medium">{loc.qtyOnHand}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="mt-2">
+                    <LocationBreakdown product={product} />
+                  </div>
                 </Card>
               );
             })}
           </div>
 
           <div className="hidden lg:block">
-            <Table className="min-w-[1080px]">
+            <div className="mb-3 rounded-2xl border bg-blue-50/70 px-4 py-3 text-sm text-blue-900">
+              <div className="flex flex-wrap items-center gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="font-semibold">Stock view:</span>
+                <span>{stockScopeLabel}. On hand means physical quantity. Available means sellable/transferable quantity after reservations.</span>
+              </div>
+            </div>
+            <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Tracking</TableHead>
-                  <TableHead className="text-right">On Hand</TableHead>
-                  <TableHead className="text-right">Available</TableHead>
-                  <TableHead className="text-right">Reserved</TableHead>
-                  <TableHead className="text-right">Avg Cost</TableHead>
-                  <TableHead className="text-right">Stock Value</TableHead>
+                  <TableHead>SKU / Tracking</TableHead>
+                  <TableHead className="text-right">Stock Balance</TableHead>
+                  <TableHead>Store Breakdown</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
                   <TableHead className="text-right">Selling Price</TableHead>
                   <TableHead className="w-[60px]">Actions</TableHead>
                 </TableRow>
@@ -373,8 +479,6 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                   const avgCost = product.stockSummary.totalOnHand > 0
                     ? product.stockSummary.stockValue / product.stockSummary.totalOnHand
                     : product.purchasePrice;
-                  const isLowStock = product.stockSummary.totalOnHand > 0 && product.stockSummary.totalOnHand <= product.minStock;
-                  const isOutOfStock = product.stockSummary.totalOnHand === 0 && !product.isService;
                   return (
                     <TableRow key={product.id}>
                       <TableCell>
@@ -404,33 +508,30 @@ export function ProductsClient({ initialData, categories, locations }: ProductsC
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{product.sku}</TableCell>
                       <TableCell>
-                        {product.trackingMode !== "NONE" ? (
-                          <Badge variant="outline" className="text-[10px]">
-                            {product.trackingMode}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">---</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <span className={cn(isOutOfStock ? "text-red-600 font-medium" : isLowStock ? "text-amber-600 font-medium" : "font-medium")}>
-                            {product.stockSummary.totalOnHand}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{product.unit}</span>
-                          {isOutOfStock ? (
-                            <Badge variant="destructive" className="text-[10px]">Out</Badge>
-                          ) : isLowStock ? (
-                            <Badge variant="warning" className="text-[10px]">Low</Badge>
-                          ) : null}
+                        <div className="space-y-1">
+                          <div className="font-mono text-xs">{product.sku}</div>
+                          {product.trackingMode !== "NONE" ? (
+                            <Badge variant="outline" className="text-[10px]">
+                              {product.trackingMode}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No batch/serial tracking</span>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{product.stockSummary.totalAvailable}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{product.stockSummary.totalReserved}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(avgCost)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatCurrency(product.stockSummary.stockValue)}</TableCell>
+                      <TableCell className="text-right">
+                        <StockPills product={product} />
+                      </TableCell>
+                      <TableCell>
+                        <LocationBreakdown product={product} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="space-y-1 tabular-nums">
+                          <div className="font-medium">{formatCurrency(product.stockSummary.stockValue)}</div>
+                          <div className="text-xs text-muted-foreground">Avg cost {formatCurrency(avgCost)}</div>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">{formatCurrency(product.sellingPrice)}</TableCell>
                       <TableCell>
                         <ActionsMenu

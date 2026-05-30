@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
-import { Toaster } from "sonner";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { Toaster, toast as sonnerToast } from "sonner";
 
 interface Toast {
   id: string;
@@ -18,45 +18,90 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+type ToastVariant = NonNullable<Toast["variant"]>;
+
 type ToastVariantConfig = {
   panel: string;
   icon: ReactNode;
+  label: string;
 };
 
-const variants: Record<NonNullable<Toast["variant"]>, ToastVariantConfig> = {
+const variants: Record<ToastVariant, ToastVariantConfig> = {
   default: {
+    label: "Info",
     panel: "bg-sky-500",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.9" stroke="currentColor" className="size-6">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a3 3 0 1 1-5.714 0" />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-6 w-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm0-12a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Z" />
       </svg>
     ),
   },
   success: {
-    panel: "bg-green-500",
+    label: "Success",
+    panel: "bg-emerald-500",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.9" stroke="currentColor" className="size-6">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9 9.75h.008v.008H9V9.75Zm6 0h.008v.008H15V9.75Z" />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.1" stroke="currentColor" className="h-6 w-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
       </svg>
     ),
   },
   error: {
-    panel: "bg-red-500",
+    label: "Error",
+    panel: "bg-rose-500",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.9" stroke="currentColor" className="size-6">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-6 w-6">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm8.485 1.515a2.25 2.25 0 0 1-1.948 3.375H5.463a2.25 2.25 0 0 1-1.948-3.375L10.052 5.7a2.25 2.25 0 0 1 3.896 0l6.537 12.315Z" />
       </svg>
     ),
   },
   warning: {
-    panel: "bg-yellow-400",
+    label: "Warning",
+    panel: "bg-amber-400",
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.9" stroke="currentColor" className="size-6">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 7.5h16.5m-16.5 4.5h16.5m-12 4.5h7.5m-9.75-13.5 12 18" />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-6 w-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm0-12 9 16.5H3L12 4.5Z" />
       </svg>
     ),
   },
 };
+
+function ToastCard({ toast, onClose }: { toast: Toast; onClose: () => void }) {
+  const variant = variants[toast.variant || "default"];
+
+  return (
+    <div
+      role="alert"
+      className="pointer-events-auto grid w-[min(520px,calc(100vw-24px))] grid-cols-[72px_1fr_44px] overflow-hidden rounded-[18px] border border-black/5 bg-white text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.18)] ring-1 ring-slate-900/5 dark:border-white/10 dark:bg-slate-950 dark:text-white dark:ring-white/10"
+      style={{ zIndex: 2147483647 }}
+    >
+      <div className={`flex min-h-[72px] items-center justify-center text-white ${variant.panel}`}>
+        {variant.icon}
+      </div>
+
+      <div className="min-w-0 py-3.5 pl-4 pr-2">
+        <div className="truncate text-[15px] font-extrabold leading-5 tracking-tight text-slate-950 dark:text-white">
+          {toast.title || variant.label}
+        </div>
+        {toast.description ? (
+          <div className="mt-1 line-clamp-2 text-[13px] font-medium leading-5 text-slate-600 dark:text-slate-300">
+            {toast.description}
+          </div>
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        className="m-2 inline-flex h-8 w-8 items-center justify-center self-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white dark:focus:ring-white/20"
+        aria-label="Close notification"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor" className="h-5 w-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 export function useToast() {
   const context = useContext(ToastContext);
@@ -67,89 +112,59 @@ export function useToast() {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((toast: Omit<Toast, "id">) => {
-    const id = Math.random().toString(36).slice(2, 11);
-    setToasts((prev) => [...prev, { ...toast, id }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 6000);
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    sonnerToast.dismiss(id);
   }, []);
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const addToast = useCallback(
+    (toast: Omit<Toast, "id">) => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const nextToast: Toast = { ...toast, id, variant: toast.variant || "default" };
+
+      setToasts((prev) => [...prev.filter((item) => item.id !== id), nextToast]);
+
+      sonnerToast.custom(
+        () => <ToastCard toast={nextToast} onClose={() => removeToast(id)} />,
+        {
+          id,
+          duration: 5200,
+          position: "top-right",
+        },
+      );
+    },
+    [removeToast],
+  );
+
+  const value = useMemo(
+    () => ({
+      toasts,
+      addToast,
+      removeToast,
+    }),
+    [toasts, addToast, removeToast],
+  );
 
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       <Toaster
         position="top-right"
-        closeButton
-        richColors={false}
+        closeButton={false}
         expand={false}
-        duration={5000}
-        visibleToasts={5}
-        gap={14}
+        duration={5200}
+        visibleToasts={6}
+        gap={12}
+        offset={18}
         className="!z-[2147483647]"
-        style={{ zIndex: 2147483647 }}
+        style={{ zIndex: 2147483647, pointerEvents: "auto" }}
         toastOptions={{
+          unstyled: true,
           classNames: {
-            toast:
-              "group relative min-h-[74px] w-[min(620px,calc(100vw-2rem))] overflow-hidden rounded-xl border-0 bg-white py-4 pl-[92px] pr-12 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.12)] dark:bg-slate-950 dark:text-slate-50",
-            success: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-green-500 before:content-['']",
-            info: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-sky-500 before:content-['']",
-            warning: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-yellow-400 before:content-['']",
-            error: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-red-500 before:content-['']",
-            icon: "absolute left-0 top-0 z-10 flex h-full w-[74px] items-center justify-center text-white",
-            content: "relative z-10 min-w-0 gap-0",
-            title: "text-[15px] font-extrabold leading-5 tracking-tight text-slate-950 dark:text-slate-50",
-            description: "mt-1 line-clamp-2 text-[14px] leading-5 text-slate-800 dark:text-slate-200",
-            actionButton: "rounded-full bg-slate-950 px-3 py-1.5 text-xs font-bold text-white dark:bg-white dark:text-slate-950",
-            cancelButton: "rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-            closeButton:
-              "absolute right-4 top-1/2 z-20 h-7 w-7 -translate-y-1/2 rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white",
+            toast: "!bg-transparent !p-0 !shadow-none !border-0",
           },
         }}
       />
-      <div className="pointer-events-none fixed right-5 top-5 z-[2147483647] flex w-[calc(100vw-2.5rem)] max-w-[600px] flex-col gap-4">
-        {toasts.map((toast) => {
-          const v = variants[toast.variant || "default"];
-
-          return (
-            <div
-              key={toast.id}
-              role="alert"
-              className="pointer-events-auto relative min-h-[74px] overflow-hidden rounded-xl bg-white py-4 pl-[92px] pr-12 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.12)] transition-all duration-300 ease-out dark:bg-slate-950 dark:text-slate-50"
-            >
-              <div className={`absolute inset-y-0 left-0 flex w-[74px] items-center justify-center text-white ${v.panel}`}>
-                {v.icon}
-              </div>
-
-              <div className="min-w-0">
-                <strong className="block text-[15px] font-extrabold leading-5 tracking-tight text-slate-950 dark:text-slate-50">
-                  {toast.title}
-                </strong>
-                {toast.description && (
-                  <p className="mt-1 line-clamp-2 text-[14px] leading-5 text-slate-800 dark:text-slate-200">
-                    {toast.description}
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => removeToast(toast.id)}
-                className="absolute right-4 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                aria-label="Close notification"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor" className="size-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          );
-        })}
-      </div>
     </ToastContext.Provider>
   );
 }
