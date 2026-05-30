@@ -107,7 +107,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
     if (!form.name.trim()) { addToast({ title: "Store name is required", variant: "error" }); return; }
     if (!form.code.trim()) { addToast({ title: "Store code is required", variant: "error" }); return; }
     if (form.type === "POS_STORE" && !form.branchId) { addToast({ title: "Branch is required for POS/Showroom stores", variant: "error" }); return; }
-    if (form.type === "EMPLOYEE_STORE" && !form.assignedEmployeeId) { addToast({ title: "Employee is required for Employee stores", variant: "error" }); return; }
+    if (form.type === "EMPLOYEE_STORE" && !form.assignedEmployeeId) { addToast({ title: "Responsible employee is required for employee stores", variant: "error" }); return; }
 
     setSaving(true);
     try {
@@ -243,23 +243,24 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                   </Select>
                 </div>
               )}
-              {(form.type === "EMPLOYEE_STORE" || form.type === "MAIN_WAREHOUSE") && (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">
-                    Assigned Employee{form.type === "EMPLOYEE_STORE" ? " *" : " (optional)"}
-                  </label>
-                  <Select value={form.assignedEmployeeId} onValueChange={(v) => setForm({ ...form, assignedEmployeeId: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={form.type === "EMPLOYEE_STORE" ? "Select employee" : "Select employee (optional)"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>{emp.name} ({emp.email})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">
+                  Responsible employee{form.type === "EMPLOYEE_STORE" ? " *" : ""}
+                </label>
+                <Select value={form.assignedEmployeeId} onValueChange={(v) => setForm({ ...form, assignedEmployeeId: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select employee responsible for receiving transfers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>{emp.name} ({emp.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Only this employee can receive transfers into this store. Admins and managers cannot receive unless assigned here. Owner is the only exception.
+                </p>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Notes</label>
                 <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes" />
@@ -350,7 +351,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                 <TableHead>Code</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Branch</TableHead>
-                <TableHead>Employee</TableHead>
+                <TableHead>Responsible employee</TableHead>
                 <TableHead className="text-center">PO Receiving</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -375,7 +376,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{store.branch?.name || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{store.assignedEmployee?.name || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">{store.assignedEmployee?.name || <span className="text-destructive">Owner only</span>}</TableCell>
                     <TableCell className="text-center">
                       {store.isDefault ? <Badge variant="outline">Main receiving WH</Badge> : "-"}
                     </TableCell>

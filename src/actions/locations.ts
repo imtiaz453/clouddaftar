@@ -15,6 +15,57 @@ function normalizeCode(value: string) {
     .slice(0, 24);
 }
 
+function mapWarehouseTypeToStockLocationType(type: StoreType) {
+  if (type === "POS_STORE") return "POS_STORE";
+  if (type === "EMPLOYEE_STORE") return "EMPLOYEE_STORE";
+  return "MAIN_WAREHOUSE";
+}
+
+async function syncWarehouseStockLocation(
+  tx: any,
+  companyId: string,
+  warehouse: {
+    id: string;
+    name: string;
+    code: string;
+    type: StoreType;
+    branchId?: string | null;
+    assignedEmployeeId?: string | null;
+    isDefault?: boolean;
+    isActive?: boolean;
+  },
+  previousCode?: string | null,
+) {
+  const code = normalizeCode(warehouse.code || warehouse.name);
+  const type = mapWarehouseTypeToStockLocationType(warehouse.type);
+
+  const existing = await tx.stockLocation.findFirst({
+    where: {
+      companyId,
+      deletedAt: null,
+      OR: [{ code }, ...(previousCode && previousCode !== code ? [{ code: previousCode }] : [])],
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  const data = {
+    name: warehouse.name.trim(),
+    code,
+    type,
+    branchId: warehouse.branchId || null,
+    assignedEmployeeId: warehouse.assignedEmployeeId || null,
+    isDefault: warehouse.isDefault ?? false,
+    isActive: warehouse.isActive ?? true,
+    isSellable: true,
+  };
+
+  if (existing) {
+    return tx.stockLocation.update({ where: { id: existing.id }, data });
+  }
+
+  return tx.stockLocation.create({ data: { companyId, ...data } });
+}
+
 export async function getBranches() {
   const { companyId } = await requireCompanyAuth();
   await ensureDefaultBranchAndWarehouse(prisma, companyId);
@@ -291,6 +342,7 @@ export async function createWarehouse(data: {
       },
     });
     await ensureDefaultWarehouseLocations(tx, companyId, created);
+    await syncWarehouseStockLocation(tx, companyId, created);
     return created;
   });
 
@@ -354,7 +406,7 @@ export async function updateWarehouse(data: {
       });
     }
 
-    return tx.warehouse.update({
+    const updatedWarehouse = await tx.warehouse.update({
       where: { id: data.id },
       data: {
         name: data.name.trim(),
@@ -367,6 +419,9 @@ export async function updateWarehouse(data: {
         notes: data.notes !== undefined ? data.notes : existing.notes,
       },
     });
+
+    await syncWarehouseStockLocation(tx, companyId, updatedWarehouse, existing.code);
+    return updatedWarehouse;
   });
 
   await createAuditLog({

@@ -685,11 +685,44 @@ export async function issueStockTransfer(transferId: string, companyId: string, 
 
 export async function receiveStockTransfer(transferId: string, companyId: string, userId: string) {
   const transfer = await prisma.stockTransfer.findFirst({
-    where: { id: transferId, companyId }, include: { items: true },
+    where: { id: transferId, companyId },
+    include: {
+      items: true,
+      destinationLocation: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          assignedEmployeeId: true,
+          assignedEmployee: { select: { name: true, email: true } },
+        },
+      },
+    },
   });
   if (!transfer) throw new Error("Transfer not found");
   if (transfer.status !== "ISSUED" && transfer.status !== "PARTIALLY_RECEIVED") {
     throw new Error(`Transfer cannot be received in status: ${transfer.status}`);
+  }
+
+  const membership = await prisma.companyMembership.findFirst({
+    where: { companyId, userId, isActive: true },
+    select: { role: true },
+  });
+  const isOwner = membership?.role === "OWNER";
+  const responsibleEmployeeId = transfer.destinationLocation.assignedEmployeeId;
+
+  if (!isOwner) {
+    if (!responsibleEmployeeId) {
+      throw new Error(
+        `Only the company owner can receive this transfer because ${transfer.destinationLocation.name} has no responsible employee assigned. Set a responsible employee in Settings → Stores.`,
+      );
+    }
+    if (responsibleEmployeeId !== userId) {
+      const responsibleName = transfer.destinationLocation.assignedEmployee?.name || "the assigned responsible employee";
+      throw new Error(
+        `Only ${responsibleName} can receive transfers into ${transfer.destinationLocation.name}. Managers and admins cannot receive it unless they are assigned as responsible employee.`,
+      );
+    }
   }
 
   await prisma.$transaction(async (tx) => {

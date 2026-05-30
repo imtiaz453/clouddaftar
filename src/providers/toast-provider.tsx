@@ -83,15 +83,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
       {children}
       <Toaster
-        position="bottom-right"
+        position="top-right"
         closeButton
         richColors={false}
         expand={false}
-        duration={4200}
+        duration={5000}
+        visibleToasts={5}
+        gap={14}
+        className="!z-[2147483647]"
+        style={{ zIndex: 2147483647 }}
         toastOptions={{
           classNames: {
             toast:
-              "group relative min-h-[74px] w-[min(600px,calc(100vw-2rem))] overflow-hidden rounded-xl border-0 bg-white py-4 pl-[92px] pr-12 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.12)] dark:bg-slate-950 dark:text-slate-50",
+              "group relative min-h-[74px] w-[min(620px,calc(100vw-2rem))] overflow-hidden rounded-xl border-0 bg-white py-4 pl-[92px] pr-12 text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.12)] dark:bg-slate-950 dark:text-slate-50",
             success: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-green-500 before:content-['']",
             info: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-sky-500 before:content-['']",
             warning: "before:absolute before:inset-y-0 before:left-0 before:w-[74px] before:bg-yellow-400 before:content-['']",
@@ -107,7 +111,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           },
         }}
       />
-      <div className="pointer-events-none fixed bottom-5 right-5 z-[9999] flex w-[calc(100vw-2.5rem)] max-w-[600px] flex-col gap-4">
+      <div className="pointer-events-none fixed right-5 top-5 z-[2147483647] flex w-[calc(100vw-2.5rem)] max-w-[600px] flex-col gap-4">
         {toasts.map((toast) => {
           const v = variants[toast.variant || "default"];
 

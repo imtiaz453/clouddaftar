@@ -18,6 +18,12 @@ export const DEFAULT_WAREHOUSE_LOCATIONS = [
   },
 ] as const;
 
+function mapWarehouseTypeToStockLocationType(type?: string | null) {
+  if (type === "POS_STORE") return "POS_STORE";
+  if (type === "EMPLOYEE_STORE") return "EMPLOYEE_STORE";
+  return "MAIN_WAREHOUSE";
+}
+
 export async function getUserAccessibleLocationIds(
   prismaClient: typeof prisma,
   companyId: string,
@@ -196,14 +202,39 @@ async function resolveStockLocation(tx: Tx, companyId: string, warehouseId: stri
   if (warehouseId) {
     const warehouse = await tx.warehouse.findFirst({
       where: { id: warehouseId, companyId, deletedAt: null },
-      select: { code: true, name: true },
+      select: { code: true, name: true, type: true, branchId: true, assignedEmployeeId: true, isDefault: true, isActive: true },
     });
 
     if (warehouse) {
       const byCode = await tx.stockLocation.findFirst({
         where: { companyId, code: warehouse.code, deletedAt: null, isActive: true },
       });
-      if (byCode) return byCode;
+      if (byCode) {
+        const nextType = mapWarehouseTypeToStockLocationType(warehouse.type);
+        const needsSync =
+          byCode.name !== warehouse.name ||
+          byCode.type !== nextType ||
+          byCode.branchId !== (warehouse.branchId || null) ||
+          byCode.assignedEmployeeId !== (warehouse.assignedEmployeeId || null) ||
+          byCode.isDefault !== Boolean(warehouse.isDefault) ||
+          byCode.isActive !== Boolean(warehouse.isActive);
+
+        if (needsSync) {
+          return tx.stockLocation.update({
+            where: { id: byCode.id },
+            data: {
+              name: warehouse.name || byCode.name,
+              type: nextType,
+              branchId: warehouse.branchId || null,
+              assignedEmployeeId: warehouse.assignedEmployeeId || null,
+              isDefault: Boolean(warehouse.isDefault),
+              isActive: Boolean(warehouse.isActive),
+              isSellable: true,
+            },
+          });
+        }
+        return byCode;
+      }
 
       const code = await normalizeCode(warehouse.code || warehouse.name || `WH-${warehouseId.slice(-6)}`);
       try {
@@ -212,9 +243,11 @@ async function resolveStockLocation(tx: Tx, companyId: string, warehouseId: stri
             companyId,
             name: warehouse.name || "Warehouse Stock",
             code,
-            type: "MAIN_WAREHOUSE",
-            isDefault: false,
-            isActive: true,
+            type: mapWarehouseTypeToStockLocationType(warehouse.type),
+            branchId: warehouse.branchId || null,
+            assignedEmployeeId: warehouse.assignedEmployeeId || null,
+            isDefault: Boolean(warehouse.isDefault),
+            isActive: Boolean(warehouse.isActive),
             isSellable: true,
           },
         });
