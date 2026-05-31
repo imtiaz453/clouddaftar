@@ -12,7 +12,41 @@ function normalizeCode(value: string) {
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
     .slice(0, 24);
+}
+
+function archivedStockLocationCode(code: string, id: string) {
+  const suffix = `OLD-${id.slice(-6).toUpperCase()}`;
+  const base = normalizeCode(code).slice(0, Math.max(1, 24 - suffix.length - 1));
+  return `${base}-${suffix}`.slice(0, 24);
+}
+
+async function archiveConflictingDeletedStockLocation(
+  tx: any,
+  companyId: string,
+  code: string,
+  keepId?: string,
+) {
+  const duplicate = await tx.stockLocation.findFirst({
+    where: {
+      companyId,
+      code,
+      deletedAt: { not: null },
+      ...(keepId ? { id: { not: keepId } } : {}),
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  if (!duplicate) return;
+
+  await tx.stockLocation.update({
+    where: { id: duplicate.id },
+    data: {
+      code: archivedStockLocationCode(code, duplicate.id),
+      isActive: false,
+    },
+  });
 }
 
 function mapWarehouseTypeToStockLocationType(type: StoreType) {
@@ -37,16 +71,41 @@ async function syncWarehouseStockLocation(
   previousCode?: string | null,
 ) {
   const code = normalizeCode(warehouse.code || warehouse.name);
+  const normalizedPreviousCode = previousCode ? normalizeCode(previousCode) : null;
   const type = mapWarehouseTypeToStockLocationType(warehouse.type);
 
-  const existing = await tx.stockLocation.findFirst({
-    where: {
-      companyId,
-      deletedAt: null,
-      OR: [{ code }, ...(previousCode && previousCode !== code ? [{ code: previousCode }] : [])],
-    },
+  const byPreviousCode = normalizedPreviousCode
+    ? await tx.stockLocation.findFirst({
+        where: { companyId, code: normalizedPreviousCode },
+        orderBy: { updatedAt: "desc" },
+      })
+    : null;
+
+  const byNewCode = await tx.stockLocation.findFirst({
+    where: { companyId, code },
     orderBy: { updatedAt: "desc" },
   });
+
+  let existing = byPreviousCode || byNewCode;
+
+  // If the current warehouse/location is being renamed to a code that belongs to an
+  // already active location, do not let Prisma throw a raw unique-constraint error.
+  if (byPreviousCode && byNewCode && byPreviousCode.id !== byNewCode.id) {
+    if (byNewCode.deletedAt) {
+      await tx.stockLocation.update({
+        where: { id: byNewCode.id },
+        data: {
+          code: archivedStockLocationCode(code, byNewCode.id),
+          isActive: false,
+        },
+      });
+      existing = byPreviousCode;
+    } else {
+      throw new Error(
+        `Another store/location already uses code "${code}". Please use a different code.`,
+      );
+    }
+  }
 
   const data = {
     name: warehouse.name.trim(),
@@ -57,13 +116,31 @@ async function syncWarehouseStockLocation(
     isDefault: warehouse.isDefault ?? false,
     isActive: warehouse.isActive ?? true,
     isSellable: true,
+    deletedAt: null,
   };
 
   if (existing) {
+    if (existing.code !== code) {
+      await archiveConflictingDeletedStockLocation(tx, companyId, code, existing.id);
+    }
     return tx.stockLocation.update({ where: { id: existing.id }, data });
   }
 
-  return tx.stockLocation.create({ data: { companyId, ...data } });
+  try {
+    await archiveConflictingDeletedStockLocation(tx, companyId, code);
+    return await tx.stockLocation.create({ data: { companyId, ...data } });
+  } catch (error: any) {
+    const duplicate = await tx.stockLocation.findFirst({
+      where: { companyId, code },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (duplicate) {
+      return tx.stockLocation.update({ where: { id: duplicate.id }, data });
+    }
+
+    throw error;
+  }
 }
 
 export async function getBranches() {
