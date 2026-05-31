@@ -163,6 +163,8 @@ export function NewSaleClient({
 	const barcodeRef = useRef<HTMLInputElement>(null);
 	const receiptFrameRef = useRef<HTMLIFrameElement>(null);
 	const autoPaid = useRef(true);
+	const paidRef = useRef(paid);
+	paidRef.current = paid;
 	const keypadModeRef = useRef(keypadMode);
 	keypadModeRef.current = keypadMode;
 	const activeLineIdRef = useRef(activeLineId);
@@ -336,7 +338,7 @@ export function NewSaleClient({
     (mode: KeypadMode, item: LineItem | null) => {
       keypadReplaceNextRef.current = true;
       if (mode === "payment") {
-        const val = paid || "0";
+        const val = paidRef.current || "0";
         setKeypadBuffer(val);
         return;
       }
@@ -348,7 +350,7 @@ export function NewSaleClient({
       else if (mode === "discount") setKeypadBuffer(String(item.discount));
       else if (mode === "price") setKeypadBuffer(String(item.price));
     },
-    [paid],
+    [],
   );
 
   function switchMode(mode: KeypadMode) {
@@ -470,9 +472,10 @@ export function NewSaleClient({
       preloadBuffer(keypadMode, item ?? null);
     }
     // Only preload when the selected line or edit mode changes.
-    // Do not preload after every quantity update, otherwise keypad digits replace each other.
+    // Do not depend on paid/totals/items here; otherwise every quantity digit causes
+    // a totals/paid update and the next keypad digit overwrites instead of appending.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLineId, keypadMode, preloadBuffer]);
+  }, [activeLineId, keypadMode]);
 
 	useEffect(() => {
 		const barcode = barcodeInput.trim();
@@ -814,6 +817,7 @@ export function NewSaleClient({
                     <div
                       key={item.id}
                       onClick={() => {
+                        if (item.id === activeLineId) return;
                         setActiveLineId(item.id);
                         preloadBuffer(keypadMode, item);
                       }}
