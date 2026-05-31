@@ -45,6 +45,11 @@ import {
 import { applyPlanPermissionLimitsForRole } from "@/lib/plan-features";
 interface AppTopbarProps {
   companyName?: string;
+  /**
+   * Permission values already resolved by AppShell/session.
+   * Kept optional so older callers still work.
+   */
+  permissions?: string[] | null;
   rolePermissions?: Record<string, string[]> | null;
   userPermissionOverrides?: Record<string, unknown> | null;
   planCode?: string | null;
@@ -145,6 +150,7 @@ function filterModuleMenus(
 
 export function AppTopbar({
   companyName,
+  permissions: directPermissions,
   rolePermissions,
   userPermissionOverrides,
   planCode,
@@ -188,17 +194,22 @@ export function AppTopbar({
   }
 
   const moduleMenus = useMemo(() => {
+    const basePermissions = Array.isArray(directPermissions)
+      ? directPermissions
+      : getEffectiveUserPermissions(
+          userRole,
+          rolePermissions,
+          userPermissionOverrides,
+        );
+
     const permissions = applyPlanPermissionLimitsForRole(
-      getEffectiveUserPermissions(
-        userRole,
-        rolePermissions,
-        userPermissionOverrides,
-      ),
+      basePermissions,
       planCode,
       userRole,
     );
+
     return filterModuleMenus(NAV_GROUPS, permissions);
-  }, [userRole, rolePermissions, userPermissionOverrides, planCode]);
+  }, [directPermissions, userRole, rolePermissions, userPermissionOverrides, planCode]);
 
   const searchItems = useMemo(
     () =>

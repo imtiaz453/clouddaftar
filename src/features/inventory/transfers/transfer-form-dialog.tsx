@@ -60,7 +60,8 @@ export function TransferFormDialog({ open, onOpenChange }: TransferFormDialogPro
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [sourceLocations, setSourceLocations] = useState<Location[]>([]);
+  const [destinationLocations, setDestinationLocations] = useState<Location[]>([]);
   const [sourceLocationId, setSourceLocationId] = useState("");
   const [destinationLocationId, setDestinationLocationId] = useState("");
   const [notes, setNotes] = useState("");
@@ -80,8 +81,19 @@ export function TransferFormDialog({ open, onOpenChange }: TransferFormDialogPro
       setSearchResults([]);
       return;
     }
-    getLocationsForSelect()
-      .then((locs) => setLocations(locs as unknown as Location[]))
+    Promise.all([
+      getLocationsForSelect({ scope: "transfer-source" }),
+      getLocationsForSelect({ scope: "transfer-destination" }),
+    ])
+      .then(([sources, destinations]) => {
+        const nextSources = sources as unknown as Location[];
+        setSourceLocations(nextSources);
+        setDestinationLocations(destinations as unknown as Location[]);
+
+        if (nextSources.length === 1) {
+          setSourceLocationId(nextSources[0].id);
+        }
+      })
       .catch(() => toast.error("Failed to load locations"));
   }, [open]);
 
@@ -100,6 +112,15 @@ export function TransferFormDialog({ open, onOpenChange }: TransferFormDialogPro
     }, 300);
     return () => clearTimeout(timer);
   }, [productSearch, open]);
+
+
+  useEffect(() => {
+    if (sourceLocationId && destinationLocationId === sourceLocationId) {
+      setDestinationLocationId("");
+    }
+  }, [sourceLocationId, destinationLocationId]);
+
+  const destinationOptions = destinationLocations.filter((location) => location.id !== sourceLocationId);
 
   const locationsError =
     sourceLocationId && destinationLocationId && sourceLocationId === destinationLocationId
@@ -184,13 +205,14 @@ export function TransferFormDialog({ open, onOpenChange }: TransferFormDialogPro
                   <SelectValue placeholder="Select source" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.filter((l) => typeof l.id === "string" && l.id.trim() !== "").map((l) => (
+                  {sourceLocations.filter((l) => typeof l.id === "string" && l.id.trim() !== "").map((l) => (
                     <SelectItem key={l.id} value={l.id}>
                       {l.name} ({l.code})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Only your assigned branch/store is available as source.</p>
             </div>
             <div className="space-y-2">
               <Label>Destination Location</Label>
@@ -199,15 +221,14 @@ export function TransferFormDialog({ open, onOpenChange }: TransferFormDialogPro
                   <SelectValue placeholder="Select destination" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations
-                    .filter((l) => l.id !== sourceLocationId)
-                    .map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        {l.name} ({l.code})
-                      </SelectItem>
-                    ))}
+                  {destinationOptions.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name} ({l.code})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Destination shows all active stores/locations.</p>
             </div>
           </div>
 
