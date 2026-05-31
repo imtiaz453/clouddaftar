@@ -3,7 +3,7 @@
 import { signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Search,
@@ -38,7 +38,6 @@ import { EnableNotifications } from "@/components/shared/enable-notifications";
 import { useToast } from "@/providers/toast-provider";
 import {
   NAV_GROUPS,
-  SIDEBAR_BOTTOM_ITEMS,
   PERMISSIONS,
   getEffectiveUserPermissions,
   type NavGroup,
@@ -53,7 +52,6 @@ interface AppTopbarProps {
   userName?: string;
   userEmail?: string;
   userImage?: string;
-  permissions?: string[];
   onMenuClick?: () => void;
 }
 
@@ -115,7 +113,10 @@ interface Notification {
   createdAt: string;
 }
 
-function hasAnyPermission(itemPerms: string[] | undefined, userPerms: string[]): boolean {
+function hasAnyPermission(
+  itemPerms: string[] | undefined,
+  userPerms: string[],
+): boolean {
   if (!itemPerms || itemPerms.length === 0) return true;
   const userSet = new Set(userPerms);
   return itemPerms.some((key) => {
@@ -124,7 +125,10 @@ function hasAnyPermission(itemPerms: string[] | undefined, userPerms: string[]):
   });
 }
 
-function filterModuleMenus(groups: NavGroup[], permissions: string[]): NavGroup[] {
+function filterModuleMenus(
+  groups: NavGroup[],
+  permissions: string[],
+): NavGroup[] {
   const allowedAll = permissions.length >= ALL_PERMISSION_VALUES.size;
   return groups
     .filter((group) => MODULE_MENU_GROUPS.has(group.label))
@@ -132,7 +136,9 @@ function filterModuleMenus(groups: NavGroup[], permissions: string[]): NavGroup[
       ...group,
       items: allowedAll
         ? group.items
-        : group.items.filter((item) => hasAnyPermission(item.permissions, permissions)),
+        : group.items.filter((item) =>
+            hasAnyPermission(item.permissions, permissions),
+          ),
     }))
     .filter((group) => group.items.length > 0);
 }
@@ -146,7 +152,6 @@ export function AppTopbar({
   userName = "User",
   userEmail = "",
   userImage = "",
-  permissions: resolvedPermissions,
   onMenuClick,
 }: AppTopbarProps) {
   const { theme, setTheme } = useTheme();
@@ -162,10 +167,13 @@ export function AppTopbar({
   const [searchQuery, setSearchQuery] = useState("");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [openModuleMenu, setOpenModuleMenu] = useState<string | null>(null);
+  const moduleMenuRef = useRef<HTMLDivElement | null>(null);
 
   const segments = pathname.split("/").filter(Boolean);
   const tenant =
-    segments.length >= 2 && !dashboardRoutes.includes("/" + segments[0]) ? segments[0] : null;
+    segments.length >= 2 && !dashboardRoutes.includes("/" + segments[0])
+      ? segments[0]
+      : null;
 
   function tenantHref(href: string) {
     return tenant ? `/${tenant}${href === "/" ? "" : href}` : href;
@@ -179,47 +187,32 @@ export function AppTopbar({
     router.push(tenantHref(href));
   }
 
-  const calculatedPermissions = useMemo(
-    () =>
-      applyPlanPermissionLimitsForRole(
-      getEffectiveUserPermissions(userRole, rolePermissions, userPermissionOverrides),
+  const moduleMenus = useMemo(() => {
+    const permissions = applyPlanPermissionLimitsForRole(
+      getEffectiveUserPermissions(
+        userRole,
+        rolePermissions,
+        userPermissionOverrides,
+      ),
       planCode,
       userRole,
-      ),
-    [userRole, rolePermissions, userPermissionOverrides, planCode],
-  );
-  const permissions = resolvedPermissions ?? calculatedPermissions;
-  const canOpenApps = permissions.includes(PERMISSIONS.APPS_VIEW);
-  const canOpenSettings = permissions.includes(PERMISSIONS.SETTINGS_VIEW);
-  const canOpenBilling = permissions.includes(PERMISSIONS.BILLING_VIEW);
-  const canManageBranding = permissions.includes(PERMISSIONS.BRANDING_MANAGE);
-
-  const moduleMenus = useMemo(() => {
+    );
     return filterModuleMenus(NAV_GROUPS, permissions);
-  }, [permissions]);
+  }, [userRole, rolePermissions, userPermissionOverrides, planCode]);
 
   const searchItems = useMemo(
-    () => {
-      const items = [
-        ...NAV_GROUPS.flatMap((group) =>
-          group.items
-            .filter((item) => hasAnyPermission(item.permissions, permissions))
-            .map((item) => ({ ...item, group: group.label })),
-        ),
-        ...SIDEBAR_BOTTOM_ITEMS.filter(
-          (item) => item.href !== "#logout" && hasAnyPermission(item.permissions, permissions),
-        ).map((item) => ({ ...item, group: "Workspace" })),
-      ];
-
-      return Array.from(new Map(items.map((item) => [item.href, item])).values());
-    },
-    [permissions],
+    () =>
+      moduleMenus.flatMap((group) =>
+        group.items.map((item) => ({ ...item, group: group.label })),
+      ),
+    [moduleMenus],
   );
 
   const activeModuleLabel = useMemo(() => {
-    const currentPath = tenant && pathname.startsWith(`/${tenant}/`)
-      ? pathname.slice(tenant.length + 1) || "/"
-      : pathname;
+    const currentPath =
+      tenant && pathname.startsWith(`/${tenant}/`)
+        ? pathname.slice(tenant.length + 1) || "/"
+        : pathname;
 
     return (
       moduleMenus.find((group) =>
@@ -230,6 +223,11 @@ export function AppTopbar({
       )?.label ?? null
     );
   }, [moduleMenus, pathname, tenant]);
+
+  const activeOpenModule = useMemo(
+    () => moduleMenus.find((group) => group.label === openModuleMenu) ?? null,
+    [moduleMenus, openModuleMenu],
+  );
 
   const filteredSearchItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -258,7 +256,10 @@ export function AppTopbar({
       const cached = window.sessionStorage.getItem(NOTIFICATION_CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Date.now() - Number(parsed.createdAt || 0) < NOTIFICATION_CACHE_MS) {
+        if (
+          Date.now() - Number(parsed.createdAt || 0) <
+          NOTIFICATION_CACHE_MS
+        ) {
           setNotifications(parsed.notifications ?? []);
           setUnreadCount(parsed.unreadCount ?? 0);
           return;
@@ -322,21 +323,39 @@ export function AppTopbar({
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       const isTyping =
-        target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        setOpenModuleMenu(null);
         setSearchOpen(true);
         return;
       }
-      if (event.key === "Escape") setSearchOpen(false);
+      if (event.key === "Escape") {
+        setSearchOpen(false);
+        setOpenModuleMenu(null);
+      }
       if (!isTyping && event.key === "/" && !searchOpen) {
         event.preventDefault();
+        setOpenModuleMenu(null);
         setSearchOpen(true);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mounted, searchOpen]);
+
+  useEffect(() => {
+    if (!mounted || !openModuleMenu) return;
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (target && moduleMenuRef.current?.contains(target)) return;
+      setOpenModuleMenu(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [mounted, openModuleMenu]);
 
   async function markAllRead() {
     try {
@@ -349,7 +368,10 @@ export function AppTopbar({
       setUnreadCount(0);
       window.dispatchEvent(new Event("notifications:refresh"));
     } catch {
-      addToast({ title: "Could not mark notifications as read", variant: "error" });
+      addToast({
+        title: "Could not mark notifications as read",
+        variant: "error",
+      });
     }
   }
 
@@ -381,14 +403,14 @@ export function AppTopbar({
   return (
     <>
       <header className="sticky top-0 z-30 flex h-[68px] shrink-0 items-center gap-3 border-b border-border/70 bg-background/98 px-4 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-background/95 sm:px-6">
-        {canOpenApps && <button
+        <button
           type="button"
           onClick={onMenuClick}
           className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground lg:hidden"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
-        </button>}
+        </button>
 
         <button
           type="button"
@@ -396,7 +418,8 @@ export function AppTopbar({
           className="hidden h-11 items-center gap-2 rounded-full bg-foreground px-4 text-sm font-bold text-background shadow-sm transition hover:opacity-90 sm:inline-flex"
         >
           <LayoutGrid className="h-4 w-4" />
-          <span className="hidden md:inline">Apps</span><ArrowRight className="hidden h-4 w-4 md:inline" />
+          <span className="hidden md:inline">Apps</span>
+          <ArrowRight className="hidden h-4 w-4 md:inline" />
         </button>
 
         {mounted && (
@@ -407,7 +430,9 @@ export function AppTopbar({
               className="flex h-11 w-full items-center gap-2 rounded-full border border-border/80 bg-card/90 px-4 text-left text-sm text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-card"
             >
               <Search className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate">Search screens and actions…</span>
+              <span className="flex-1 truncate">
+                Search screens and actions…
+              </span>
               <kbd className="hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium sm:inline">
                 ⌘K
               </kbd>
@@ -416,106 +441,128 @@ export function AppTopbar({
         )}
 
         {moduleMenus.length > 0 && mounted && (
-          <nav className="hidden min-w-0 flex-1 items-center justify-center lg:flex" aria-label="Main modules">
+          <nav
+            ref={moduleMenuRef}
+            className="relative hidden min-w-0 flex-1 items-center justify-center lg:flex"
+            aria-label="Main modules"
+          >
             <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-transparent p-1">
               {moduleMenus.map((group) => {
                 const active = group.label === activeModuleLabel;
-                const featuredItems = group.items.slice(0, 6);
-                const moreItems = group.items.slice(6, 14);
+                const open = group.label === openModuleMenu;
                 return (
-                  <DropdownMenu
+                  <button
                     key={group.label}
-                    open={openModuleMenu === group.label}
-                    onOpenChange={(open) => setOpenModuleMenu(open ? group.label : null)}
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={open}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setNotifOpen(false);
+                      setSearchOpen(false);
+                      setOpenModuleMenu(open ? null : group.label);
+                    }}
+                    className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[15px] font-semibold tracking-tight transition-colors duration-150 ${
+                      active || open
+                        ? "bg-foreground text-background"
+                        : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                    }`}
                   >
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[15px] font-semibold tracking-tight transition-colors ${
-                          active
-                            ? "bg-foreground text-background"
-                            : "text-foreground/80 hover:bg-muted hover:text-foreground"
-                        }`}
-                      >
-                        {group.label}
-                        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="center"
-                      sideOffset={14}
-                      className="w-[min(760px,calc(100vw-3rem))] overflow-hidden rounded-[1.75rem] border border-border/70 bg-background p-0 shadow-2xl"
-                    >
-                      <div className="grid gap-0 md:grid-cols-[1.15fr_.85fr]">
-                        <div className="p-5 sm:p-6">
-                          <div className="mb-4 text-sm font-bold text-muted-foreground">
-                            Cloud Daftar for {group.label}
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {featuredItems.map((item) => (
-                              <button
-                                key={item.href}
-                                type="button"
-                                onClick={() => navigateTo(item.href)}
-                                className="group flex items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-muted"
-                              >
-                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition-colors group-hover:bg-foreground group-hover:text-background">
-                                  <LayoutGrid className="h-5 w-5" />
-                                </span>
-                                <span className="min-w-0">
-                                  <span className="block truncate text-sm font-bold text-foreground">
-                                    {item.label}
-                                  </span>
-                                  <span className="block truncate text-xs text-muted-foreground">
-                                    Open {group.label.toLowerCase()} screen
-                                  </span>
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                          {moreItems.length > 0 && (
-                            <div className="mt-4 grid gap-1 border-t border-border/70 pt-4 sm:grid-cols-2">
-                              {moreItems.map((item) => (
-                                <button
-                                  key={item.href}
-                                  type="button"
-                                  onClick={() => navigateTo(item.href)}
-                                  className="flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                >
-                                  <span className="truncate">{item.label}</span>
-                                  <ArrowRight className="h-3.5 w-3.5 shrink-0" />
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="hidden border-l border-border/70 bg-muted/45 p-6 md:block">
-                          <div className="rounded-3xl border border-border/70 bg-background p-4 shadow-sm">
-                            <div className="mb-4 flex h-32 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-muted to-primary/5">
-                              <LayoutGrid className="h-12 w-12 text-primary" />
-                            </div>
-                            <div className="text-base font-black text-foreground">
-                              Work faster in {group.label}
-                            </div>
-                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                              Quick access to daily operations, reports, and related module tools.
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => navigateTo(featuredItems[0]?.href || "/apps")}
-                              className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition hover:opacity-90"
-                            >
-                              Open module
-                              <ArrowRight className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    {group.label}
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform duration-150 ${open ? "rotate-180 opacity-90" : "opacity-70"}`}
+                    />
+                  </button>
                 );
               })}
             </div>
+
+            {activeOpenModule && (
+              <div
+                role="menu"
+                className="absolute left-1/2 top-[calc(100%+10px)] z-50 w-[min(760px,calc(100vw-3rem))] -translate-x-1/2 overflow-hidden rounded-[1.5rem] border border-border/80 bg-background p-0 shadow-2xl"
+              >
+                <div className="grid gap-0 md:grid-cols-[1.15fr_.85fr]">
+                  <div className="p-5 sm:p-6">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="text-sm font-bold text-muted-foreground">
+                        Cloud Daftar for {activeOpenModule.label}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOpenModuleMenu(null)}
+                        className="rounded-full px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {activeOpenModule.items.slice(0, 6).map((item) => (
+                        <button
+                          key={item.href}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => navigateTo(item.href)}
+                          className="group flex items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-muted"
+                        >
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground transition-colors group-hover:bg-foreground group-hover:text-background">
+                            <LayoutGrid className="h-5 w-5" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold text-foreground">
+                              {item.label}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              Open {activeOpenModule.label.toLowerCase()} screen
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {activeOpenModule.items.length > 6 && (
+                      <div className="mt-4 grid gap-1 border-t border-border/70 pt-4 sm:grid-cols-2">
+                        {activeOpenModule.items.slice(6, 14).map((item) => (
+                          <button
+                            key={item.href}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => navigateTo(item.href)}
+                            className="flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <span className="truncate">{item.label}</span>
+                            <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="hidden border-l border-border/70 bg-muted/45 p-6 md:block">
+                    <div className="rounded-3xl border border-border/70 bg-background p-4 shadow-sm">
+                      <div className="mb-4 flex h-32 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-muted to-primary/5">
+                        <LayoutGrid className="h-12 w-12 text-primary" />
+                      </div>
+                      <div className="text-base font-black text-foreground">
+                        Work faster in {activeOpenModule.label}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        Quick access to daily operations, reports, and related
+                        module tools.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigateTo(activeOpenModule.items[0]?.href || "/apps")
+                        }
+                        className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition hover:opacity-90"
+                      >
+                        Open module
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </nav>
         )}
 
@@ -540,7 +587,11 @@ export function AppTopbar({
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title="Toggle theme"
               >
-                {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {theme === "dark" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
               </button>
 
               <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
@@ -550,10 +601,18 @@ export function AppTopbar({
                     title="Notifications"
                     aria-label="Notifications"
                   >
-                    {unreadCount > 0 ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+                    {unreadCount > 0 ? (
+                      <Bell className="h-5 w-5" />
+                    ) : (
+                      <BellOff className="h-5 w-5" />
+                    )}
                     {unreadCount > 0 && (
                       <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-background bg-destructive px-1.5 text-[10px] font-black leading-none text-destructive-foreground shadow-sm">
-                        {unreadCount > 99 ? "99+" : unreadCount > 9 ? "9+" : unreadCount}
+                        {unreadCount > 99
+                          ? "99+"
+                          : unreadCount > 9
+                            ? "9+"
+                            : unreadCount}
                       </span>
                     )}
                   </button>
@@ -574,7 +633,9 @@ export function AppTopbar({
                             Notifications
                           </DropdownMenuLabel>
                           <p className="truncate text-[11px] text-muted-foreground">
-                            {unreadCount > 0 ? `${unreadCount} unread` : "No unread notifications"}
+                            {unreadCount > 0
+                              ? `${unreadCount} unread`
+                              : "No unread notifications"}
                           </p>
                         </div>
                       </div>
@@ -604,7 +665,9 @@ export function AppTopbar({
                         <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-background text-muted-foreground ring-1 ring-border">
                           <BellOff className="h-4 w-4" />
                         </div>
-                        <p className="text-sm font-semibold text-foreground">No new notifications</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          No new notifications
+                        </p>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
                           Alerts and approvals will appear here.
                         </p>
@@ -652,10 +715,16 @@ export function AppTopbar({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" className="rounded-full">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="rounded-full"
+                  >
                     <Avatar className="h-8 w-8 ring-2 ring-border">
                       <AvatarImage src={userImage} alt={userName} />
-                      <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
+                      <AvatarFallback className="text-xs font-semibold">
+                        {initials}
+                      </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -667,7 +736,9 @@ export function AppTopbar({
                         {userEmail}
                       </span>
                       {companyName && (
-                        <span className="text-xs text-muted-foreground">{companyName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {companyName}
+                        </span>
                       )}
                     </div>
                   </DropdownMenuLabel>
@@ -676,18 +747,20 @@ export function AppTopbar({
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>
-                  {canOpenSettings && <DropdownMenuItem onClick={() => navigateTo("/settings")}>
+                  <DropdownMenuItem onClick={() => navigateTo("/settings")}>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
-                  </DropdownMenuItem>}
-                  {canOpenBilling && <DropdownMenuItem onClick={() => navigateTo("/billing")}>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigateTo("/billing")}>
                     <CreditCard className="mr-2 h-4 w-4" />
                     Billing
-                  </DropdownMenuItem>}
-                  {canManageBranding && <DropdownMenuItem onClick={() => navigateTo("/settings?tab=theme")}>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigateTo("/settings?tab=theme")}
+                  >
                     <Palette className="mr-2 h-4 w-4" />
                     Theme
-                  </DropdownMenuItem>}
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigateTo("/profile")}>
                     <Lock className="mr-2 h-4 w-4" />
                     Password
@@ -734,7 +807,9 @@ export function AppTopbar({
             </div>
             <div className="max-h-80 overflow-y-auto p-2">
               {filteredSearchItems.length === 0 ? (
-                <p className="px-3 py-8 text-center text-sm text-muted-foreground">No matches</p>
+                <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  No matches
+                </p>
               ) : (
                 filteredSearchItems.map((item) => (
                   <button
@@ -744,8 +819,12 @@ export function AppTopbar({
                     className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent"
                   >
                     <span>
-                      <span className="block text-sm font-medium">{item.label}</span>
-                      <span className="text-xs text-muted-foreground">{item.group}</span>
+                      <span className="block text-sm font-medium">
+                        {item.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {item.group}
+                      </span>
                     </span>
                   </button>
                 ))

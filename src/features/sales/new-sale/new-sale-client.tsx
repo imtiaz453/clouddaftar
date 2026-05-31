@@ -164,15 +164,10 @@ export function NewSaleClient({
 	const receiptFrameRef = useRef<HTMLIFrameElement>(null);
 	const autoPaid = useRef(true);
 	const keypadModeRef = useRef(keypadMode);
+	keypadModeRef.current = keypadMode;
 	const activeLineIdRef = useRef(activeLineId);
-
-	useEffect(() => {
-		keypadModeRef.current = keypadMode;
-	}, [keypadMode]);
-
-	useEffect(() => {
-		activeLineIdRef.current = activeLineId;
-	}, [activeLineId]);
+	activeLineIdRef.current = activeLineId;
+	const keypadReplaceNextRef = useRef(true);
 
    useEffect(() => {
      barcodeRef.current?.focus();
@@ -243,7 +238,10 @@ export function NewSaleClient({
   useEffect(() => {
     if (autoPaid.current) {
       setPaid(String(totals.grandTotal));
-      setKeypadBuffer(String(totals.grandTotal));
+      if (keypadModeRef.current === "payment") {
+        setKeypadBuffer(String(totals.grandTotal));
+        keypadReplaceNextRef.current = true;
+      }
     }
   }, [totals.grandTotal]);
 
@@ -306,7 +304,8 @@ export function NewSaleClient({
 
     if (mode === "qty") {
       const raw = parseFloat(buffer);
-      const v = Number.isNaN(raw) || raw < 0 ? 1 : Math.max(1, raw);
+      const parsed = Number.isNaN(raw) ? 0 : raw;
+      const v = refundMode ? parsed : Math.max(0, parsed);
       setItems((prev) =>
         prev.map((item) =>
           item.id === lineId
@@ -331,17 +330,18 @@ export function NewSaleClient({
         ),
       );
     }
-  }, []);
+  }, [refundMode]);
 
   const preloadBuffer = useCallback(
     (mode: KeypadMode, item: LineItem | null) => {
+      keypadReplaceNextRef.current = true;
       if (mode === "payment") {
         const val = paid || "0";
         setKeypadBuffer(val);
         return;
       }
       if (!item) {
-        setKeypadBuffer("");
+        setKeypadBuffer("0");
         return;
       }
       if (mode === "qty") setKeypadBuffer(String(item.quantity));
@@ -352,6 +352,7 @@ export function NewSaleClient({
   );
 
   function switchMode(mode: KeypadMode) {
+    keypadReplaceNextRef.current = true;
     setKeypadMode(mode);
     preloadBuffer(mode, activeItem);
   }
@@ -359,25 +360,24 @@ export function NewSaleClient({
   function handleKeypad(value: string) {
     const mode = keypadModeRef.current;
     const lineId = activeLineIdRef.current;
+    const zeroValue = "0";
 
     if (value === "back") {
       setKeypadBuffer((prev) => {
-        const next = prev.slice(0, -1);
-        if (next === "" || next === "-") {
-          const fallback = mode === "qty" ? "1" : "0";
-          syncBuffer(fallback);
-          return fallback;
-        }
-        syncBuffer(next);
-        return next;
+        const current = prev || zeroValue;
+        const next = current.slice(0, -1);
+        const normalized = next === "" || next === "-" ? zeroValue : next;
+        syncBuffer(normalized);
+        keypadReplaceNextRef.current = normalized === zeroValue;
+        return normalized;
       });
       return;
     }
 
     if (value === "clear") {
-      const reset = mode === "qty" ? "1" : "0";
-      setKeypadBuffer(reset);
-      syncBuffer(reset);
+      setKeypadBuffer(zeroValue);
+      syncBuffer(zeroValue);
+      keypadReplaceNextRef.current = true;
       return;
     }
 
@@ -387,9 +387,11 @@ export function NewSaleClient({
         if (item && !allowsDecimalQty(item.unit)) return;
       }
       setKeypadBuffer((prev) => {
-        if (prev.includes(".")) return prev;
-        const next = prev + ".";
+        const base = keypadReplaceNextRef.current ? zeroValue : prev || zeroValue;
+        if (base.includes(".")) return base;
+        const next = `${base}.`;
         syncBuffer(next);
+        keypadReplaceNextRef.current = false;
         return next;
       });
       return;
@@ -399,16 +401,24 @@ export function NewSaleClient({
       if (!refundMode) return;
       if (mode !== "qty") return;
       setKeypadBuffer((prev) => {
-        const next = prev.startsWith("-") ? prev.slice(1) : "-" + prev;
+        const current = prev || zeroValue;
+        const next = current.startsWith("-") ? current.slice(1) || zeroValue : `-${current}`;
         syncBuffer(next);
+        keypadReplaceNextRef.current = false;
         return next;
       });
       return;
     }
 
     setKeypadBuffer((prev) => {
-      const next = prev + value;
+      let base = keypadReplaceNextRef.current ? "" : prev || "";
+
+      if (base === zeroValue) base = "";
+      if (base === "-0") base = "-";
+
+      const next = `${base}${value}` || zeroValue;
       syncBuffer(next);
+      keypadReplaceNextRef.current = false;
       return next;
     });
   }
@@ -419,11 +429,14 @@ export function NewSaleClient({
         (item) => item.productId === product.id && item.productId,
       );
       if (existing) {
+        const nextQty = existing.quantity + 1;
         setActiveLineId(existing.id);
         setKeypadMode("qty");
+        setKeypadBuffer(String(nextQty));
+        keypadReplaceNextRef.current = true;
         return prev.map((item) =>
           item.id === existing.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: nextQty }
             : item,
         );
       }
@@ -445,6 +458,8 @@ export function NewSaleClient({
       };
       setActiveLineId(id);
       setKeypadMode("qty");
+      setKeypadBuffer("1");
+      keypadReplaceNextRef.current = true;
       return [...prev, newItem];
     });
   }
@@ -454,7 +469,10 @@ export function NewSaleClient({
       const item = items.find((i) => i.id === activeLineId);
       preloadBuffer(keypadMode, item ?? null);
     }
-  }, [activeLineId, keypadMode, items, preloadBuffer]);
+    // Only preload when the selected line or edit mode changes.
+    // Do not preload after every quantity update, otherwise keypad digits replace each other.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLineId, keypadMode, preloadBuffer]);
 
 	useEffect(() => {
 		const barcode = barcodeInput.trim();
@@ -601,6 +619,7 @@ export function NewSaleClient({
       setCustomerId("");
       setPaid("");
       setKeypadBuffer("1");
+      keypadReplaceNextRef.current = true;
       setKeypadMode("qty");
       setDueDate("");
       autoPaid.current = true;
@@ -813,7 +832,7 @@ export function NewSaleClient({
                         <span className="mt-1 grid grid-cols-3 gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                           {isActive && keypadMode === "qty" ? (
                             <span className="font-semibold text-blue-700">
-                              Qty: {keypadBuffer || "1"}
+                              Qty: {keypadBuffer || "0"}
                             </span>
                           ) : (
                             <span>Qty: {qty}</span>
