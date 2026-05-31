@@ -1,4 +1,4 @@
-import { getStockAdjustments } from "@/actions/inventory-new";
+import { getStockAdjustments } from "@/actions/inventory";
 import { AdjustmentsListClient } from "./adjustments-list-client";
 
 export default async function AdjustmentsPage() {

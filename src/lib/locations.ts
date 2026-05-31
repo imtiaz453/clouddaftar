@@ -91,14 +91,17 @@ export async function ensureDefaultWarehouseLocations(
   companyId: string,
   warehouse: { id: string; code: string },
 ) {
-  void tx;
-  void companyId;
-  void warehouse;
+  await resolveStockLocation(tx, companyId, warehouse.id);
 }
 
 export async function resolveOperationalLocation(
   tx: Tx,
-  params: { companyId: string; userId?: string; branchId?: string | null; warehouseId?: string | null },
+  params: {
+    companyId: string;
+    userId?: string;
+    branchId?: string | null;
+    warehouseId?: string | null;
+  },
 ) {
   const fallback = await ensureDefaultBranchAndWarehouse(tx, params.companyId);
 
@@ -156,7 +159,11 @@ export async function resolveOperationalLocation(
 }
 
 async function normalizeCode(value: string) {
-  return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 async function getOrCreateDefaultStockLocation(tx: Tx, companyId: string) {
@@ -202,7 +209,15 @@ async function resolveStockLocation(tx: Tx, companyId: string, warehouseId: stri
   if (warehouseId) {
     const warehouse = await tx.warehouse.findFirst({
       where: { id: warehouseId, companyId, deletedAt: null },
-      select: { code: true, name: true, type: true, branchId: true, assignedEmployeeId: true, isDefault: true, isActive: true },
+      select: {
+        code: true,
+        name: true,
+        type: true,
+        branchId: true,
+        assignedEmployeeId: true,
+        isDefault: true,
+        isActive: true,
+      },
     });
 
     if (warehouse) {
@@ -236,7 +251,9 @@ async function resolveStockLocation(tx: Tx, companyId: string, warehouseId: stri
         return byCode;
       }
 
-      const code = await normalizeCode(warehouse.code || warehouse.name || `WH-${warehouseId.slice(-6)}`);
+      const code = await normalizeCode(
+        warehouse.code || warehouse.name || `WH-${warehouseId.slice(-6)}`,
+      );
       try {
         return await tx.stockLocation.create({
           data: {
@@ -262,8 +279,6 @@ async function resolveStockLocation(tx: Tx, companyId: string, warehouseId: stri
 
   return getOrCreateDefaultStockLocation(tx, companyId);
 }
-
-
 
 async function findWarehouseByStockLocationCode(
   tx: Tx,
@@ -367,7 +382,12 @@ export async function resolveSaleFulfillmentLocation(
     warehouseId?: string | null;
     stockLocationId?: string | null;
   },
-): Promise<{ branchId: string; warehouseId: string | null; stockLocationId: string; stockLocationName: string }> {
+): Promise<{
+  branchId: string;
+  warehouseId: string | null;
+  stockLocationId: string;
+  stockLocationName: string;
+}> {
   const fallback = await ensureDefaultBranchAndWarehouse(tx, params.companyId);
   const preferredBranchId = await resolveUserBranchId(tx, {
     companyId: params.companyId,
@@ -397,7 +417,8 @@ export async function resolveSaleFulfillmentLocation(
     });
 
     return {
-      branchId: selectedLocation.branchId || preferredBranchId || warehouse?.branchId || fallback.branch.id,
+      branchId:
+        selectedLocation.branchId || preferredBranchId || warehouse?.branchId || fallback.branch.id,
       warehouseId: warehouse?.id || params.warehouseId || null,
       stockLocationId: selectedLocation.id,
       stockLocationName: selectedLocation.name,
@@ -420,7 +441,8 @@ export async function resolveSaleFulfillmentLocation(
     }
 
     const stockLocation = await resolveStockLocation(tx, params.companyId, selectedWarehouse.id);
-    if (!stockLocation) throw new Error("Could not resolve stock location for selected store/warehouse");
+    if (!stockLocation)
+      throw new Error("Could not resolve stock location for selected store/warehouse");
 
     return {
       branchId: params.branchId || selectedWarehouse.branchId || fallback.branch.id,
@@ -492,7 +514,12 @@ export async function getProductStockAtWarehouse(
 
 export async function adjustWarehouseStock(
   tx: Tx,
-  params: { companyId: string; productId: string; warehouseId: string | null; quantityDelta: number },
+  params: {
+    companyId: string;
+    productId: string;
+    warehouseId: string | null;
+    quantityDelta: number;
+  },
 ) {
   const stockLocation = await resolveStockLocation(tx, params.companyId, params.warehouseId);
   if (!stockLocation) throw new Error("Could not resolve stock location");
@@ -549,7 +576,9 @@ export async function adjustWarehouseStock(
 
   if (params.warehouseId) {
     await tx.productStock.upsert({
-      where: { productId_warehouseId: { productId: params.productId, warehouseId: params.warehouseId } },
+      where: {
+        productId_warehouseId: { productId: params.productId, warehouseId: params.warehouseId },
+      },
       create: {
         companyId: params.companyId,
         productId: params.productId,

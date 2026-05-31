@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { updateUserPermissions } from "@/actions/users";
+import { checkPermission } from "@/lib/auth-helper";
+import { PERMISSIONS } from "@/lib/constants";
 
 export async function PUT(req: Request) {
   try {
@@ -10,8 +12,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const currentUserRole = (session.user as any).role;
-    if (currentUserRole !== "OWNER" && currentUserRole !== "ADMIN") {
+    if (!(await checkPermission(PERMISSIONS.ROLES_MANAGE))) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 

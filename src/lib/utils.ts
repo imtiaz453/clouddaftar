@@ -7,9 +7,10 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDate(date: Date | string, format: string = "DD/MM/YYYY") {
   const d = new Date(date);
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const year = d.getUTCFullYear();
+  const useUtc = typeof date === "string";
+  const day = String(useUtc ? d.getUTCDate() : d.getDate()).padStart(2, "0");
+  const month = String((useUtc ? d.getUTCMonth() : d.getMonth()) + 1).padStart(2, "0");
+  const year = useUtc ? d.getUTCFullYear() : d.getFullYear();
 
   switch (format) {
     case "MM/DD/YYYY":

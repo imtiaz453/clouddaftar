@@ -7,8 +7,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +41,6 @@ import {
   Star,
   Eye,
 } from "lucide-react";
-import { TEMPLATE_DEFINITIONS } from "@/lib/template-registry";
 import {
   ADVANCED_SAMPLE_DATA,
   DEFAULT_ADVANCED_DESIGN,
@@ -161,9 +158,14 @@ interface TemplatesClientProps {
     defaultQuotationTemplate?: string | null;
     defaultPurchaseOrderTemplate?: string | null;
   } | null;
+  canManage?: boolean;
 }
 
-export function TemplatesClient({ templates, companySettings }: TemplatesClientProps) {
+export function TemplatesClient({
+  templates,
+  companySettings,
+  canManage = true,
+}: TemplatesClientProps) {
   const router = useRouter();
   const { addToast } = useToast();
   const [mounted, setMounted] = useState(false);
@@ -325,7 +327,7 @@ export function TemplatesClient({ templates, companySettings }: TemplatesClientP
         <p className="text-sm text-muted-foreground">
           {templates.length} template{templates.length !== 1 ? "s" : ""} configured
         </p>
-        {mounted ? (
+        {mounted && canManage ? (
           <Dialog
             open={createOpen}
             onOpenChange={(v) => {
@@ -369,11 +371,11 @@ export function TemplatesClient({ templates, companySettings }: TemplatesClientP
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        ) : (
+        ) : canManage ? (
           <Button disabled>
             <Plus className="mr-2 h-4 w-4" /> New Template
           </Button>
-        )}
+        ) : null}
       </div>
 
       {templates.length === 0 ? (
@@ -395,6 +397,7 @@ export function TemplatesClient({ templates, companySettings }: TemplatesClientP
               isQuotationDefault={companySettings?.defaultQuotationTemplate === tpl.id}
               isPurchaseOrderDefault={companySettings?.defaultPurchaseOrderTemplate === tpl.id}
               mounted={mounted}
+              canManage={canManage}
               onEdit={() => openEdit(tpl)}
               onDelete={() => handleDelete(tpl.id)}
               onDuplicate={() => handleDuplicate(tpl.id)}
@@ -446,7 +449,12 @@ function AdvancedTemplateEditor({
     setFormData({ ...formData, [key]: value });
   }
 
-  function setDesign(section: string, key: string, value: any, extraFields: Record<string, any> = {}) {
+  function setDesign(
+    section: string,
+    key: string,
+    value: any,
+    extraFields: Record<string, any> = {},
+  ) {
     setFormData({
       ...formData,
       ...extraFields,
@@ -979,6 +987,7 @@ function TemplateCard({
   isQuotationDefault,
   isPurchaseOrderDefault,
   mounted,
+  canManage,
   onEdit,
   onDelete,
   onDuplicate,
@@ -990,6 +999,7 @@ function TemplateCard({
   isQuotationDefault?: boolean;
   isPurchaseOrderDefault?: boolean;
   mounted: boolean;
+  canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -1035,7 +1045,7 @@ function TemplateCard({
               </Badge>
             )}
           </div>
-          {mounted ? (
+          {mounted && canManage ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -1079,7 +1089,7 @@ function TemplateCard({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
+          ) : canManage ? (
             <Button
               variant="ghost"
               size="icon"
@@ -1089,7 +1099,7 @@ function TemplateCard({
             >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
+          ) : null}
         </div>
         <div className="mt-6">
           <h3 className="font-semibold text-white">{template.name}</h3>
@@ -1127,9 +1137,11 @@ function TemplateCard({
           )}
         </div>
         <div className="flex gap-2 pt-1">
-          <Button variant="outline" size="sm" className="h-7 flex-1 text-[11px]" onClick={onEdit}>
-            <Palette className="mr-1 h-3 w-3" /> Customize
-          </Button>
+          {canManage && (
+            <Button variant="outline" size="sm" className="h-7 flex-1 text-[11px]" onClick={onEdit}>
+              <Palette className="mr-1 h-3 w-3" /> Customize
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

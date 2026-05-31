@@ -18,7 +18,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/providers/toast-provider";
-import { getStockAdjustments } from "@/actions/inventory-new";
+import { getStockAdjustments } from "@/actions/inventory";
 import { AdjustmentCreateDialog } from "./adjustment-create-dialog";
 import { AdjustmentDetailClient } from "./adjustment-detail-client";
 

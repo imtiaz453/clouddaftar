@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth, checkPermission, requireTaxSetup } from "@/lib/auth-helper";
+import {
+  requireCompanyAuth,
+  checkPermission,
+  requirePermission,
+  requireTaxSetup,
+} from "@/lib/auth-helper";
 import { PERMISSIONS } from "@/lib/constants";
 import {
   documentKindForSaleStatus,
@@ -73,7 +78,6 @@ function computeSalePaymentFields(status: string, total: number, requestedPaid?:
   };
 }
 
-
 function normalizeLocalDocumentPrefix(prefix: string): string {
   return prefix.trim().replace(/[-_./]+$/g, "");
 }
@@ -122,7 +126,6 @@ function restoreSaleDocumentNumber(
 
   return null;
 }
-
 
 async function createSaleStockLedgerFromAdjustmentTx(
   tx: any,
@@ -238,9 +241,7 @@ async function getReturnedQtyByProductTx(
     _sum: { quantity: true },
   });
 
-  return new Map(
-    rows.map((row: any) => [row.productId, Number(row._sum.quantity || 0)]),
-  );
+  return new Map(rows.map((row: any) => [row.productId, Number(row._sum.quantity || 0)]));
 }
 
 async function adjustSaleStockLocationTx(
@@ -516,13 +517,13 @@ async function generateTaxComplianceForPostedSale(params: {
         error: error instanceof Error ? error.message : "ZATCA processing failed",
       };
       taxComplianceStatus = "FAILED";
-        try {
-          await sendPushNotificationWithAdmins(companyId, userId, {
-            title: "ZATCA Sync Failed",
-            body: `Invoice ${sale.invoiceNumber} for ${sale.customer?.name || "Walk-in"} — Rs ${sale.total} — ${error instanceof Error ? error.message : "ZATCA processing failed"}`,
-            url: `/sales/${sale.id}`,
-          });
-        } catch {}
+      try {
+        await sendPushNotificationWithAdmins(companyId, userId, {
+          title: "ZATCA Sync Failed",
+          body: `Invoice ${sale.invoiceNumber} for ${sale.customer?.name || "Walk-in"} — Rs ${sale.total} — ${error instanceof Error ? error.message : "ZATCA processing failed"}`,
+          url: `/sales/${sale.id}`,
+        });
+      } catch {}
     }
 
     if (!zatcaQrPayload) {
@@ -580,6 +581,7 @@ export async function getSales(params?: {
   page?: number;
   pageSize?: number;
 }) {
+  await requirePermission(PERMISSIONS.SALES_VIEW);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const page = params?.page || 1;
@@ -631,6 +633,7 @@ export async function getSales(params?: {
 }
 
 export async function getSale(id: string) {
+  await requirePermission(PERMISSIONS.SALES_VIEW);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -676,6 +679,8 @@ export async function createSale(data: {
   buyerTaxNumber?: string;
   stockLocationId?: string;
 }) {
+  await requirePermission(PERMISSIONS.SALES_CREATE);
+  if (data.status === "COMPLETED") await requirePermission(PERMISSIONS.SALES_COMPLETE);
   const effectiveStockLocationId = data.stockLocationId;
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
@@ -707,7 +712,8 @@ export async function createSale(data: {
   const { paid, due, paymentStatus } = computeSalePaymentFields(status, total, data.paid);
 
   // Default dueDate to today for non-paid sales, so they age properly
-  const effectiveDueDate = data.dueDate ?? (paymentStatus !== "PAID" ? new Date().toISOString().slice(0, 10) : undefined);
+  const effectiveDueDate =
+    data.dueDate ?? (paymentStatus !== "PAID" ? new Date().toISOString().slice(0, 10) : undefined);
 
   let invoiceNumber = "";
 
@@ -1107,6 +1113,9 @@ export async function updateSale(
     buyerTaxNumber?: string;
   },
 ) {
+  await requirePermission(PERMISSIONS.SALES_EDIT);
+  if (data.status === "COMPLETED") await requirePermission(PERMISSIONS.SALES_COMPLETE);
+  if (data.status === "DRAFT") await requirePermission(PERMISSIONS.SALES_DRAFT);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -1122,7 +1131,8 @@ export async function updateSale(
   const existingAffectsStock = salePostsToAccounting(existing.status);
   const updatedAffectsStock = salePostsToAccounting(newStatus);
   const existingAffectsInventory = existingAffectsStock || existingHasMovedStock;
-  const updatedAffectsInventory = updatedAffectsStock || (newStatus === "DRAFT" && existingAffectsInventory);
+  const updatedAffectsInventory =
+    updatedAffectsStock || (newStatus === "DRAFT" && existingAffectsInventory);
   const newKind = documentKindForSaleStatus(newStatus);
   const itemsInput =
     data.items ||
@@ -1195,7 +1205,8 @@ export async function updateSale(
 
     const stockNeedsFullRestore = existingAffectsInventory && !updatedAffectsInventory;
     const stockNeedsFullIssue = updatedAffectsInventory && !existingAffectsInventory;
-    const stockNeedsDelta = Boolean(data.items) && existingAffectsInventory && updatedAffectsInventory;
+    const stockNeedsDelta =
+      Boolean(data.items) && existingAffectsInventory && updatedAffectsInventory;
     const stockProductIds = Array.from(
       new Set([
         ...existing.items.map((item) => item.productId),
@@ -1279,8 +1290,12 @@ export async function updateSale(
         data: {
           productId: params.productId,
           companyId,
-          branchId: originalLocationId ? existing.branchId : fallbackSaleStockLocation?.branchId || existing.branchId,
-          warehouseId: originalLocationId ? existing.warehouseId : fallbackSaleStockLocation?.warehouseId || existing.warehouseId,
+          branchId: originalLocationId
+            ? existing.branchId
+            : fallbackSaleStockLocation?.branchId || existing.branchId,
+          warehouseId: originalLocationId
+            ? existing.warehouseId
+            : fallbackSaleStockLocation?.warehouseId || existing.warehouseId,
           type: params.direction === "ISSUE" ? "SALE" : "RETURN",
           quantity: signedDelta,
           beforeStock: stockResult.beforeStock,
@@ -1291,7 +1306,7 @@ export async function updateSale(
         },
       });
 
-      if (!originalLocationId && !fallbackLocationId) {
+      if (!originalLocationId) {
         await createSaleStockLedgerFromAdjustmentTx(tx, {
           companyId,
           productId: params.productId,
@@ -1334,12 +1349,18 @@ export async function updateSale(
     if (stockNeedsDelta) {
       const oldQtyByProduct = new Map<string, number>();
       for (const item of existing.items) {
-        oldQtyByProduct.set(item.productId, (oldQtyByProduct.get(item.productId) || 0) + Number(item.quantity || 0));
+        oldQtyByProduct.set(
+          item.productId,
+          (oldQtyByProduct.get(item.productId) || 0) + Number(item.quantity || 0),
+        );
       }
 
       const newQtyByProduct = new Map<string, number>();
       for (const item of itemsInput) {
-        newQtyByProduct.set(item.productId, (newQtyByProduct.get(item.productId) || 0) + Number(item.quantity || 0));
+        newQtyByProduct.set(
+          item.productId,
+          (newQtyByProduct.get(item.productId) || 0) + Number(item.quantity || 0),
+        );
       }
 
       const positiveDeltas: SaleLineInput[] = [];
@@ -1350,7 +1371,11 @@ export async function updateSale(
         }
       }
       if (positiveDeltas.length) {
-        assertSaleStockAvailable(productsById, positiveDeltas, settings?.enableNegativeStock ?? false);
+        assertSaleStockAvailable(
+          productsById,
+          positiveDeltas,
+          settings?.enableNegativeStock ?? false,
+        );
       }
 
       for (const productId of stockProductIds) {
@@ -1544,6 +1569,7 @@ export async function refundSale(
   id: string,
   refundItems?: { productId: string; quantity: number }[],
 ) {
+  await requirePermission(PERMISSIONS.SALES_REFUND);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -1558,10 +1584,12 @@ export async function refundSale(
   if (sale.status === "REFUNDED") throw new Error("Sale is already refunded");
   if (sale.status === "CANCELLED") throw new Error("Sale is cancelled");
 
-  const requestedRefunds = refundItems || sale.items.map((item) => ({
-    productId: item.productId,
-    quantity: Number(item.quantity || 0),
-  }));
+  const requestedRefunds =
+    refundItems ||
+    sale.items.map((item) => ({
+      productId: item.productId,
+      quantity: Number(item.quantity || 0),
+    }));
 
   const refund = await prisma.$transaction(async (tx) => {
     const returnedQtyByProduct = await getReturnedQtyByProductTx(tx, { companyId, saleId: id });
@@ -1638,7 +1666,7 @@ export async function refundSale(
         },
       });
 
-      if (!originalLocationId && !fallbackLocationId) {
+      if (!originalLocationId) {
         await createSaleStockLedgerFromAdjustmentTx(tx, {
           companyId,
           productId: item.productId,
@@ -1664,7 +1692,9 @@ export async function refundSale(
     }
 
     const isFullRefund = sale.items.every((saleItem) => {
-      return (cumulativeReturnedByProduct.get(saleItem.productId) || 0) >= Number(saleItem.quantity || 0);
+      return (
+        (cumulativeReturnedByProduct.get(saleItem.productId) || 0) >= Number(saleItem.quantity || 0)
+      );
     });
     const refundAmount = requestedRefunds.reduce((sum, item) => {
       const saleItem = sale.items.find((si) => si.productId === item.productId);
@@ -1719,7 +1749,11 @@ export async function refundSale(
     action: "UPDATE",
     entity: "Sale",
     entityId: id,
-    metadata: { invoiceNumber: sale.invoiceNumber, type: "refund", refundAmount: Number(refund?.total || 0) },
+    metadata: {
+      invoiceNumber: sale.invoiceNumber,
+      type: "refund",
+      refundAmount: Number(refund?.total || 0),
+    },
   });
 
   revalidatePath("/sales");
@@ -1727,6 +1761,7 @@ export async function refundSale(
 }
 
 export async function convertSaleToDraft(id: string) {
+  await requirePermission(PERMISSIONS.SALES_DRAFT);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -1744,6 +1779,9 @@ export async function convertSaleToDraft(id: string) {
 }
 
 export async function convertSaleDocument(id: string, target: "PROFORMA" | "COMPLETED") {
+  await requirePermission(
+    target === "COMPLETED" ? PERMISSIONS.SALES_COMPLETE : PERMISSIONS.SALES_EDIT,
+  );
   const user = await requireCompanyAuth();
   const { companyId } = user;
 

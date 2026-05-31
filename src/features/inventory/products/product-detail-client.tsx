@@ -2,16 +2,17 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  Package, Trash2, ArrowLeft, Pencil,
-  History,
-  Loader2, ArrowUpDown,
-} from "lucide-react";
+import { Package, Trash2, ArrowLeft, Pencil, History, Loader2, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDateTime, cn } from "@/lib/utils";
@@ -124,25 +125,34 @@ interface ProductDetailClientProps {
 export function ProductDetailClient({ data }: ProductDetailClientProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const [deleting, setDeleting] = useState(false);
 
   if (!data?.product) {
     return (
       <div className="rounded-2xl border border-dashed bg-muted/20 p-8 text-center">
         <h1 className="text-lg font-semibold">Product not found</h1>
-        <p className="mt-2 text-sm text-muted-foreground">The product may have been deleted or you may not have access to it.</p>
-        <Button className="mt-4" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/products"))}>
+        <p className="mt-2 text-sm text-muted-foreground">
+          The product may have been deleted or you may not have access to it.
+        </p>
+        <Button
+          className="mt-4"
+          variant="outline"
+          onClick={() => router.push(dashboardHref(pathname, "/inventory/products"))}
+        >
           Back to products
         </Button>
       </div>
     );
   }
-  const [deleting, setDeleting] = useState(false);
   const { product, stockBalances, ledger, sales, purchases, lots } = data;
 
   const totalOnHand = stockBalances.reduce((s, b) => s + Number(b.qtyOnHand), 0);
   const totalReserved = stockBalances.reduce((s, b) => s + Number(b.qtyReserved), 0);
   const totalAvailable = stockBalances.reduce((s, b) => s + Number(b.qtyAvailable), 0);
-  const stockValue = stockBalances.reduce((s, b) => s + Number(b.qtyOnHand) * Number(product.purchasePrice), 0);
+  const stockValue = stockBalances.reduce(
+    (s, b) => s + Number(b.qtyOnHand) * Number(product.purchasePrice),
+    0,
+  );
   const isLowStock = totalOnHand > 0 && totalOnHand <= product.minStock;
   const isOutOfStock = totalOnHand === 0 && !product.isService;
 
@@ -187,31 +197,75 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
             {stockStatusBadge}
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            {product.sku && <span>SKU: <span className="font-mono">{product.sku}</span></span>}
-            {product.barcode && <span>Barcode: <span className="font-mono">{product.barcode}</span></span>}
+            {product.sku && (
+              <span>
+                SKU: <span className="font-mono">{product.sku}</span>
+              </span>
+            )}
+            {product.barcode && (
+              <span>
+                Barcode: <span className="font-mono">{product.barcode}</span>
+              </span>
+            )}
             <span>Unit: {product.unit}</span>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/products"))}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => router.push(dashboardHref(pathname, "/inventory/products"))}
+          >
             <Pencil className="mr-2 h-4 w-4" /> Edit
           </Button>
-          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/adjustments", { productId: product.id }))}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              router.push(
+                dashboardHref(pathname, "/inventory/adjustments", { productId: product.id }),
+              )
+            }
+          >
             <Package className="mr-2 h-4 w-4" /> Adjust Stock
           </Button>
-          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/transfers", { productId: product.id }))}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              router.push(
+                dashboardHref(pathname, "/inventory/transfers", { productId: product.id }),
+              )
+            }
+          >
             <ArrowUpDown className="mr-2 h-4 w-4" /> Transfer
           </Button>
           {product.trackingMode !== "NONE" && (
-            <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/lots", { productId: product.id }))}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                router.push(dashboardHref(pathname, "/inventory/lots", { productId: product.id }))
+              }
+            >
               + Lot
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => router.push(dashboardHref(pathname, "/inventory/ledger", { productId: product.id }))}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              router.push(dashboardHref(pathname, "/inventory/ledger", { productId: product.id }))
+            }
+          >
             <History className="mr-2 h-4 w-4" /> Ledger
           </Button>
           <Button size="sm" variant="destructive" onClick={handleDelete} disabled={deleting}>
-            {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            {deleting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
             Delete
           </Button>
         </div>
@@ -220,7 +274,10 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="p-4">
           <p className="text-xs text-muted-foreground">Total On Hand</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{totalOnHand} <span className="text-sm font-normal text-muted-foreground">{product.unit}</span></p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">
+            {totalOnHand}{" "}
+            <span className="text-sm font-normal text-muted-foreground">{product.unit}</span>
+          </p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-muted-foreground">Reserved</p>
@@ -265,11 +322,15 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Min Stock</p>
-                <p className="text-sm font-medium">{product.minStock} {product.unit}</p>
+                <p className="text-sm font-medium">
+                  {product.minStock} {product.unit}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Max Stock</p>
-                <p className="text-sm font-medium">{product.maxStock ? `${product.maxStock} ${product.unit}` : "-"}</p>
+                <p className="text-sm font-medium">
+                  {product.maxStock ? `${product.maxStock} ${product.unit}` : "-"}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Tax</p>
@@ -330,10 +391,20 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                     {stockBalances.map((sb) => (
                       <TableRow key={sb.id}>
                         <TableCell className="font-medium">{sb.location.name}</TableCell>
-                        <TableCell><Badge variant="secondary" className="text-[10px]">{sb.location.type}</Badge></TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">{Number(sb.qtyOnHand)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{Number(sb.qtyReserved)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{Number(sb.qtyAvailable)}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {sb.location.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {Number(sb.qtyOnHand)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {Number(sb.qtyReserved)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {Number(sb.qtyAvailable)}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
                           {formatCurrency(Number(sb.qtyOnHand) * Number(product.purchasePrice))}
                         </TableCell>
@@ -343,12 +414,17 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                 </Table>
               </div>
             )}
-            <div className="grid gap-2 sm:hidden p-3">
+            <div className="grid gap-2 p-3 sm:hidden">
               {stockBalances.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No stock at any location</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  No stock at any location
+                </p>
               ) : (
                 stockBalances.map((sb) => (
-                  <div key={sb.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div
+                    key={sb.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
                     <div>
                       <p className="text-sm font-medium">{sb.location.name}</p>
                       <p className="text-xs text-muted-foreground">{sb.location.type}</p>
@@ -389,19 +465,34 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                 <TableBody>
                   {ledger.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{formatDateTime(entry.createdAt)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">
+                        {formatDateTime(entry.createdAt)}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-[10px]">
                           {entry.movementType.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs">{entry.location.name}</TableCell>
-                      <TableCell className={cn("text-right tabular-nums font-medium", Number(entry.quantity) < 0 ? "text-red-600" : "text-green-600")}>
-                        {Number(entry.quantity) > 0 ? `+${Number(entry.quantity)}` : Number(entry.quantity)}
+                      <TableCell
+                        className={cn(
+                          "text-right font-medium tabular-nums",
+                          Number(entry.quantity) < 0 ? "text-red-600" : "text-green-600",
+                        )}
+                      >
+                        {Number(entry.quantity) > 0
+                          ? `+${Number(entry.quantity)}`
+                          : Number(entry.quantity)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{Number(entry.qtyOnHandBefore)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{Number(entry.qtyOnHandAfter)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{entry.reference || "-"}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {Number(entry.qtyOnHandBefore)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {Number(entry.qtyOnHandAfter)}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {entry.reference || "-"}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {entry.createdBy?.name || entry.createdBy?.email || "-"}
                       </TableCell>
@@ -442,7 +533,10 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                           {lot.serialNumber || lot.lotNumber}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={lot.serialNumber ? "default" : "secondary"} className="text-[10px]">
+                          <Badge
+                            variant={lot.serialNumber ? "default" : "secondary"}
+                            className="text-[10px]"
+                          >
                             {lot.serialNumber ? "Serial" : "Lot"}
                           </Badge>
                         </TableCell>
@@ -451,15 +545,25 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                         </TableCell>
                         <TableCell className="text-xs">
                           {lot.expiryDate ? (
-                            <span className={new Date(lot.expiryDate) < new Date() ? "text-red-600 font-medium" : ""}>
+                            <span
+                              className={
+                                new Date(lot.expiryDate) < new Date()
+                                  ? "font-medium text-red-600"
+                                  : ""
+                              }
+                            >
                               {formatDateTime(lot.expiryDate)}
                             </span>
-                          ) : "-"}
+                          ) : (
+                            "-"
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {lot.stocks.map((st) => `${st.location.name}: ${st.quantity}`).join(", ")}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">{totalQty}</TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {totalQty}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -476,7 +580,9 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                 <h3 className="text-sm font-semibold">Recent Sales</h3>
               </div>
               {sales.length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">No sales recorded</div>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No sales recorded
+                </div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -494,8 +600,12 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                         <TableCell className="font-mono text-xs">{s.sale.invoiceNumber}</TableCell>
                         <TableCell className="text-xs">{s.sale.customer?.name || "-"}</TableCell>
                         <TableCell className="text-right tabular-nums">{s.quantity}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(Number(s.subtotal))}</TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{formatDateTime(s.sale.createdAt)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCurrency(Number(s.subtotal))}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {formatDateTime(s.sale.createdAt)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -507,7 +617,9 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                 <h3 className="text-sm font-semibold">Recent Purchases</h3>
               </div>
               {purchases.length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">No purchases recorded</div>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No purchases recorded
+                </div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -522,11 +634,19 @@ export function ProductDetailClient({ data }: ProductDetailClientProps) {
                   <TableBody>
                     {purchases.map((p, i) => (
                       <TableRow key={i}>
-                        <TableCell className="font-mono text-xs">{p.purchase.referenceNumber}</TableCell>
-                        <TableCell className="text-xs">{p.purchase.supplier?.name || "-"}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {p.purchase.referenceNumber}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {p.purchase.supplier?.name || "-"}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{p.quantity}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(Number(p.subtotal))}</TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{formatDateTime(p.purchase.createdAt)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCurrency(Number(p.subtotal))}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {formatDateTime(p.purchase.createdAt)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

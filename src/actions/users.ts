@@ -16,7 +16,26 @@ export async function getUsers() {
   const members = await prisma.companyMembership.findMany({
     where: { companyId, isActive: true },
     include: {
-      user: { select: { id: true, name: true, email: true, image: true, isActive: true } },
+      branch: { select: { id: true, name: true } },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          isActive: true,
+          assignedStores: {
+            where: { companyId, deletedAt: null, isActive: true },
+            select: { id: true, name: true, type: true },
+            orderBy: { name: "asc" },
+          },
+          assignedStockLocations: {
+            where: { companyId, deletedAt: null, isActive: true },
+            select: { id: true, name: true, type: true },
+            orderBy: { name: "asc" },
+          },
+        },
+      },
     },
     orderBy: { joinedAt: "asc" },
   });
@@ -29,6 +48,9 @@ export async function getUsers() {
     image: m.user.image,
     role: m.role,
     permissionOverrides: m.permissionOverrides,
+    branch: m.branch,
+    assignedStores: m.user.assignedStores,
+    assignedStockLocations: m.user.assignedStockLocations,
     isActive: m.user.isActive,
     joinedAt: m.joinedAt,
   }));
@@ -56,7 +78,9 @@ export async function createUserDirectly(data: {
   const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
 
   if (existingUser) {
-    throw new Error("A user with this email already exists in the system. Please use a different email.");
+    throw new Error(
+      "A user with this email already exists in the system. Please use a different email.",
+    );
   }
 
   const newUser = await prisma.user.create({

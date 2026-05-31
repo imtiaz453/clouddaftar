@@ -1,4 +1,4 @@
-import { getStockTransfers } from "@/actions/inventory-new";
+import { getStockTransfers } from "@/actions/inventory";
 import { TransfersListClient } from "./transfers-list-client";
 
 type SafePaginatedTransfers = {

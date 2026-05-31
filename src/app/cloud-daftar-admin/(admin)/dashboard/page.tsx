@@ -43,32 +43,32 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[2rem] border bg-slate-950 p-6 text-white shadow-2xl shadow-slate-950/20 md:p-8">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/40 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl" />
+      <section className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-cyan-500/10 p-6 shadow-lg md:p-8">
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-cyan-400/15 blur-3xl" />
         <div className="relative z-10 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div className="space-y-4">
-            <Badge className="w-fit border-white/20 bg-white/10 text-white hover:bg-white/10">
+            <Badge className="w-fit border-primary/20 bg-primary/10 text-primary hover:bg-primary/15">
               <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Cloud Daftar Control Tower
             </Badge>
             <div>
               <h1 className="text-3xl font-black tracking-tight md:text-5xl">Super Admin Dashboard</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
                 Command center for tenant control, payment approvals, subscriptions, audit visibility and platform growth.
               </p>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-3 lg:w-[420px]">
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-              <p className="text-xs text-slate-300">Health</p>
+            <div className="rounded-2xl border border-primary/15 bg-background/75 p-4 backdrop-blur">
+              <p className="text-xs text-muted-foreground">Health</p>
               <p className="mt-1 text-2xl font-black">Live</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-              <p className="text-xs text-slate-300">Revenue</p>
+            <div className="rounded-2xl border border-primary/15 bg-background/75 p-4 backdrop-blur">
+              <p className="text-xs text-muted-foreground">Revenue</p>
               <p className="mt-1 truncate text-xl font-black">{platformMoney(data.totalRevenue)}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-              <p className="text-xs text-slate-300">Alerts</p>
+            <div className="rounded-2xl border border-primary/15 bg-background/75 p-4 backdrop-blur">
+              <p className="text-xs text-muted-foreground">Alerts</p>
               <p className="mt-1 text-2xl font-black">{data.pendingPayments + data.expiredSubscriptions}</p>
             </div>
           </div>

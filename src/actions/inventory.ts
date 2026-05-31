@@ -2,24 +2,52 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth } from "@/lib/auth-helper";
+import { requireCompanyAuth, requirePermission } from "@/lib/auth-helper";
 import { serialize } from "@/lib/serialize";
 import { getUserAccessibleLocationIds } from "@/lib/locations";
 import { generateSku } from "@/lib/utils";
+import { PERMISSIONS } from "@/lib/constants";
 import * as InventoryService from "@/services/inventory";
+
+async function getAccessibleLocationIds() {
+  const user = await requireCompanyAuth();
+  const locationIds = await getUserAccessibleLocationIds(
+    prisma,
+    user.companyId,
+    user.id,
+    user.role,
+  );
+  return { ...user, locationIds };
+}
+
+function requireAccessibleLocation(locationIds: string[], locationId: string) {
+  if (!locationIds.includes(locationId)) {
+    throw new Error("Access denied: you do not have access to this stock location");
+  }
+}
+
+function requireAccessibleLocations(locationIds: string[], ...requestedIds: string[]) {
+  requestedIds.forEach((locationId) => requireAccessibleLocation(locationIds, locationId));
+}
 
 // ============ PRODUCTS ============
 
 export async function getProducts(params?: {
-  search?: string; categoryId?: string; page?: number; pageSize?: number;
-  isActive?: boolean; stockStatus?: "all" | "low" | "out"; locationId?: string;
+  search?: string;
+  categoryId?: string;
+  page?: number;
+  pageSize?: number;
+  isActive?: boolean;
+  stockStatus?: "all" | "low" | "out";
+  locationId?: string;
   trackingMode?: string;
 }) {
   const { companyId, id: userId, role } = await requireCompanyAuth();
 
   if (params?.locationId) {
     const accessibleIds = await getUserAccessibleLocationIds(prisma, companyId, userId, role);
-    if (!accessibleIds.includes(params.locationId)) throw new Error("Access denied: you do not have access to this stock location");
+    if (!accessibleIds.includes(params.locationId))
+      throw new Error("Access denied: you do not have access to this stock location");
   }
 
   const page = params?.page || 1;
@@ -46,18 +74,28 @@ export async function getProducts(params?: {
       where: where as any,
       include: { category: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize, take: pageSize,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
     prisma.product.count({ where: where as any }),
   ]);
 
   const productIds = products.map((p) => p.id);
-  const allBalances = productIds.length > 0
-    ? await prisma.stockBalance.findMany({
-        where: { productId: { in: productIds }, companyId },
-        select: { productId: true, locationId: true, qtyOnHand: true, qtyReserved: true, qtyAvailable: true, averageCost: true, location: { select: { id: true, name: true, code: true, type: true } } },
-      })
-    : [];
+  const allBalances =
+    productIds.length > 0
+      ? await prisma.stockBalance.findMany({
+          where: { productId: { in: productIds }, companyId },
+          select: {
+            productId: true,
+            locationId: true,
+            qtyOnHand: true,
+            qtyReserved: true,
+            qtyAvailable: true,
+            averageCost: true,
+            location: { select: { id: true, name: true, code: true, type: true } },
+          },
+        })
+      : [];
 
   type ProductStockSummary = {
     totalOnHand: number;
@@ -134,7 +172,8 @@ export async function getProducts(params?: {
 
   const filtered = params?.stockStatus
     ? enhancedProducts.filter((p) => {
-        if (params.stockStatus === "low") return p.stockSummary.totalOnHand > 0 && p.stockSummary.totalOnHand <= p.minStock;
+        if (params.stockStatus === "low")
+          return p.stockSummary.totalOnHand > 0 && p.stockSummary.totalOnHand <= p.minStock;
         if (params.stockStatus === "out") return p.stockSummary.totalOnHand === 0 && !p.isService;
         return true;
       })
@@ -143,7 +182,8 @@ export async function getProducts(params?: {
   return serialize({
     data: filtered,
     total: params?.stockStatus ? filtered.length : total,
-    page, pageSize,
+    page,
+    pageSize,
     totalPages: Math.ceil((params?.stockStatus ? filtered.length : total) / pageSize),
   });
 }
@@ -165,18 +205,46 @@ export async function getProductDetail(id: string) {
     }),
     prisma.stockLedger.findMany({
       where: { productId: id, companyId },
-      include: { location: { select: { name: true } }, createdBy: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "desc" }, take: 50,
+      include: {
+        location: { select: { name: true } },
+        createdBy: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
     }),
     prisma.saleItem.findMany({
       where: { productId: id, sale: { companyId, deletedAt: null } },
-      include: { sale: { select: { id: true, invoiceNumber: true, createdAt: true, status: true, total: true, customer: { select: { name: true } } } } },
-      orderBy: { sale: { createdAt: "desc" } }, take: 20,
+      include: {
+        sale: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            createdAt: true,
+            status: true,
+            total: true,
+            customer: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { sale: { createdAt: "desc" } },
+      take: 20,
     }),
     prisma.purchaseItem.findMany({
       where: { productId: id, purchase: { companyId, deletedAt: null } },
-      include: { purchase: { select: { id: true, referenceNumber: true, createdAt: true, status: true, total: true, supplier: { select: { name: true } } } } },
-      orderBy: { purchase: { createdAt: "desc" } }, take: 20,
+      include: {
+        purchase: {
+          select: {
+            id: true,
+            referenceNumber: true,
+            createdAt: true,
+            status: true,
+            total: true,
+            supplier: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { purchase: { createdAt: "desc" } },
+      take: 20,
     }),
     prisma.productLot.findMany({
       where: { productId: id, companyId, isActive: true },
@@ -185,14 +253,32 @@ export async function getProductDetail(id: string) {
     }),
   ]);
 
-  return serialize({ product, stockBalances, ledger: recentLedger, sales: recentSales, purchases: recentPurchases, lots });
+  return serialize({
+    product,
+    stockBalances,
+    ledger: recentLedger,
+    sales: recentSales,
+    purchases: recentPurchases,
+    lots,
+  });
 }
 
 export async function createProduct(data: {
-  name: string; sku?: string; barcode?: string; description?: string;
-  purchasePrice: number; sellingPrice: number; wholesalePrice?: number;
-  minStock: number; maxStock?: number; unit?: string; tax?: number;
-  categoryId?: string | null; isService?: boolean; trackingMode?: string; image?: string;
+  name: string;
+  sku?: string;
+  barcode?: string;
+  description?: string;
+  purchasePrice: number;
+  sellingPrice: number;
+  wholesalePrice?: number;
+  minStock: number;
+  maxStock?: number;
+  unit?: string;
+  tax?: number;
+  categoryId?: string | null;
+  isService?: boolean;
+  trackingMode?: string;
+  image?: string;
 }) {
   const { companyId, id: userId } = await requireCompanyAuth();
 
@@ -201,12 +287,23 @@ export async function createProduct(data: {
 
   const product = await prisma.product.create({
     data: {
-      name: data.name, sku, barcode: data.barcode || "", description: data.description,
-      purchasePrice: data.purchasePrice, sellingPrice: data.sellingPrice,
-      wholesalePrice: data.wholesalePrice, stock: 0, minStock: data.minStock,
-      maxStock: data.maxStock, unit: data.unit || "pcs", tax: data.tax ?? 0,
-      categoryId: data.categoryId || null, isService: data.isService ?? false,
-      trackingMode: (data.trackingMode as any) || "NONE", image: data.image, companyId,
+      name: data.name,
+      sku,
+      barcode: data.barcode || "",
+      description: data.description,
+      purchasePrice: data.purchasePrice,
+      sellingPrice: data.sellingPrice,
+      wholesalePrice: data.wholesalePrice,
+      stock: 0,
+      minStock: data.minStock,
+      maxStock: data.maxStock,
+      unit: data.unit || "pcs",
+      tax: data.tax ?? 0,
+      categoryId: data.categoryId || null,
+      isService: data.isService ?? false,
+      trackingMode: (data.trackingMode as any) || "NONE",
+      image: data.image,
+      companyId,
     },
   });
 
@@ -245,7 +342,12 @@ export async function deleteProduct(id: string) {
 
 export async function getProductsForSelector(search?: string) {
   const { companyId } = await requireCompanyAuth();
-  const where: Record<string, unknown> = { companyId, deletedAt: null, isActive: true, isService: false };
+  const where: Record<string, unknown> = {
+    companyId,
+    deletedAt: null,
+    isActive: true,
+    isService: false,
+  };
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
@@ -256,24 +358,33 @@ export async function getProductsForSelector(search?: string) {
   const products = await prisma.product.findMany({
     where: where as any,
     select: { id: true, name: true, sku: true, barcode: true, unit: true },
-    orderBy: { name: "asc" }, take: 50,
+    orderBy: { name: "asc" },
+    take: 50,
   });
   return products;
 }
 
 // ============ LOCATIONS ============
 
-export async function getInventoryLocations(params?: { type?: string; search?: string; isActive?: boolean }) {
+export async function getInventoryLocations(params?: {
+  type?: string;
+  search?: string;
+  isActive?: boolean;
+}) {
+  await requirePermission(PERMISSIONS.INVENTORY_LOCATIONS_VIEW);
   const { companyId, id: userId, role } = await requireCompanyAuth();
   const accessibleIds = await getUserAccessibleLocationIds(prisma, companyId, userId, role);
   const locations = await InventoryService.getInventoryLocations(companyId, accessibleIds);
 
   let filtered = locations;
   if (params?.type) filtered = filtered.filter((l) => l.type === params.type);
-  if (params?.isActive !== undefined) filtered = filtered.filter((l) => l.isActive === params.isActive);
+  if (params?.isActive !== undefined)
+    filtered = filtered.filter((l) => l.isActive === params.isActive);
   if (params?.search) {
     const q = params.search.toLowerCase();
-    filtered = filtered.filter((l) => l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q));
+    filtered = filtered.filter(
+      (l) => l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q),
+    );
   }
 
   const enriched = await Promise.all(
@@ -283,7 +394,9 @@ export async function getInventoryLocations(params?: { type?: string; search?: s
         _sum: { qtyOnHand: true },
       });
       const totalQty = Number(aggregates._sum.qtyOnHand || 0);
-      const productCount = await prisma.stockBalance.count({ where: { locationId: loc.id, companyId, qtyOnHand: { gt: 0 } } });
+      const productCount = await prisma.stockBalance.count({
+        where: { locationId: loc.id, companyId, qtyOnHand: { gt: 0 } },
+      });
       return { ...loc, totalProducts: productCount, totalQty };
     }),
   );
@@ -292,6 +405,7 @@ export async function getInventoryLocations(params?: { type?: string; search?: s
 }
 
 export async function getInventoryLocationDetail(locationId: string) {
+  await requirePermission(PERMISSIONS.INVENTORY_LOCATIONS_VIEW);
   const { companyId, id: userId, role } = await requireCompanyAuth();
   const accessibleIds = await getUserAccessibleLocationIds(prisma, companyId, userId, role);
   if (!accessibleIds.includes(locationId)) throw new Error("Access denied");
@@ -299,21 +413,39 @@ export async function getInventoryLocationDetail(locationId: string) {
 }
 
 export async function createInventoryLocation(data: {
-  name: string; code: string; type: string; branchId?: string | null;
-  assignedEmployeeId?: string | null; isDefault?: boolean; isSellable?: boolean;
-  address?: string | null; notes?: string | null;
+  name: string;
+  code: string;
+  type: string;
+  branchId?: string | null;
+  assignedEmployeeId?: string | null;
+  isDefault?: boolean;
+  isSellable?: boolean;
+  address?: string | null;
+  notes?: string | null;
 }) {
+  await requirePermission(PERMISSIONS.INVENTORY_LOCATIONS_MANAGE);
   const { companyId } = await requireCompanyAuth();
   const result = await InventoryService.createInventoryLocation({ ...data, companyId });
   revalidatePath("/inventory/locations");
   return serialize(result);
 }
 
-export async function updateInventoryLocation(id: string, data: {
-  name?: string; code?: string; type?: string; branchId?: string | null;
-  assignedEmployeeId?: string | null; isDefault?: boolean; isSellable?: boolean;
-  address?: string | null; notes?: string | null; isActive?: boolean;
-}) {
+export async function updateInventoryLocation(
+  id: string,
+  data: {
+    name?: string;
+    code?: string;
+    type?: string;
+    branchId?: string | null;
+    assignedEmployeeId?: string | null;
+    isDefault?: boolean;
+    isSellable?: boolean;
+    address?: string | null;
+    notes?: string | null;
+    isActive?: boolean;
+  },
+) {
+  await requirePermission(PERMISSIONS.INVENTORY_LOCATIONS_MANAGE);
   const { companyId } = await requireCompanyAuth();
   const result = await InventoryService.updateInventoryLocation(id, data, companyId);
   revalidatePath("/inventory/locations");
@@ -321,6 +453,7 @@ export async function updateInventoryLocation(id: string, data: {
 }
 
 export async function deleteInventoryLocation(id: string) {
+  await requirePermission(PERMISSIONS.INVENTORY_LOCATIONS_MANAGE);
   const { companyId } = await requireCompanyAuth();
   await prisma.stockLocation.update({
     where: { id, companyId },
@@ -330,8 +463,13 @@ export async function deleteInventoryLocation(id: string) {
 }
 
 export async function getLocationsForSelect(params?: { type?: string; sellableOnly?: boolean }) {
-  const { companyId } = await requireCompanyAuth();
-  const where: Record<string, unknown> = { companyId, deletedAt: null, isActive: true };
+  const { companyId, locationIds } = await getAccessibleLocationIds();
+  const where: Record<string, unknown> = {
+    id: { in: locationIds },
+    companyId,
+    deletedAt: null,
+    isActive: true,
+  };
   if (params?.type) where.type = params.type;
   if (params?.sellableOnly) where.isSellable = true;
   const locations = await prisma.stockLocation.findMany({
@@ -363,6 +501,7 @@ export async function getEmployeesForSelect() {
 // ============ DASHBOARD ============
 
 export async function getInventoryDashboardData() {
+  await requirePermission(PERMISSIONS.INVENTORY_VIEW);
   const { companyId } = await requireCompanyAuth();
   return serialize(await InventoryService.getInventoryDashboard(companyId));
 }
@@ -370,18 +509,31 @@ export async function getInventoryDashboardData() {
 // ============ LEDGER ============
 
 export async function getStockLedgerData(params: {
-  productId?: string; locationId?: string; movementType?: string;
-  dateFrom?: string; dateTo?: string; reference?: string; page?: number; pageSize?: number;
+  productId?: string;
+  locationId?: string;
+  movementType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  reference?: string;
+  page?: number;
+  pageSize?: number;
 }) {
-  const { companyId } = await requireCompanyAuth();
-  return serialize(await InventoryService.getStockLedger({
-    companyId, ...params,
-    dateFrom: params.dateFrom ? new Date(params.dateFrom) : undefined,
-    dateTo: params.dateTo ? new Date(params.dateTo) : undefined,
-  }));
+  await requirePermission(PERMISSIONS.INVENTORY_LEDGER_VIEW);
+  const { companyId, locationIds } = await getAccessibleLocationIds();
+  if (params.locationId) requireAccessibleLocation(locationIds, params.locationId);
+  return serialize(
+    await InventoryService.getStockLedger({
+      companyId,
+      ...params,
+      locationIds,
+      dateFrom: params.dateFrom ? new Date(params.dateFrom) : undefined,
+      dateTo: params.dateTo ? new Date(params.dateTo) : undefined,
+    }),
+  );
 }
 
 export async function getStockMovementTypes() {
+  await requirePermission(PERMISSIONS.INVENTORY_LEDGER_VIEW);
   const { companyId } = await requireCompanyAuth();
   return InventoryService.getStockMovementTypes(companyId);
 }
@@ -393,22 +545,24 @@ export async function getMovementTypeLabels() {
 // ============ ADJUSTMENTS ============
 
 export async function getStockAdjustments(params?: { page?: number; pageSize?: number }) {
-  const { companyId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_ADJUSTMENTS_VIEW);
+  const { companyId, locationIds } = await getAccessibleLocationIds();
   const page = params?.page || 1;
   const pageSize = params?.pageSize || 20;
 
   const [data, total] = await Promise.all([
     prisma.stockAdjustment.findMany({
-      where: { companyId },
+      where: { companyId, locationId: { in: locationIds } },
       include: {
         location: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
         items: { include: { product: { select: { name: true, sku: true } } } },
       },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize, take: pageSize,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
-    prisma.stockAdjustment.count({ where: { companyId } }),
+    prisma.stockAdjustment.count({ where: { companyId, locationId: { in: locationIds } } }),
   ]);
 
   return serialize({ data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
@@ -429,30 +583,52 @@ export async function getStockAdjustmentDetail(id: string) {
 }
 
 export async function createStockAdjustmentAction(data: {
-  locationId: string; reason: string; notes?: string | null;
+  locationId: string;
+  reason: string;
+  notes?: string | null;
   items: Array<{ productId: string; direction: "IN" | "OUT"; quantity: number; unitCost?: number }>;
 }) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_ADJUSTMENTS_CREATE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  requireAccessibleLocation(locationIds, data.locationId);
   const result = await InventoryService.createStockAdjustment({
-    ...data, reason: data.reason as any, companyId, createdById: userId,
+    ...data,
+    reason: data.reason as any,
+    companyId,
+    createdById: userId,
   });
   revalidatePath("/inventory/adjustments");
   return serialize(result);
 }
 
 export async function postStockAdjustmentAction(adjustmentId: string) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_ADJUSTMENTS_CREATE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  const adjustment = await prisma.stockAdjustment.findFirst({
+    where: { id: adjustmentId, companyId },
+    select: { locationId: true },
+  });
+  if (!adjustment) throw new Error("Adjustment not found");
+  requireAccessibleLocation(locationIds, adjustment.locationId);
   await InventoryService.postStockAdjustment(adjustmentId, companyId, userId);
   revalidatePath("/inventory/adjustments");
 }
 
 // ============ TRANSFERS ============
 
-export async function getStockTransfers(params?: { status?: string; page?: number; pageSize?: number }) {
-  const { companyId } = await requireCompanyAuth();
+export async function getStockTransfers(params?: {
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  await requirePermission(PERMISSIONS.INVENTORY_TRANSFERS_VIEW);
+  const { companyId, locationIds } = await getAccessibleLocationIds();
   const page = params?.page || 1;
   const pageSize = params?.pageSize || 20;
-  const where: Record<string, unknown> = { companyId };
+  const where: Record<string, unknown> = {
+    companyId,
+    OR: [{ sourceLocationId: { in: locationIds } }, { destinationLocationId: { in: locationIds } }],
+  };
   if (params?.status) where.status = params.status;
 
   const [data, total] = await Promise.all([
@@ -465,7 +641,8 @@ export async function getStockTransfers(params?: { status?: string; page?: numbe
         items: { include: { product: { select: { name: true, sku: true } } } },
       },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize, take: pageSize,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
     prisma.stockTransfer.count({ where: where as any }),
   ]);
@@ -474,54 +651,104 @@ export async function getStockTransfers(params?: { status?: string; page?: numbe
 }
 
 export async function getStockTransferDetail(id: string) {
-  const { companyId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_TRANSFERS_VIEW);
+  const { companyId, locationIds } = await getAccessibleLocationIds();
   const transfer = await prisma.stockTransfer.findUnique({
     where: { id, companyId },
     include: {
-      sourceLocation: true, destinationLocation: true,
+      sourceLocation: true,
+      destinationLocation: true,
       createdBy: { select: { id: true, name: true, email: true } },
       items: { include: { product: { select: { id: true, name: true, sku: true, unit: true } } } },
     },
   });
   if (!transfer) throw new Error("Transfer not found");
+  if (
+    !locationIds.includes(transfer.sourceLocationId) &&
+    !locationIds.includes(transfer.destinationLocationId)
+  ) {
+    throw new Error("Access denied");
+  }
   return serialize(transfer);
 }
 
 export async function createStockTransferAction(data: {
-  sourceLocationId: string; destinationLocationId: string; notes?: string | null;
+  sourceLocationId: string;
+  destinationLocationId: string;
+  notes?: string | null;
   items: Array<{ productId: string; quantity: number }>;
 }) {
-  const { companyId, id: userId } = await requireCompanyAuth();
-  const result = await InventoryService.createStockTransfer({ ...data, companyId, createdById: userId });
+  await requirePermission(PERMISSIONS.INVENTORY_TRANSFERS_CREATE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  requireAccessibleLocations(locationIds, data.sourceLocationId, data.destinationLocationId);
+  const result = await InventoryService.createStockTransfer({
+    ...data,
+    companyId,
+    createdById: userId,
+  });
   revalidatePath("/inventory/transfers");
   return serialize(result);
 }
 
 export async function issueStockTransferAction(transferId: string) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_TRANSFERS_APPROVE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  const transfer = await prisma.stockTransfer.findFirst({
+    where: { id: transferId, companyId },
+    select: { sourceLocationId: true, destinationLocationId: true },
+  });
+  if (!transfer) throw new Error("Transfer not found");
+  requireAccessibleLocations(
+    locationIds,
+    transfer.sourceLocationId,
+    transfer.destinationLocationId,
+  );
   await InventoryService.issueStockTransfer(transferId, companyId, userId);
   revalidatePath("/inventory/transfers");
 }
 
 export async function receiveStockTransferAction(transferId: string) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_TRANSFERS_APPROVE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  const transfer = await prisma.stockTransfer.findFirst({
+    where: { id: transferId, companyId },
+    select: { destinationLocationId: true },
+  });
+  if (!transfer) throw new Error("Transfer not found");
+  requireAccessibleLocation(locationIds, transfer.destinationLocationId);
   await InventoryService.receiveStockTransfer(transferId, companyId, userId);
   revalidatePath("/inventory/transfers");
 }
 
 export async function cancelStockTransferAction(transferId: string) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_TRANSFERS_APPROVE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  const transfer = await prisma.stockTransfer.findFirst({
+    where: { id: transferId, companyId },
+    select: { sourceLocationId: true, destinationLocationId: true },
+  });
+  if (!transfer) throw new Error("Transfer not found");
+  requireAccessibleLocations(
+    locationIds,
+    transfer.sourceLocationId,
+    transfer.destinationLocationId,
+  );
   await InventoryService.cancelStockTransfer(transferId, companyId, userId, true);
   revalidatePath("/inventory/transfers");
 }
 
 // ============ STOCK COUNTS ============
 
-export async function getStockCounts(params?: { status?: string; page?: number; pageSize?: number }) {
-  const { companyId } = await requireCompanyAuth();
+export async function getStockCounts(params?: {
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  await requirePermission(PERMISSIONS.INVENTORY_STOCK_COUNTS_VIEW);
+  const { companyId, locationIds } = await getAccessibleLocationIds();
   const page = params?.page || 1;
   const pageSize = params?.pageSize || 20;
-  const where: Record<string, unknown> = { companyId };
+  const where: Record<string, unknown> = { companyId, locationId: { in: locationIds } };
   if (params?.status) where.status = params.status;
 
   const [data, total] = await Promise.all([
@@ -534,7 +761,8 @@ export async function getStockCounts(params?: { status?: string; page?: number; 
         _count: { select: { items: true } },
       },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize, take: pageSize,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
     prisma.stockCount.count({ where: where as any }),
   ]);
@@ -543,7 +771,8 @@ export async function getStockCounts(params?: { status?: string; page?: number; 
 }
 
 export async function getStockCountDetail(id: string) {
-  const { companyId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_STOCK_COUNTS_VIEW);
+  const { companyId, locationIds } = await getAccessibleLocationIds();
   const count = await prisma.stockCount.findUnique({
     where: { id, companyId },
     include: {
@@ -554,37 +783,78 @@ export async function getStockCountDetail(id: string) {
     },
   });
   if (!count) throw new Error("Stock count not found");
+  requireAccessibleLocation(locationIds, count.locationId);
   return serialize(count);
 }
 
 export async function createStockCountAction(data: { locationId: string; notes?: string | null }) {
-  const { companyId, id: userId } = await requireCompanyAuth();
-  const result = await InventoryService.createStockCount({ ...data, companyId, createdById: userId });
+  await requirePermission(PERMISSIONS.INVENTORY_STOCK_COUNTS_MANAGE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  requireAccessibleLocation(locationIds, data.locationId);
+  const result = await InventoryService.createStockCount({
+    ...data,
+    companyId,
+    createdById: userId,
+  });
   revalidatePath("/inventory/stock-counts");
   return serialize(result);
 }
 
-export async function updateStockCountItemAction(countId: string, itemId: string, countedQty: number) {
-  const { companyId } = await requireCompanyAuth();
-  return serialize(await InventoryService.updateStockCountItem(countId, itemId, countedQty, companyId));
+export async function updateStockCountItemAction(
+  countId: string,
+  itemId: string,
+  countedQty: number,
+) {
+  await requirePermission(PERMISSIONS.INVENTORY_STOCK_COUNTS_MANAGE);
+  const { companyId, locationIds } = await getAccessibleLocationIds();
+  const count = await prisma.stockCount.findFirst({
+    where: { id: countId, companyId },
+    select: { locationId: true },
+  });
+  if (!count) throw new Error("Stock count not found");
+  requireAccessibleLocation(locationIds, count.locationId);
+  return serialize(
+    await InventoryService.updateStockCountItem(countId, itemId, countedQty, companyId),
+  );
 }
 
 export async function reviewStockCountAction(countId: string) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_STOCK_COUNTS_MANAGE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  const count = await prisma.stockCount.findFirst({
+    where: { id: countId, companyId },
+    select: { locationId: true },
+  });
+  if (!count) throw new Error("Stock count not found");
+  requireAccessibleLocation(locationIds, count.locationId);
   const result = await InventoryService.reviewStockCount(countId, companyId, userId);
   revalidatePath("/inventory/stock-counts");
   return serialize(result);
 }
 
 export async function postStockCountAction(countId: string) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_STOCK_COUNTS_MANAGE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  const count = await prisma.stockCount.findFirst({
+    where: { id: countId, companyId },
+    select: { locationId: true },
+  });
+  if (!count) throw new Error("Stock count not found");
+  requireAccessibleLocation(locationIds, count.locationId);
   await InventoryService.postStockCount(countId, companyId, userId);
   revalidatePath("/inventory/stock-counts");
 }
 
 // ============ LOTS / EXPIRY ============
 
-export async function getProductLots(params?: { productId?: string; locationId?: string; expiringSoon?: boolean; active?: boolean; page?: number; pageSize?: number }) {
+export async function getProductLots(params?: {
+  productId?: string;
+  locationId?: string;
+  expiringSoon?: boolean;
+  active?: boolean;
+  page?: number;
+  pageSize?: number;
+}) {
   const { companyId } = await requireCompanyAuth();
   const page = params?.page || 1;
   const pageSize = params?.pageSize || 30;
@@ -603,29 +873,52 @@ export async function getProductLots(params?: { productId?: string; locationId?:
         stocks: { include: { location: { select: { id: true, name: true } } } },
       },
       orderBy: [{ expiryDate: "asc" }, { createdAt: "desc" }],
-      skip: (page - 1) * pageSize, take: pageSize,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
     prisma.productLot.count({ where: where as any }),
   ]);
 
   return serialize({
     data: data.map((lot) => ({
-      id: lot.id, lotNumber: lot.lotNumber, serialNumber: lot.serialNumber,
-      mfgDate: lot.mfgDate, expiryDate: lot.expiryDate, notes: lot.notes, isActive: lot.isActive,
-      productId: lot.productId, productName: lot.product.name, productSku: lot.product.sku, trackingMode: lot.product.trackingMode,
+      id: lot.id,
+      lotNumber: lot.lotNumber,
+      serialNumber: lot.serialNumber,
+      mfgDate: lot.mfgDate,
+      expiryDate: lot.expiryDate,
+      notes: lot.notes,
+      isActive: lot.isActive,
+      productId: lot.productId,
+      productName: lot.product.name,
+      productSku: lot.product.sku,
+      trackingMode: lot.product.trackingMode,
       totalQty: lot.stocks.reduce((s, st) => s + st.quantity, 0),
-      locations: lot.stocks.map((st) => ({ id: st.location.id, name: st.location.name, quantity: st.quantity })),
-      daysToExpire: lot.expiryDate ? Math.ceil((lot.expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null,
+      locations: lot.stocks.map((st) => ({
+        id: st.location.id,
+        name: st.location.name,
+        quantity: st.quantity,
+      })),
+      daysToExpire: lot.expiryDate
+        ? Math.ceil((lot.expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : null,
       createdAt: lot.createdAt,
     })),
-    total, page, pageSize,
+    total,
+    page,
+    pageSize,
     totalPages: Math.ceil(total / pageSize),
   });
 }
 
 export async function createProductLot(data: {
-  productId: string; locationId: string; lotNumber: string; serialNumber?: string;
-  quantity: number; mfgDate?: string; expiryDate?: string; notes?: string;
+  productId: string;
+  locationId: string;
+  lotNumber: string;
+  serialNumber?: string;
+  quantity: number;
+  mfgDate?: string;
+  expiryDate?: string;
+  notes?: string;
 }) {
   const { companyId, id: userId } = await requireCompanyAuth();
 
@@ -647,9 +940,17 @@ export async function createProductLot(data: {
 
   const result = await prisma.$transaction(async (tx) => {
     const lot = await tx.productLot.upsert({
-      where: { productId_lotNumber_companyId: { productId: product.id, lotNumber: data.lotNumber.trim(), companyId } },
+      where: {
+        productId_lotNumber_companyId: {
+          productId: product.id,
+          lotNumber: data.lotNumber.trim(),
+          companyId,
+        },
+      },
       create: {
-        productId: product.id, companyId, lotNumber: data.lotNumber.trim(),
+        productId: product.id,
+        companyId,
+        lotNumber: data.lotNumber.trim(),
         serialNumber: data.serialNumber?.trim() || null,
         mfgDate: data.mfgDate ? new Date(data.mfgDate) : null,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
@@ -659,7 +960,8 @@ export async function createProductLot(data: {
         serialNumber: data.serialNumber?.trim() || null,
         mfgDate: data.mfgDate ? new Date(data.mfgDate) : undefined,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
-        notes: data.notes, isActive: true,
+        notes: data.notes,
+        isActive: true,
       },
     });
 
@@ -672,7 +974,13 @@ export async function createProductLot(data: {
 
     await tx.productLotStock.upsert({
       where: { lotId_locationId: { lotId: lot.id, locationId: data.locationId } },
-      create: { lotId: lot.id, productId: product.id, locationId: data.locationId, companyId, quantity: afterLotStock },
+      create: {
+        lotId: lot.id,
+        productId: product.id,
+        locationId: data.locationId,
+        companyId,
+        quantity: afterLotStock,
+      },
       update: { quantity: afterLotStock },
     });
 
@@ -696,32 +1004,49 @@ export async function getExpiringLots() {
   const { companyId } = await requireCompanyAuth();
   const lots = await prisma.productLot.findMany({
     where: {
-      companyId, isActive: true, expiryDate: { not: null, lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) },
+      companyId,
+      isActive: true,
+      expiryDate: { not: null, lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) },
     },
     include: {
       product: { select: { id: true, name: true, sku: true } },
       stocks: { include: { location: { select: { id: true, name: true } } } },
     },
-    orderBy: { expiryDate: "asc" }, take: 30,
+    orderBy: { expiryDate: "asc" },
+    take: 30,
   });
 
-  return serialize(lots.map((lot) => ({
-    id: lot.id, lotNumber: lot.lotNumber, expiryDate: lot.expiryDate,
-    productId: lot.productId, productName: lot.product.name, productSku: lot.product.sku,
-    totalQty: lot.stocks.reduce((s, st) => s + st.quantity, 0),
-    locations: lot.stocks.map((st) => ({ id: st.location.id, name: st.location.name, quantity: st.quantity })),
-    daysToExpire: lot.expiryDate ? Math.ceil((lot.expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null,
-  })));
+  return serialize(
+    lots.map((lot) => ({
+      id: lot.id,
+      lotNumber: lot.lotNumber,
+      expiryDate: lot.expiryDate,
+      productId: lot.productId,
+      productName: lot.product.name,
+      productSku: lot.product.sku,
+      totalQty: lot.stocks.reduce((s, st) => s + st.quantity, 0),
+      locations: lot.stocks.map((st) => ({
+        id: st.location.id,
+        name: st.location.name,
+        quantity: st.quantity,
+      })),
+      daysToExpire: lot.expiryDate
+        ? Math.ceil((lot.expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : null,
+    })),
+  );
 }
 
 // ============ CATEGORIES ============
 
 export async function getCategories() {
   const { companyId } = await requireCompanyAuth();
-  return serialize(await prisma.category.findMany({
-    where: { companyId, deletedAt: null },
-    orderBy: { name: "asc" },
-  }));
+  return serialize(
+    await prisma.category.findMany({
+      where: { companyId, deletedAt: null },
+      orderBy: { name: "asc" },
+    }),
+  );
 }
 
 export async function createCategory(data: { name: string; description?: string; color?: string }) {
@@ -741,7 +1066,18 @@ export async function getReplenishmentData() {
   const balances = await prisma.stockBalance.findMany({
     where: { companyId },
     include: {
-      product: { select: { id: true, name: true, sku: true, minStock: true, maxStock: true, purchasePrice: true, unit: true, companyId: true } },
+      product: {
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          minStock: true,
+          maxStock: true,
+          purchasePrice: true,
+          unit: true,
+          companyId: true,
+        },
+      },
       location: { select: { id: true, name: true } },
     },
     orderBy: [{ product: { name: "asc" } }, { location: { name: "asc" } }],
@@ -756,15 +1092,23 @@ export async function getReplenishmentData() {
       return threshold > 0 && available <= threshold;
     })
     .map((b) => ({
-      productId: b.productId, productName: b.product.name, sku: b.product.sku,
-      locationId: b.locationId, locationName: b.location.name,
-      availableQty: Number(b.qtyAvailable), minStock: Number(b.product.minStock),
+      productId: b.productId,
+      productName: b.product.name,
+      sku: b.product.sku,
+      locationId: b.locationId,
+      locationName: b.location.name,
+      availableQty: Number(b.qtyAvailable),
+      minStock: Number(b.product.minStock),
       reorderPoint: Number(b.reorderPoint),
-      shortfall: Math.max((Number(b.reorderPoint) || Number(b.product.minStock)) - Number(b.qtyAvailable), 0),
+      shortfall: Math.max(
+        (Number(b.reorderPoint) || Number(b.product.minStock)) - Number(b.qtyAvailable),
+        0,
+      ),
       suggestedOrderQty: Number(b.product.maxStock)
         ? Math.max(Number(b.product.maxStock) - Number(b.qtyAvailable), 0)
-        : Math.max((Number(b.product.minStock) * 2) - Number(b.qtyAvailable), 0),
-      unit: b.product.unit, lastPurchasePrice: Number(b.product.purchasePrice),
+        : Math.max(Number(b.product.minStock) * 2 - Number(b.qtyAvailable), 0),
+      unit: b.product.unit,
+      lastPurchasePrice: Number(b.product.purchasePrice),
     }))
     .sort((a, b) => b.shortfall - a.shortfall);
 
@@ -802,9 +1146,14 @@ export async function getProductStockSummaryAction(productId: string) {
 }
 
 export async function createOpeningBalanceAction(data: {
-  locationId: string; productId: string; quantity: number; unitCost?: number;
+  locationId: string;
+  productId: string;
+  quantity: number;
+  unitCost?: number;
 }) {
-  const { companyId, id: userId } = await requireCompanyAuth();
+  await requirePermission(PERMISSIONS.INVENTORY_MAIN_RECEIVING_MANAGE);
+  const { companyId, id: userId, locationIds } = await getAccessibleLocationIds();
+  requireAccessibleLocation(locationIds, data.locationId);
   await InventoryService.createOpeningBalance({ ...data, companyId, createdById: userId });
   revalidatePath("/inventory/products");
 }

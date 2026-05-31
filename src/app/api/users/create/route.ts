@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { getCurrentAdmin } from "@/lib/admin-auth";
-import { getCurrentUser } from "@/lib/auth-helper";
+import { checkPermission, getCurrentUser } from "@/lib/auth-helper";
 import { createAuditLog } from "@/lib/audit";
-import { isCustomRoleKey, normalizeRolePermissionOverrides } from "@/lib/constants";
+import { isCustomRoleKey, normalizeRolePermissionOverrides, PERMISSIONS } from "@/lib/constants";
 import { ensureDefaultWarehouseLocations } from "@/lib/locations";
 
 const APP_ROUTES = new Set([
@@ -32,6 +32,15 @@ async function resolveCustomRole(roleKey: string, companyId: string) {
     return null;
   }
   return { permissionOverrides: { mode: "custom" as const, permissions: perms }, role: "STAFF" };
+}
+
+async function validateBranch(branchId: string | undefined, companyId: string) {
+  if (!branchId) return;
+  const branch = await prisma.branch.findFirst({
+    where: { id: branchId, companyId, deletedAt: null, isActive: true },
+    select: { id: true },
+  });
+  if (!branch) throw new Error("Selected branch was not found in this tenant");
 }
 
 async function getCompanyIdFromTenantReferrer(req: Request, userId?: string) {
@@ -97,6 +106,7 @@ export async function POST(req: Request) {
       if (!company) {
         return NextResponse.json({ success: false, error: "Company not found" }, { status: 404 });
       }
+      await validateBranch(branchId, companyId);
       if (isCustomRole) {
         const resolved = await resolveCustomRole(role, companyId);
         if (!resolved) {
@@ -115,7 +125,8 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: "A user with this email already exists in the system. Please use a different email.",
+            error:
+              "A user with this email already exists in the system. Please use a different email.",
           },
           { status: 409 },
         );
@@ -176,6 +187,13 @@ export async function POST(req: Request) {
 
     const { id: userId } = user;
     const companyId = appCompanyId;
+    if (!(await checkPermission(PERMISSIONS.USERS_MANAGE))) {
+      return NextResponse.json(
+        { success: false, error: "Insufficient permissions" },
+        { status: 403 },
+      );
+    }
+    await validateBranch(branchId, companyId);
 
     if (isCustomRole) {
       const resolved = await resolveCustomRole(role, companyId);
@@ -209,7 +227,8 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "A user with this email already exists in the system. Please use a different email.",
+          error:
+            "A user with this email already exists in the system. Please use a different email.",
         },
         { status: 409 },
       );
@@ -261,6 +280,7 @@ export async function POST(req: Request) {
             name: `${name}'s Store`,
             code: storeCode,
             type: "EMPLOYEE_STORE",
+            branchId: branchId || null,
             assignedEmployeeId: newUser.id,
             isDefault: false,
             isActive: true,

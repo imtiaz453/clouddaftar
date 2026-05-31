@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth, revalidateBoth } from "@/lib/auth-helper";
+import { requireCompanyAuth, requirePermission, revalidateBoth } from "@/lib/auth-helper";
+import { PERMISSIONS } from "@/lib/constants";
 import { createAuditLog } from "@/lib/audit";
 import { ensureDefaultBranchAndWarehouse, ensureDefaultWarehouseLocations } from "@/lib/locations";
 import type { StoreType } from "@prisma/client";
@@ -67,6 +67,7 @@ async function syncWarehouseStockLocation(
 }
 
 export async function getBranches() {
+  await requirePermission(PERMISSIONS.BRANCHES_VIEW);
   const { companyId } = await requireCompanyAuth();
   await ensureDefaultBranchAndWarehouse(prisma, companyId);
 
@@ -92,6 +93,7 @@ export async function getWarehouses(branchId?: string) {
 }
 
 export async function getBranchesList() {
+  await requirePermission(PERMISSIONS.STORES_VIEW);
   const { companyId } = await requireCompanyAuth();
   return prisma.branch.findMany({
     where: { companyId, deletedAt: null, isActive: true },
@@ -101,6 +103,7 @@ export async function getBranchesList() {
 }
 
 export async function getStores() {
+  await requirePermission(PERMISSIONS.STORES_VIEW);
   const { companyId } = await requireCompanyAuth();
   await ensureDefaultBranchAndWarehouse(prisma, companyId);
 
@@ -115,10 +118,13 @@ export async function getStores() {
 }
 
 export async function getEmployeesList() {
+  await requirePermission(PERMISSIONS.STORES_VIEW);
   const { companyId } = await requireCompanyAuth();
   return prisma.user.findMany({
     where: {
-      companies: { some: { companyId, isActive: true, role: { in: ["STAFF", "MANAGER", "OWNER"] } } },
+      companies: {
+        some: { companyId, isActive: true, role: { in: ["STAFF", "MANAGER", "OWNER"] } },
+      },
     },
     select: { id: true, name: true, email: true },
     orderBy: { name: "asc" },
@@ -134,6 +140,7 @@ export async function createBranch(data: {
   city?: string;
   createDefaultWarehouse?: boolean;
 }) {
+  await requirePermission(PERMISSIONS.BRANCHES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const code = normalizeCode(data.code || data.name);
@@ -194,6 +201,7 @@ export async function updateBranch(data: {
   city?: string;
   isActive?: boolean;
 }) {
+  await requirePermission(PERMISSIONS.BRANCHES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   if (!data.name.trim()) throw new Error("Branch name is required");
@@ -231,6 +239,7 @@ export async function updateBranch(data: {
 }
 
 export async function deleteBranch(id: string) {
+  await requirePermission(PERMISSIONS.BRANCHES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -258,6 +267,7 @@ export async function deleteBranch(id: string) {
 }
 
 export async function toggleBranchStatus(id: string, isActive: boolean) {
+  await requirePermission(PERMISSIONS.BRANCHES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -292,6 +302,7 @@ export async function createWarehouse(data: {
   isDefault?: boolean;
   notes?: string;
 }) {
+  await requirePermission(PERMISSIONS.STORES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const code = normalizeCode(data.code || data.name);
@@ -352,7 +363,12 @@ export async function createWarehouse(data: {
     action: "CREATE",
     entity: "Warehouse",
     entityId: warehouse.id,
-    metadata: { name: warehouse.name, code: warehouse.code, type: warehouse.type, branchId: warehouse.branchId },
+    metadata: {
+      name: warehouse.name,
+      code: warehouse.code,
+      type: warehouse.type,
+      branchId: warehouse.branchId,
+    },
   });
   revalidateBoth("/settings", user.companySlug);
   return warehouse;
@@ -369,6 +385,7 @@ export async function updateWarehouse(data: {
   isActive?: boolean;
   notes?: string | null;
 }) {
+  await requirePermission(PERMISSIONS.STORES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   if (!data.name.trim()) throw new Error("Store name is required");
@@ -379,8 +396,11 @@ export async function updateWarehouse(data: {
   if (!existing) throw new Error("Store not found");
 
   const type = data.type || existing.type;
-  const branchId = data.branchId !== undefined ? (data.branchId || null) : existing.branchId;
-  const assignedEmployeeId = data.assignedEmployeeId !== undefined ? (data.assignedEmployeeId || null) : existing.assignedEmployeeId;
+  const branchId = data.branchId !== undefined ? data.branchId || null : existing.branchId;
+  const assignedEmployeeId =
+    data.assignedEmployeeId !== undefined
+      ? data.assignedEmployeeId || null
+      : existing.assignedEmployeeId;
 
   if (type === "POS_STORE" && !branchId) {
     throw new Error("Branch is required for POS/Showroom stores");
@@ -437,6 +457,7 @@ export async function updateWarehouse(data: {
 }
 
 export async function deleteWarehouse(id: string) {
+  await requirePermission(PERMISSIONS.STORES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -462,6 +483,7 @@ export async function deleteWarehouse(id: string) {
 }
 
 export async function toggleWarehouseStatus(id: string, isActive: boolean) {
+  await requirePermission(PERMISSIONS.STORES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -471,7 +493,9 @@ export async function toggleWarehouseStatus(id: string, isActive: boolean) {
   if (!warehouse) throw new Error("Store not found");
 
   if (!isActive && warehouse.isDefault) {
-    throw new Error("Cannot disable the purchase receiving warehouse. Select another default receiving store first.");
+    throw new Error(
+      "Cannot disable the purchase receiving warehouse. Select another default receiving store first.",
+    );
   }
 
   const updated = await prisma.warehouse.update({
@@ -659,14 +683,39 @@ export async function getWarehouseOperationsDashboard(options?: { includeWarehou
   return {
     warehouses,
     operationCards: [
-      { label: "Receipts", value: purchaseOrders, hint: "Purchases waiting to receive", tone: "blue" },
-      { label: "Delivery Orders", value: draftSales, hint: "Sales not fully delivered", tone: "emerald" },
+      {
+        label: "Receipts",
+        value: purchaseOrders,
+        hint: "Purchases waiting to receive",
+        tone: "blue",
+      },
+      {
+        label: "Delivery Orders",
+        value: draftSales,
+        hint: "Sales not fully delivered",
+        tone: "emerald",
+      },
       { label: "Internal Transfers", value: 0, hint: "Move stock between stores", tone: "violet" },
-      { label: "Replenishment", value: lowStockProducts, hint: "Products at or below minimum", tone: "amber" },
-      { label: "Adjustments", value: adjustmentLogs, hint: "Inventory corrections logged", tone: "rose" },
+      {
+        label: "Replenishment",
+        value: lowStockProducts,
+        hint: "Products at or below minimum",
+        tone: "amber",
+      },
+      {
+        label: "Adjustments",
+        value: adjustmentLogs,
+        hint: "Inventory corrections logged",
+        tone: "rose",
+      },
       { label: "Batch Transfers", value: 0, hint: "Grouped scan operations", tone: "slate" },
     ],
-    totals: { warehouses: warehouseCount, locations: locationCount, stock: totalWarehouseStock, lowStockProducts },
+    totals: {
+      warehouses: warehouseCount,
+      locations: locationCount,
+      stock: totalWarehouseStock,
+      lowStockProducts,
+    },
     locationTypeCounts,
     barcodeReadiness: {
       productsWithBarcode,

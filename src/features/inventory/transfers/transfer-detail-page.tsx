@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getStockTransferDetail } from "@/actions/inventory-new";
+import { getStockTransferDetail } from "@/actions/inventory";
 import { TransferDetailClient } from "./transfer-detail-client";
 
 export default async function TransferDetailPage({ params }: { params: { id: string } }) {

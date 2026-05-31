@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/providers/toast-provider";
-import { createStockAdjustmentAction, getLocationsForSelect, getProductsForSelector } from "@/actions/inventory-new";
+import { createStockAdjustmentAction, getLocationsForSelect, getProductsForSelector } from "@/actions/inventory";
 
 interface LocationOption {
   id: string;

@@ -56,7 +56,7 @@ export function PermissionTreeEditor({ value, disabled, onChange }: PermissionTr
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border bg-zinc-950 p-4 text-white shadow-sm">
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 shadow-sm">
         <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-white">
@@ -64,20 +64,20 @@ export function PermissionTreeEditor({ value, disabled, onChange }: PermissionTr
             </div>
             <div className="min-w-0">
               <p className="text-base font-extrabold">Access hierarchy</p>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-300">
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
                 Module selection cascades to every child tab and action. Fine tune access by
                 removing individual read, write, delete, or workflow permissions.
               </p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:min-w-80">
-            <div className="rounded-lg border border-white/10 bg-white/10 p-3">
+            <div className="rounded-lg border border-primary/15 bg-background/80 p-3">
               <p className="text-2xl font-black">{selectedCount}</p>
-              <p className="text-xs font-semibold uppercase text-zinc-300">Enabled</p>
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Enabled</p>
             </div>
-            <div className="rounded-lg border border-white/10 bg-white/10 p-3">
+            <div className="rounded-lg border border-primary/15 bg-background/80 p-3">
               <p className="text-2xl font-black">{allPermissions.length}</p>
-              <p className="text-xs font-semibold uppercase text-zinc-300">Available</p>
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Available</p>
             </div>
           </div>
         </div>
@@ -95,7 +95,7 @@ export function PermissionTreeEditor({ value, disabled, onChange }: PermissionTr
           {!disabled && (
             <Button
               type="button"
-              className="h-11 bg-white text-zinc-950 hover:bg-zinc-100"
+              className="h-11"
               onClick={() => onChange(allSelected ? [] : allPermissions)}
             >
               {allSelected ? "Clear all" : "Select all"}

@@ -1,4 +1,4 @@
-import { getInventoryLocationDetail } from "@/actions/inventory-new";
+import { getInventoryLocationDetail } from "@/actions/inventory";
 import { LocationDetailClient } from "./location-detail-client";
 
 interface LocationDetailPageProps {

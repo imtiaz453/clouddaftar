@@ -22,7 +22,7 @@ import {
   getStockCounts,
   reviewStockCountAction,
   postStockCountAction,
-} from "@/actions/inventory-new";
+} from "@/actions/inventory";
 import { CountCreateDialog } from "./count-create-dialog";
 
 interface StockCount {

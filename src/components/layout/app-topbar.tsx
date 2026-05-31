@@ -38,6 +38,7 @@ import { EnableNotifications } from "@/components/shared/enable-notifications";
 import { useToast } from "@/providers/toast-provider";
 import {
   NAV_GROUPS,
+  SIDEBAR_BOTTOM_ITEMS,
   PERMISSIONS,
   getEffectiveUserPermissions,
   type NavGroup,
@@ -52,6 +53,7 @@ interface AppTopbarProps {
   userName?: string;
   userEmail?: string;
   userImage?: string;
+  permissions?: string[];
   onMenuClick?: () => void;
 }
 
@@ -144,6 +146,7 @@ export function AppTopbar({
   userName = "User",
   userEmail = "",
   userImage = "",
+  permissions: resolvedPermissions,
   onMenuClick,
 }: AppTopbarProps) {
   const { theme, setTheme } = useTheme();
@@ -176,21 +179,41 @@ export function AppTopbar({
     router.push(tenantHref(href));
   }
 
-  const moduleMenus = useMemo(() => {
-    const permissions = applyPlanPermissionLimitsForRole(
+  const calculatedPermissions = useMemo(
+    () =>
+      applyPlanPermissionLimitsForRole(
       getEffectiveUserPermissions(userRole, rolePermissions, userPermissionOverrides),
       planCode,
       userRole,
-    );
+      ),
+    [userRole, rolePermissions, userPermissionOverrides, planCode],
+  );
+  const permissions = resolvedPermissions ?? calculatedPermissions;
+  const canOpenApps = permissions.includes(PERMISSIONS.APPS_VIEW);
+  const canOpenSettings = permissions.includes(PERMISSIONS.SETTINGS_VIEW);
+  const canOpenBilling = permissions.includes(PERMISSIONS.BILLING_VIEW);
+  const canManageBranding = permissions.includes(PERMISSIONS.BRANDING_MANAGE);
+
+  const moduleMenus = useMemo(() => {
     return filterModuleMenus(NAV_GROUPS, permissions);
-  }, [userRole, rolePermissions, userPermissionOverrides, planCode]);
+  }, [permissions]);
 
   const searchItems = useMemo(
-    () =>
-      moduleMenus.flatMap((group) =>
-        group.items.map((item) => ({ ...item, group: group.label })),
-      ),
-    [moduleMenus],
+    () => {
+      const items = [
+        ...NAV_GROUPS.flatMap((group) =>
+          group.items
+            .filter((item) => hasAnyPermission(item.permissions, permissions))
+            .map((item) => ({ ...item, group: group.label })),
+        ),
+        ...SIDEBAR_BOTTOM_ITEMS.filter(
+          (item) => item.href !== "#logout" && hasAnyPermission(item.permissions, permissions),
+        ).map((item) => ({ ...item, group: "Workspace" })),
+      ];
+
+      return Array.from(new Map(items.map((item) => [item.href, item])).values());
+    },
+    [permissions],
   );
 
   const activeModuleLabel = useMemo(() => {
@@ -358,14 +381,14 @@ export function AppTopbar({
   return (
     <>
       <header className="sticky top-0 z-30 flex h-[68px] shrink-0 items-center gap-3 border-b border-border/70 bg-background/98 px-4 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-background/95 sm:px-6">
-        <button
+        {canOpenApps && <button
           type="button"
           onClick={onMenuClick}
           className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground lg:hidden"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
-        </button>
+        </button>}
 
         <button
           type="button"
@@ -653,18 +676,18 @@ export function AppTopbar({
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigateTo("/settings")}>
+                  {canOpenSettings && <DropdownMenuItem onClick={() => navigateTo("/settings")}>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigateTo("/billing")}>
+                  </DropdownMenuItem>}
+                  {canOpenBilling && <DropdownMenuItem onClick={() => navigateTo("/billing")}>
                     <CreditCard className="mr-2 h-4 w-4" />
                     Billing
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigateTo("/settings?tab=theme")}>
+                  </DropdownMenuItem>}
+                  {canManageBranding && <DropdownMenuItem onClick={() => navigateTo("/settings?tab=theme")}>
                     <Palette className="mr-2 h-4 w-4" />
                     Theme
-                  </DropdownMenuItem>
+                  </DropdownMenuItem>}
                   <DropdownMenuItem onClick={() => navigateTo("/profile")}>
                     <Lock className="mr-2 h-4 w-4" />
                     Password

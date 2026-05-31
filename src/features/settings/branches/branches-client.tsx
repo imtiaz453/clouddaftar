@@ -41,9 +41,10 @@ interface Branch {
 
 interface BranchesClientProps {
   branches: Branch[];
+  canManage?: boolean;
 }
 
-export function BranchesClient({ branches }: BranchesClientProps) {
+export function BranchesClient({ branches, canManage = true }: BranchesClientProps) {
   const router = useRouter();
   const { addToast } = useToast();
   const [open, setOpen] = useState(false);
@@ -146,7 +147,7 @@ export function BranchesClient({ branches }: BranchesClientProps) {
         title="Branches"
         description="Manage business locations, showrooms, and POS outlets"
       >
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+        {canManage && <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="mr-1 h-4 w-4" /> New Branch
@@ -189,7 +190,7 @@ export function BranchesClient({ branches }: BranchesClientProps) {
               </div>
             </form>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </PageHeader>
 
       <Card>
@@ -203,13 +204,13 @@ export function BranchesClient({ branches }: BranchesClientProps) {
                 <TableHead>Phone</TableHead>
                 <TableHead className="text-center">Stores</TableHead>
                 <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {canManage && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {branches.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={canManage ? 7 : 6} className="py-8 text-center text-muted-foreground">
                     No branches yet. Create your first branch.
                   </TableCell>
                 </TableRow>
@@ -226,7 +227,7 @@ export function BranchesClient({ branches }: BranchesClientProps) {
                         {branch.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    {canManage && <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(branch)} title="Edit">
                           <Pencil className="h-4 w-4" />
@@ -238,7 +239,7 @@ export function BranchesClient({ branches }: BranchesClientProps) {
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 ))
               )}

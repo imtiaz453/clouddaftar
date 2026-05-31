@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth } from "@/lib/auth-helper";
+import { requireCompanyAuth, requirePermission } from "@/lib/auth-helper";
+import { PERMISSIONS } from "@/lib/constants";
 import { createAuditLog } from "@/lib/audit";
 
 export async function getUnits() {
+  await requirePermission(PERMISSIONS.INVENTORY_UNITS_VIEW);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -16,6 +18,7 @@ export async function getUnits() {
 }
 
 export async function createUnit(data: { name: string; abbreviation?: string }) {
+  await requirePermission(PERMISSIONS.INVENTORY_UNITS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -43,6 +46,7 @@ export async function createUnit(data: { name: string; abbreviation?: string }) 
 }
 
 export async function updateUnit(id: string, data: { name?: string; abbreviation?: string; isActive?: boolean }) {
+  await requirePermission(PERMISSIONS.INVENTORY_UNITS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -78,6 +82,7 @@ export async function updateUnit(id: string, data: { name?: string; abbreviation
 }
 
 export async function deleteUnit(id: string) {
+  await requirePermission(PERMISSIONS.INVENTORY_UNITS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 

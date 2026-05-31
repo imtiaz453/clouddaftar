@@ -21,7 +21,7 @@ import {
   updateInventoryLocation,
   getBranchesForSelect,
   getEmployeesForSelect,
-} from "@/actions/inventory-new";
+} from "@/actions/inventory";
 
 const LOCATION_TYPES = [
   { value: "MAIN_WAREHOUSE", label: "Main Warehouse" },

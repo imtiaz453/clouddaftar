@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog, createNotification } from "@/lib/audit";
+import { checkPermission } from "@/lib/auth-helper";
+import { PERMISSIONS } from "@/lib/constants";
 
 export async function DELETE(req: Request) {
   try {
@@ -28,8 +30,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "You cannot remove yourself" }, { status: 400 });
     }
 
-    const currentUserRole = (session.user as any).role;
-    if (currentUserRole !== "OWNER" && currentUserRole !== "ADMIN") {
+    if (!(await checkPermission(PERMISSIONS.USERS_MANAGE))) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 

@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Save } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useHasPermission } from "@/providers/permissions-provider";
+import { PERMISSIONS } from "@/lib/constants";
 
 interface Unit {
   id: string;
@@ -26,6 +28,7 @@ interface Unit {
 }
 
 export function UnitsTab() {
+  const canManage = useHasPermission(PERMISSIONS.INVENTORY_UNITS_MANAGE);
   const router = useRouter();
   const { addToast } = useToast();
   const [units, setUnits] = useState<Unit[]>([]);
@@ -129,10 +132,10 @@ export function UnitsTab() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Measurement Units</CardTitle>
-            <Button size="sm" onClick={openNew}>
+            {canManage && <Button size="sm" onClick={openNew}>
               <Plus className="mr-2 h-4 w-4" />
               Add Unit
-            </Button>
+            </Button>}
           </div>
         </CardHeader>
         <CardContent>
@@ -151,7 +154,7 @@ export function UnitsTab() {
                   <TableHead>Name</TableHead>
                   <TableHead>Abbreviation</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  {canManage && <TableHead className="w-24">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -165,14 +168,14 @@ export function UnitsTab() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      {canManage && <div className="flex gap-1">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(unit)} title="Edit unit">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDelete(unit)} title="Delete unit">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                      </div>
+                      </div>}
                     </TableCell>
                   </TableRow>
                 ))}

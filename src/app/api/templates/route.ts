@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
+import { requirePermission } from "@/lib/auth-helper";
+import { PERMISSIONS } from "@/lib/constants";
 
 type TemplateUse = "invoice" | "quotation" | "thermal" | "purchase_order";
 
@@ -15,8 +17,9 @@ function normalizeTemplateType(value: unknown): TemplateUse {
     : "invoice";
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
+    await requirePermission(PERMISSIONS.TEMPLATES_VIEW);
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -34,6 +37,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    await requirePermission(PERMISSIONS.TEMPLATES_MANAGE);
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -78,9 +82,9 @@ export async function POST(req: NextRequest) {
           ? { defaultQuotationTemplate: template.id }
           : templateType === "purchase_order"
             ? { defaultPurchaseOrderTemplate: template.id }
-          : templateType === "thermal"
-            ? { defaultThermalInvoiceTemplate: template.id }
-            : { defaultInvoiceTemplate: template.id };
+            : templateType === "thermal"
+              ? { defaultThermalInvoiceTemplate: template.id }
+              : { defaultInvoiceTemplate: template.id };
       await prisma.companySettings.upsert({
         where: { companyId },
         create: { companyId, ...upsertData },

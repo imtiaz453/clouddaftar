@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 async function getAppsPermissionContext() {
   const session = await getServerSession(authOptions);
-  const sessionUser = session?.user as { companyId?: string; companySlug?: string; id?: string };
+  const sessionUser = session?.user as { companyId?: string; companySlug?: string; id?: string; role?: string };
   const companyId = sessionUser?.companyId;
   const userId = sessionUser?.id;
   if (!companyId || !userId) {
@@ -14,6 +14,7 @@ async function getAppsPermissionContext() {
       rolePermissions: null,
       userPermissionOverrides: null,
       planCode: "starter",
+      userRole: sessionUser?.role ?? "",
     };
   }
 
@@ -38,6 +39,7 @@ async function getAppsPermissionContext() {
     userPermissionOverrides:
       (membership?.permissionOverrides as Record<string, unknown> | null) ?? null,
     planCode: subscription?.plan?.code ?? "starter",
+    userRole: sessionUser?.role ?? "",
   };
 }
 

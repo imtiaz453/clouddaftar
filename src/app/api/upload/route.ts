@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth } from "@/lib/auth-helper";
+import { requireCompanyAuth, requirePermission } from "@/lib/auth-helper";
+import { PERMISSIONS } from "@/lib/constants";
 import { bufferToDataUrl, uploadBufferToFileStorage } from "@/lib/file-storage";
 
 export const runtime = "nodejs";
@@ -48,6 +49,10 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File | null;
     const requestedType = ((formData.get("type") as string) || "logo") as UploadType;
     const profile = uploadProfiles[requestedType] || uploadProfiles.logo;
+
+    if (profile.updateCompanyLogo) {
+      await requirePermission(PERMISSIONS.COMPANY_SETTINGS_MANAGE);
+    }
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });

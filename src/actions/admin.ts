@@ -362,6 +362,58 @@ export async function adminChangePlan(companyId: string, planId: string) {
   return { success: true };
 }
 
+export async function updateTenantInfo(
+  companyId: string,
+  data: { name?: string; email?: string; phone?: string; city?: string; state?: string },
+) {
+  const session = await requireAdmin();
+  if (session.admin.role !== "OWNER" && session.admin.role !== "SUPER_ADMIN")
+    throw new Error("Insufficient permissions");
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+  if (!company) throw new Error("Company not found");
+
+  const updated = await prisma.company.update({
+    where: { id: companyId },
+    data: {
+      ...(data.name?.trim() && { name: data.name.trim() }),
+      ...(data.email !== undefined && { email: data.email.trim() || null }),
+      ...(data.phone !== undefined && { phone: data.phone.trim() || null }),
+      ...(data.city !== undefined && { city: data.city.trim() || null }),
+      ...(data.state !== undefined && { state: data.state.trim() || null }),
+    },
+  });
+
+  await logAdminAction(session.admin.id, "TENANT_INFO_UPDATED", "Company", companyId, {
+    changedFields: Object.keys(data),
+  });
+  return { success: true, data: updated };
+}
+
+export async function resetTenantUserPassword(
+  companyId: string,
+  userId: string,
+  newPassword: string,
+) {
+  const session = await requireAdmin();
+  if (session.admin.role !== "OWNER" && session.admin.role !== "SUPER_ADMIN")
+    throw new Error("Insufficient permissions");
+  if (newPassword.length < 8) throw new Error("Password must be at least 8 characters");
+
+  const membership = await prisma.companyMembership.findFirst({
+    where: { companyId, userId, isActive: true },
+    include: { user: { select: { email: true } } },
+  });
+  if (!membership) throw new Error("Active tenant user not found");
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  await logAdminAction(session.admin.id, "TENANT_USER_PASSWORD_RESET", "User", userId, {
+    companyId,
+    email: membership.user.email,
+  });
+  return { success: true };
+}
+
 export async function getCompanyDetail(companyId: string) {
   await requireAdmin();
   return prisma.company.findUnique({
@@ -458,7 +510,7 @@ export async function updateAdmin(
   if (target.role === "OWNER" && session.admin.id !== adminId)
     throw new Error("Cannot modify owner");
 
-  const updated = await prisma.systemAdmin.update({
+  await prisma.systemAdmin.update({
     where: { id: adminId },
     data: {
       ...(data.name && { name: data.name }),

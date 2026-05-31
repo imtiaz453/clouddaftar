@@ -1056,12 +1056,6 @@ export const NAV_GROUPS: NavGroup[] = [
         permissions: ["INVENTORY_LOCATIONS_VIEW"],
       },
       {
-        label: "Stock by Location",
-        href: "/inventory/locations",
-        icon: "MapPin",
-        permissions: ["INVENTORY_LOCATIONS_VIEW"],
-      },
-      {
         label: "Stock Transfers",
         href: "/inventory/transfers",
         icon: "ArrowRightLeft",
@@ -1271,13 +1265,19 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Invoice Templates",
         href: "/settings/templates",
         icon: "FileText",
-        permissions: ["TEMPLATES_MANAGE"],
+        permissions: ["TEMPLATES_VIEW"],
       },
       {
         label: "Branches",
         href: "/settings/branches",
         icon: "Store",
         permissions: ["BRANCHES_VIEW"],
+      },
+      {
+        label: "Stores",
+        href: "/settings?tab=stores",
+        icon: "Warehouse",
+        permissions: ["STORES_VIEW"],
       },
       {
         label: "Theme & Branding",

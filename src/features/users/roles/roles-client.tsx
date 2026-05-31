@@ -152,13 +152,13 @@ export function RolesClient({ rolePermissions }: RolesClientProps) {
   return (
     <div className="grid gap-5 xl:grid-cols-[320px_1fr]">
       <div className="space-y-3">
-        <Card className="overflow-hidden border-zinc-200 bg-zinc-950 p-0 text-white shadow-sm">
-          <div className="border-b border-white/10 p-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-cyan-500">
+        <Card className="overflow-hidden border-primary/20 bg-primary/5 p-0 shadow-sm">
+          <div className="border-b border-primary/15 p-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <KeyRound className="h-5 w-5" />
             </div>
             <h2 className="mt-3 text-lg font-extrabold">Access presets</h2>
-            <p className="mt-1 text-sm leading-6 text-zinc-300">
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Pick a role, tune its permissions, and save the preset for future team members.
             </p>
           </div>
@@ -194,7 +194,7 @@ export function RolesClient({ rolePermissions }: RolesClientProps) {
                 onClick={() => setSelectedRole(role)}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors",
-                  selected && "border-zinc-950 bg-zinc-950 text-white shadow-sm",
+                  selected && "border-primary bg-primary text-primary-foreground shadow-sm",
                 )}
               >
                 <div

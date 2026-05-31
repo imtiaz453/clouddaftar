@@ -63,9 +63,10 @@ interface StoresClientProps {
   stores: Store[];
   branches: { id: string; name: string; code: string }[];
   employees: { id: string; name: string; email: string }[];
+  canManage?: boolean;
 }
 
-export function StoresClient({ stores, branches, employees }: StoresClientProps) {
+export function StoresClient({ stores, branches, employees, canManage = true }: StoresClientProps) {
   const router = useRouter();
   const { addToast } = useToast();
   const [open, setOpen] = useState(false);
@@ -194,7 +195,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
         title="Stores"
         description="Choose the main receiving warehouse for purchase orders and manage POS/employee stores"
       >
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+        {canManage && <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="mr-1 h-4 w-4" /> New Store
@@ -291,7 +292,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
               </div>
             </form>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </PageHeader>
 
       <div className="flex flex-wrap gap-2">
@@ -354,13 +355,13 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                 <TableHead>Responsible employee</TableHead>
                 <TableHead className="text-center">PO Receiving</TableHead>
                 <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {canManage && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={canManage ? 8 : 7} className="py-8 text-center text-muted-foreground">
                     No stores found.
                   </TableCell>
                 </TableRow>
@@ -385,7 +386,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                         {store.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    {canManage && <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(store)} title="Edit">
                           <Pencil className="h-4 w-4" />
@@ -397,7 +398,7 @@ export function StoresClient({ stores, branches, employees }: StoresClientProps)
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 ))
               )}

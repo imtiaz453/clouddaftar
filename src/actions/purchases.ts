@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth, checkPermission } from "@/lib/auth-helper";
+import { requireCompanyAuth, checkPermission, requirePermission } from "@/lib/auth-helper";
 import { PERMISSIONS } from "@/lib/constants";
 import {
   getPrefixForKind,
@@ -62,7 +62,8 @@ function restorePurchaseReferenceNumber(
     }
   }
 
-  if (/^DRAFT\//i.test(value)) return value.replace(/^DRAFT/i, getPrefixForKind("purchase_order", settings));
+  if (/^DRAFT\//i.test(value))
+    return value.replace(/^DRAFT/i, getPrefixForKind("purchase_order", settings));
   return null;
 }
 
@@ -110,6 +111,7 @@ export async function getPurchases(params?: {
   page?: number;
   pageSize?: number;
 }) {
+  await requirePermission(PERMISSIONS.PURCHASES_VIEW);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const page = params?.page || 1;
@@ -148,6 +150,7 @@ export async function getPurchases(params?: {
 }
 
 export async function getPurchase(id: string) {
+  await requirePermission(PERMISSIONS.PURCHASES_VIEW);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -179,6 +182,10 @@ export async function createPurchase(data: {
   branchId?: string;
   warehouseId?: string;
 }) {
+  await requirePermission(PERMISSIONS.PURCHASES_CREATE);
+  if (data.status && data.status !== "DRAFT") {
+    await requirePermission(PERMISSIONS.PURCHASES_RECEIVE);
+  }
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -391,6 +398,11 @@ export async function updatePurchase(
     status?: string;
   },
 ) {
+  await requirePermission(PERMISSIONS.PURCHASES_EDIT);
+  if (data.status === "DRAFT") await requirePermission(PERMISSIONS.PURCHASES_DRAFT);
+  if (data.status && data.status !== "DRAFT") {
+    await requirePermission(PERMISSIONS.PURCHASES_RECEIVE);
+  }
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -421,10 +433,13 @@ export async function updatePurchase(
           select: { id: true },
         });
         if (duplicate) {
-          throw new Error(`Cannot restore original PO number ${restored} because it is already used by another purchase.`);
+          throw new Error(
+            `Cannot restore original PO number ${restored} because it is already used by another purchase.`,
+          );
         }
       }
-      referenceNumber = restored ?? (await reserveNextDocumentNumber(tx, companyId, "purchase_order", settings));
+      referenceNumber =
+        restored ?? (await reserveNextDocumentNumber(tx, companyId, "purchase_order", settings));
     } else if (existing.status !== "DRAFT" && newStatus === "DRAFT") {
       referenceNumber = makeDraftPurchaseReferenceNumber(existing.referenceNumber);
     } else if (isLegacyDraftDocumentNumber(existing.referenceNumber) && newStatus !== "DRAFT") {
@@ -763,6 +778,7 @@ export async function updatePurchase(
 }
 
 export async function returnPurchase(id: string) {
+  await requirePermission(PERMISSIONS.PURCHASE_RETURNS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -850,6 +866,7 @@ export async function returnPurchase(id: string) {
 }
 
 export async function convertPurchaseToDraft(id: string) {
+  await requirePermission(PERMISSIONS.PURCHASES_DRAFT);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 

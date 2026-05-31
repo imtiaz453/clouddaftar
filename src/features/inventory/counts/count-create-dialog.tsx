@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/providers/toast-provider";
-import { createStockCountAction, getLocationsForSelect } from "@/actions/inventory-new";
+import { createStockCountAction, getLocationsForSelect } from "@/actions/inventory";
 
 interface LocationOption {
   id: string;

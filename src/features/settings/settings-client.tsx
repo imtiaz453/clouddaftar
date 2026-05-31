@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/providers/toast-provider";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,16 @@ interface SettingsClientProps {
   stores?: any[];
   branches?: any[];
   employees?: any[];
+  capabilities: {
+    canManageCompany: boolean;
+    canManageSettings: boolean;
+    canViewTemplates: boolean;
+    canViewStores: boolean;
+    canManageStores: boolean;
+    canManageTemplates: boolean;
+    canManageBranding: boolean;
+    canManageTax: boolean;
+  };
 }
 
 type PrinterBridgeSettings = {
@@ -82,28 +92,29 @@ export function SettingsClient({
   stores = [],
   branches = [],
   employees = [],
+  capabilities,
 }: SettingsClientProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(() => rawSearchParams ?? new URLSearchParams(), [rawSearchParams]);
   const { addToast } = useToast();
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const accessibleTabs = useMemo(
+    () => [
+      ...(capabilities.canManageCompany ? ["general"] : []),
+      ...(capabilities.canManageSettings ? ["business", "preferences", "pos-printer"] : []),
+      ...(capabilities.canViewStores ? ["stores"] : []),
+      ...(capabilities.canViewTemplates ? ["templates"] : []),
+      ...(capabilities.canManageBranding ? ["theme"] : []),
+      ...(capabilities.canManageTax ? ["tax-compliance"] : []),
+    ],
+    [capabilities],
+  );
   const [activeTab, setActiveTab] = useState(() => {
     const tab = searchParams.get("tab");
-    return [
-      "general",
-      "business",
-      "preferences",
-      "pos-printer",
-      "units",
-      "stores",
-      "templates",
-      "theme",
-      "tax-compliance",
-    ].includes(tab || "")
-      ? tab || "general"
-      : "general";
+    return accessibleTabs.includes(tab || "") ? tab! : accessibleTabs[0] || "general";
   });
   const savedPrinterBridgeSettings = {
     ...defaultPrinterBridgeSettings,
@@ -176,23 +187,14 @@ export function SettingsClient({
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (
-      tab &&
-      [
-        "general",
-        "business",
-        "preferences",
-        "pos-printer",
-        "units",
-        "stores",
-        "templates",
-        "theme",
-        "tax-compliance",
-      ].includes(tab)
-    ) {
+    if (tab && accessibleTabs.includes(tab)) {
       setActiveTab(tab);
     }
-  }, [searchParams]);
+  }, [accessibleTabs, searchParams]);
+
+  useEffect(() => {
+    if (!accessibleTabs.includes(activeTab)) setActiveTab(accessibleTabs[0] || "general");
+  }, [accessibleTabs, activeTab]);
 
   function handleTabChange(tab: string) {
     setActiveTab(tab);
@@ -404,1022 +406,1052 @@ export function SettingsClient({
     <div className="space-y-6">
       <PageHeader title="Settings" description="Manage your business settings and preferences" />
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="business">Business</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          <TabsTrigger value="pos-printer">POS Printer</TabsTrigger>
-          <TabsTrigger value="stores">Stores</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="theme">Theme</TabsTrigger>
-          <TabsTrigger value="tax-compliance">Tax Compliance</TabsTrigger>
-        </TabsList>
+      {accessibleTabs.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            You do not have permission to view any settings sections.
+          </CardContent>
+        </Card>
+      ) : (
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
+          <TabsList className="w-full justify-start">
+            {capabilities.canManageCompany && <TabsTrigger value="general">General</TabsTrigger>}
+            {capabilities.canManageSettings && <TabsTrigger value="business">Business</TabsTrigger>}
+            {capabilities.canManageSettings && (
+              <TabsTrigger value="preferences">Preferences</TabsTrigger>
+            )}
+            {capabilities.canManageSettings && (
+              <TabsTrigger value="pos-printer">POS Printer</TabsTrigger>
+            )}
+            {capabilities.canViewStores && <TabsTrigger value="stores">Stores</TabsTrigger>}
+            {capabilities.canViewTemplates && (
+              <TabsTrigger value="templates">Templates</TabsTrigger>
+            )}
+            {capabilities.canManageBranding && <TabsTrigger value="theme">Theme</TabsTrigger>}
+            {capabilities.canManageTax && (
+              <TabsTrigger value="tax-compliance">Tax Compliance</TabsTrigger>
+            )}
+          </TabsList>
 
-        <TabsContent value="general" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Company Logo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="flex h-20 w-20 items-center justify-center rounded-lg border bg-muted">
-                  {form.logo ? (
-                    <img
-                      src={form.logo}
-                      alt="Logo"
-                      className="h-full w-full rounded-lg object-contain"
+          <TabsContent value="general" className="mt-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Company Logo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-lg border bg-muted">
+                    {form.logo ? (
+                      <img
+                        src={form.logo}
+                        alt="Logo"
+                        className="h-full w-full rounded-lg object-contain"
+                      />
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <label className="relative cursor-pointer">
+                      <Button variant="outline" type="button" disabled={uploadingLogo} asChild>
+                        <span>
+                          {uploadingLogo ? (
+                            <LoadingSpinner size={4} className="mr-2" />
+                          ) : (
+                            <Upload className="mr-2 h-4 w-4" />
+                          )}
+                          {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                        </span>
+                      </Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleLogoUpload}
+                      />
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">PNG, JPG up to 1MB</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>General Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSave} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Company Name"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      required
                     />
-                  ) : (
-                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                  )}
-                </div>
-                <div>
-                  <label className="relative cursor-pointer">
-                    <Button variant="outline" type="button" disabled={uploadingLogo} asChild>
-                      <span>
-                        {uploadingLogo ? (
-                          <LoadingSpinner size={4} className="mr-2" />
-                        ) : (
-                          <Upload className="mr-2 h-4 w-4" />
-                        )}
-                        {uploadingLogo ? "Uploading..." : "Upload Logo"}
-                      </span>
-                    </Button>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleLogoUpload}
+                    <Input
+                      label="Website"
+                      value={form.website}
+                      onChange={(e) => setForm({ ...form, website: e.target.value })}
                     />
-                  </label>
-                  <p className="mt-1 text-xs text-muted-foreground">PNG, JPG up to 1MB</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    <Input
+                      label="Phone"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    />
+                    <Input
+                      label="Email"
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    />
+                    <Input
+                      label={form.country === "SA" ? "VAT Name" : "Tax Name (e.g. GST/VAT)"}
+                      value={form.taxName}
+                      onChange={(e) => setForm({ ...form, taxName: e.target.value })}
+                    />
+                    <Input
+                      label={form.country === "SA" ? "VAT Registration Number" : "Tax ID / NTN"}
+                      value={form.taxId}
+                      onChange={(e) => setForm({ ...form, taxId: e.target.value })}
+                    />
+                    <Input
+                      label="City"
+                      value={form.city}
+                      onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    />
+                    <Input
+                      label="State"
+                      value={form.state}
+                      onChange={(e) => setForm({ ...form, state: e.target.value })}
+                    />
+                    <Input
+                      label="Zip Code"
+                      value={form.zipCode}
+                      onChange={(e) => setForm({ ...form, zipCode: e.target.value })}
+                    />
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Country</label>
+                      <Select value={form.country} onValueChange={updateCountry}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PK">Pakistan</SelectItem>
+                          <SelectItem value="AE">UAE</SelectItem>
+                          <SelectItem value="SA">Saudi Arabia</SelectItem>
+                          <SelectItem value="US">United States</SelectItem>
+                          <SelectItem value="GB">United Kingdom</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      label="Address"
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    />
+                  </div>
+                  <Button type="submit" disabled={saving}>
+                    {saving && <LoadingSpinner size={4} className="mr-2" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>General Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSave} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label="Company Name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
-                  />
-                  <Input
-                    label="Website"
-                    value={form.website}
-                    onChange={(e) => setForm({ ...form, website: e.target.value })}
-                  />
-                  <Input
-                    label="Phone"
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  />
-                  <Input
-                    label="Email"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  />
-                  <Input
-                    label={form.country === "SA" ? "VAT Name" : "Tax Name (e.g. GST/VAT)"}
-                    value={form.taxName}
-                    onChange={(e) => setForm({ ...form, taxName: e.target.value })}
-                  />
-                  <Input
-                    label={form.country === "SA" ? "VAT Registration Number" : "Tax ID / NTN"}
-                    value={form.taxId}
-                    onChange={(e) => setForm({ ...form, taxId: e.target.value })}
-                  />
-                  <Input
-                    label="City"
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  />
-                  <Input
-                    label="State"
-                    value={form.state}
-                    onChange={(e) => setForm({ ...form, state: e.target.value })}
-                  />
-                  <Input
-                    label="Zip Code"
-                    value={form.zipCode}
-                    onChange={(e) => setForm({ ...form, zipCode: e.target.value })}
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Country</label>
-                    <Select value={form.country} onValueChange={updateCountry}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PK">Pakistan</SelectItem>
-                        <SelectItem value="AE">UAE</SelectItem>
-                        <SelectItem value="SA">Saudi Arabia</SelectItem>
-                        <SelectItem value="US">United States</SelectItem>
-                        <SelectItem value="GB">United Kingdom</SelectItem>
-                      </SelectContent>
-                    </Select>
+          <TabsContent value="business" className="mt-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {form.country === "SA" ? "Business & VAT Settings" : "Business & Tax Settings"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSave} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label={`${form.country === "SA" ? "VAT" : "Tax"} Rate (%)`}
+                      type="number"
+                      step="0.01"
+                      value={form.taxRate}
+                      onChange={(e) =>
+                        setForm({ ...form, taxRate: parseFloat(e.target.value) || 0 })
+                      }
+                    />
+                    <Input
+                      label="Fiscal Year Start (MM-DD)"
+                      value={form.fiscalYearStart}
+                      onChange={(e) => setForm({ ...form, fiscalYearStart: e.target.value })}
+                    />
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Currency</label>
+                      <Select value={form.currency} onValueChange={updateCurrency}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PKR">PKR - Pakistani Rupee</SelectItem>
+                          <SelectItem value="USD">USD - US Dollar</SelectItem>
+                          <SelectItem value="AED">AED - UAE Dirham</SelectItem>
+                          <SelectItem value="SAR">SAR - Saudi Riyal</SelectItem>
+                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      label="Currency Symbol"
+                      value={form.currencySymbol}
+                      onChange={(e) => setForm({ ...form, currencySymbol: e.target.value })}
+                    />
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Timezone</label>
+                      <Select
+                        value={form.timezone}
+                        onValueChange={(v) => setForm({ ...form, timezone: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Asia/Karachi">Asia/Karachi (PKT)</SelectItem>
+                          <SelectItem value="Asia/Dubai">Asia/Dubai</SelectItem>
+                          <SelectItem value="Asia/Riyadh">Asia/Riyadh</SelectItem>
+                          <SelectItem value="America/New_York">America/New_York</SelectItem>
+                          <SelectItem value="Europe/London">Europe/London</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Date Format</label>
+                      <Select
+                        value={form.dateFormat}
+                        onValueChange={(v) => setForm({ ...form, dateFormat: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                          <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                          <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <Input
-                    label="Address"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  />
-                </div>
-                <Button type="submit" disabled={saving}>
-                  {saving && <LoadingSpinner size={4} className="mr-2" />}
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  <Button type="submit" disabled={saving}>
+                    {saving && <LoadingSpinner size={4} className="mr-2" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Business Settings
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
 
-        <TabsContent value="business" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {form.country === "SA" ? "Business & VAT Settings" : "Business & Tax Settings"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSave} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label={`${form.country === "SA" ? "VAT" : "Tax"} Rate (%)`}
-                    type="number"
-                    step="0.01"
-                    value={form.taxRate}
-                    onChange={(e) => setForm({ ...form, taxRate: parseFloat(e.target.value) || 0 })}
-                  />
-                  <Input
-                    label="Fiscal Year Start (MM-DD)"
-                    value={form.fiscalYearStart}
-                    onChange={(e) => setForm({ ...form, fiscalYearStart: e.target.value })}
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Currency</label>
-                    <Select value={form.currency} onValueChange={updateCurrency}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PKR">PKR - Pakistani Rupee</SelectItem>
-                        <SelectItem value="USD">USD - US Dollar</SelectItem>
-                        <SelectItem value="AED">AED - UAE Dirham</SelectItem>
-                        <SelectItem value="SAR">SAR - Saudi Riyal</SelectItem>
-                        <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                      </SelectContent>
-                    </Select>
+            <Card>
+              <CardHeader>
+                <CardTitle>Currency Formatting</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSaveSettings} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Currency Position</label>
+                      <Select
+                        value={settingsForm.currencyPosition}
+                        onValueChange={(v) =>
+                          setSettingsForm({ ...settingsForm, currencyPosition: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">Left (Rs 1,000)</SelectItem>
+                          <SelectItem value="right">Right (1,000 Rs)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Thousand Separator</label>
+                      <Select
+                        value={settingsForm.thousandSeparator}
+                        onValueChange={(v) =>
+                          setSettingsForm({ ...settingsForm, thousandSeparator: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value=",">Comma (1,000)</SelectItem>
+                          <SelectItem value=".">Dot (1.000)</SelectItem>
+                          <SelectItem value=" ">Space (1 000)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Decimal Separator</label>
+                      <Select
+                        value={settingsForm.decimalSeparator}
+                        onValueChange={(v) =>
+                          setSettingsForm({ ...settingsForm, decimalSeparator: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value=".">Dot (0.00)</SelectItem>
+                          <SelectItem value=",">Comma (0,00)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      label="Decimal Places"
+                      type="number"
+                      min="0"
+                      max="6"
+                      value={settingsForm.decimalPlaces}
+                      onChange={(e) =>
+                        setSettingsForm({
+                          ...settingsForm,
+                          decimalPlaces: parseInt(e.target.value) || 2,
+                        })
+                      }
+                    />
                   </div>
-                  <Input
-                    label="Currency Symbol"
-                    value={form.currencySymbol}
-                    onChange={(e) => setForm({ ...form, currencySymbol: e.target.value })}
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Timezone</label>
-                    <Select
-                      value={form.timezone}
-                      onValueChange={(v) => setForm({ ...form, timezone: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Asia/Karachi">Asia/Karachi (PKT)</SelectItem>
-                        <SelectItem value="Asia/Dubai">Asia/Dubai</SelectItem>
-                        <SelectItem value="Asia/Riyadh">Asia/Riyadh</SelectItem>
-                        <SelectItem value="America/New_York">America/New_York</SelectItem>
-                        <SelectItem value="Europe/London">Europe/London</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Date Format</label>
-                    <Select
-                      value={form.dateFormat}
-                      onValueChange={(v) => setForm({ ...form, dateFormat: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                        <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                        <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button type="submit" disabled={saving}>
-                  {saving && <LoadingSpinner size={4} className="mr-2" />}
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Business Settings
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                  <Button type="submit" disabled={saving}>
+                    {saving && <LoadingSpinner size={4} className="mr-2" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Formatting
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Currency Formatting</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Currency Position</label>
-                    <Select
-                      value={settingsForm.currencyPosition}
-                      onValueChange={(v) =>
-                        setSettingsForm({ ...settingsForm, currencyPosition: v })
+          <TabsContent value="preferences" className="mt-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Document numbering</CardTitle>
+                <CardDescription>
+                  Sequential numbers per document type. Prefixes apply to new documents only; change
+                  prefixes in Settings before going live.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSaveSettings} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Invoice prefix (completed sales)"
+                      value={settingsForm.invoicePrefix}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, invoicePrefix: e.target.value })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="left">Left (Rs 1,000)</SelectItem>
-                        <SelectItem value="right">Right (1,000 Rs)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Thousand Separator</label>
-                    <Select
-                      value={settingsForm.thousandSeparator}
-                      onValueChange={(v) =>
-                        setSettingsForm({ ...settingsForm, thousandSeparator: v })
+                      placeholder="INV-"
+                    />
+                    <Input
+                      label="Sales order prefix (draft / confirmed)"
+                      value={settingsForm.salesOrderPrefix}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, salesOrderPrefix: e.target.value })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value=",">Comma (1,000)</SelectItem>
-                        <SelectItem value=".">Dot (1.000)</SelectItem>
-                        <SelectItem value=" ">Space (1 000)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Decimal Separator</label>
-                    <Select
-                      value={settingsForm.decimalSeparator}
-                      onValueChange={(v) =>
-                        setSettingsForm({ ...settingsForm, decimalSeparator: v })
+                      placeholder="SORD-"
+                    />
+                    <Input
+                      label="Proforma invoice prefix"
+                      value={settingsForm.proformaInvoicePrefix}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, proformaInvoicePrefix: e.target.value })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value=".">Dot (0.00)</SelectItem>
-                        <SelectItem value=",">Comma (0,00)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Input
-                    label="Decimal Places"
-                    type="number"
-                    min="0"
-                    max="6"
-                    value={settingsForm.decimalPlaces}
-                    onChange={(e) =>
-                      setSettingsForm({
-                        ...settingsForm,
-                        decimalPlaces: parseInt(e.target.value) || 2,
-                      })
-                    }
-                  />
-                </div>
-                <Button type="submit" disabled={saving}>
-                  {saving && <LoadingSpinner size={4} className="mr-2" />}
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Formatting
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="preferences" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Document numbering</CardTitle>
-              <CardDescription>
-                Sequential numbers per document type. Prefixes apply to new documents only; change
-                prefixes in Settings before going live.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label="Invoice prefix (completed sales)"
-                    value={settingsForm.invoicePrefix}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, invoicePrefix: e.target.value })
-                    }
-                    placeholder="INV-"
-                  />
-                  <Input
-                    label="Sales order prefix (draft / confirmed)"
-                    value={settingsForm.salesOrderPrefix}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, salesOrderPrefix: e.target.value })
-                    }
-                    placeholder="SORD-"
-                  />
-                  <Input
-                    label="Proforma invoice prefix"
-                    value={settingsForm.proformaInvoicePrefix}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, proformaInvoicePrefix: e.target.value })
-                    }
-                    placeholder="PI-"
-                  />
-                  <Input
-                    label="Quotation prefix"
-                    value={settingsForm.quotationPrefix}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, quotationPrefix: e.target.value })
-                    }
-                    placeholder="QUOT-"
-                  />
-                  <Input
-                    label="Purchase order prefix"
-                    value={settingsForm.purchaseOrderPrefix}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, purchaseOrderPrefix: e.target.value })
-                    }
-                    placeholder="PO-"
-                  />
-                  <Input
-                    label="Number suffix (optional, all types)"
-                    value={settingsForm.invoiceSuffix}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, invoiceSuffix: e.target.value })
-                    }
-                  />
-                  <Input
-                    label="Numeric length (digits)"
-                    type="number"
-                    min="3"
-                    max="10"
-                    value={settingsForm.invoiceNumberLength}
-                    onChange={(e) =>
-                      setSettingsForm({
-                        ...settingsForm,
-                        invoiceNumberLength: parseInt(e.target.value) || 5,
-                      })
-                    }
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">
-                      Default Invoice Template
-                    </label>
-                    <Select
-                      value={settingsForm.defaultInvoiceTemplate}
-                      onValueChange={(v) =>
-                        setSettingsForm({ ...settingsForm, defaultInvoiceTemplate: v })
+                      placeholder="PI-"
+                    />
+                    <Input
+                      label="Quotation prefix"
+                      value={settingsForm.quotationPrefix}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, quotationPrefix: e.target.value })
                       }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TEMPLATE_DEFINITIONS.filter((t) => t.type === "invoice").map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            <span className="flex items-center gap-2">
-                              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                              {t.name} (
-                              {t.paperSize === "A4"
-                                ? "A4"
-                                : t.paperSize === "THERMAL_80"
-                                  ? "80mm"
-                                  : "58mm"}
-                              )
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">
-                      Default POS / Thermal Invoice Template
-                    </label>
-                    <Select
-                      value={settingsForm.defaultThermalInvoiceTemplate}
-                      onValueChange={(v) =>
-                        setSettingsForm({ ...settingsForm, defaultThermalInvoiceTemplate: v })
+                      placeholder="QUOT-"
+                    />
+                    <Input
+                      label="Purchase order prefix"
+                      value={settingsForm.purchaseOrderPrefix}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, purchaseOrderPrefix: e.target.value })
                       }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a thermal template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TEMPLATE_DEFINITIONS.filter(
-                          (t) => t.type === "invoice" && t.paperSize !== "A4",
-                        ).map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            <span className="flex items-center gap-2">
-                              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                              {t.name} ({t.paperSize === "THERMAL_80" ? "80mm" : "58mm"})
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">
-                      Default Quotation Template
-                    </label>
-                    <Select
-                      value={settingsForm.defaultQuotationTemplate}
-                      onValueChange={(v) =>
-                        setSettingsForm({ ...settingsForm, defaultQuotationTemplate: v })
+                      placeholder="PO-"
+                    />
+                    <Input
+                      label="Number suffix (optional, all types)"
+                      value={settingsForm.invoiceSuffix}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, invoiceSuffix: e.target.value })
                       }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TEMPLATE_DEFINITIONS.filter((t) => t.type === "quotation").map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            <span className="flex items-center gap-2">
-                              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                              {t.name}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">
-                      Default Purchase Order Template
-                    </label>
-                    <Select
-                      value={settingsForm.defaultPurchaseOrderTemplate}
-                      onValueChange={(v) =>
-                        setSettingsForm({ ...settingsForm, defaultPurchaseOrderTemplate: v })
+                    />
+                    <Input
+                      label="Numeric length (digits)"
+                      type="number"
+                      min="3"
+                      max="10"
+                      value={settingsForm.invoiceNumberLength}
+                      onChange={(e) =>
+                        setSettingsForm({
+                          ...settingsForm,
+                          invoiceNumberLength: parseInt(e.target.value) || 5,
+                        })
                       }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a purchase order template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TEMPLATE_DEFINITIONS.filter((t) => t.type === "purchase_order").map(
-                          (t) => (
+                    />
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">
+                        Default Invoice Template
+                      </label>
+                      <Select
+                        value={settingsForm.defaultInvoiceTemplate}
+                        onValueChange={(v) =>
+                          setSettingsForm({ ...settingsForm, defaultInvoiceTemplate: v })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEMPLATE_DEFINITIONS.filter((t) => t.type === "invoice").map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              <span className="flex items-center gap-2">
+                                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                                {t.name} (
+                                {t.paperSize === "A4"
+                                  ? "A4"
+                                  : t.paperSize === "THERMAL_80"
+                                    ? "80mm"
+                                    : "58mm"}
+                                )
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">
+                        Default POS / Thermal Invoice Template
+                      </label>
+                      <Select
+                        value={settingsForm.defaultThermalInvoiceTemplate}
+                        onValueChange={(v) =>
+                          setSettingsForm({ ...settingsForm, defaultThermalInvoiceTemplate: v })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a thermal template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEMPLATE_DEFINITIONS.filter(
+                            (t) => t.type === "invoice" && t.paperSize !== "A4",
+                          ).map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              <span className="flex items-center gap-2">
+                                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                                {t.name} ({t.paperSize === "THERMAL_80" ? "80mm" : "58mm"})
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">
+                        Default Quotation Template
+                      </label>
+                      <Select
+                        value={settingsForm.defaultQuotationTemplate}
+                        onValueChange={(v) =>
+                          setSettingsForm({ ...settingsForm, defaultQuotationTemplate: v })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEMPLATE_DEFINITIONS.filter((t) => t.type === "quotation").map((t) => (
                             <SelectItem key={t.id} value={t.id}>
                               <span className="flex items-center gap-2">
                                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                                 {t.name}
                               </span>
                             </SelectItem>
-                          ),
-                        )}
-                      </SelectContent>
-                    </Select>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">
+                        Default Purchase Order Template
+                      </label>
+                      <Select
+                        value={settingsForm.defaultPurchaseOrderTemplate}
+                        onValueChange={(v) =>
+                          setSettingsForm({ ...settingsForm, defaultPurchaseOrderTemplate: v })
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a purchase order template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEMPLATE_DEFINITIONS.filter((t) => t.type === "purchase_order").map(
+                            (t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                <span className="flex items-center gap-2">
+                                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                                  {t.name}
+                                </span>
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-                <Button type="submit" disabled={saving}>
-                  {saving && <LoadingSpinner size={4} className="mr-2" />}
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Invoice Settings
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                  <Button type="submit" disabled={saving}>
+                    {saving && <LoadingSpinner size={4} className="mr-2" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Invoice Settings
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Inventory & Product Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label="Low Stock Threshold"
-                    type="number"
-                    value={settingsForm.lowStockThreshold}
-                    onChange={(e) =>
-                      setSettingsForm({
-                        ...settingsForm,
-                        lowStockThreshold: parseInt(e.target.value) || 10,
-                      })
-                    }
-                  />
-                  <Input
-                    label="SKU Prefix"
-                    value={settingsForm.skuPrefix}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, skuPrefix: e.target.value })
-                    }
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">
-                      Default Payment Method
-                    </label>
-                    <Select
-                      value={settingsForm.defaultPaymentMethod}
-                      onValueChange={(v) =>
+            <Card>
+              <CardHeader>
+                <CardTitle>Inventory & Product Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSaveSettings} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Low Stock Threshold"
+                      type="number"
+                      value={settingsForm.lowStockThreshold}
+                      onChange={(e) =>
                         setSettingsForm({
                           ...settingsForm,
-                          defaultPaymentMethod: v as PaymentMethod,
+                          lowStockThreshold: parseInt(e.target.value) || 10,
                         })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CASH">Cash</SelectItem>
-                        <SelectItem value="CARD">Card</SelectItem>
-                        <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                        <SelectItem value="MOBILE_PAYMENT">Mobile Payment</SelectItem>
-                        <SelectItem value="CHEQUE">Cheque</SelectItem>
-                        <SelectItem value="EASYPAISA">Easypaisa</SelectItem>
-                        <SelectItem value="JAZZCASH">JazzCash</SelectItem>
-                        <SelectItem value="ONLINE_TRANSFER">Online Transfer</SelectItem>
-                        <SelectItem value="OTHER">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    />
+                    <Input
+                      label="SKU Prefix"
+                      value={settingsForm.skuPrefix}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, skuPrefix: e.target.value })
+                      }
+                    />
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">
+                        Default Payment Method
+                      </label>
+                      <Select
+                        value={settingsForm.defaultPaymentMethod}
+                        onValueChange={(v) =>
+                          setSettingsForm({
+                            ...settingsForm,
+                            defaultPaymentMethod: v as PaymentMethod,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CASH">Cash</SelectItem>
+                          <SelectItem value="CARD">Card</SelectItem>
+                          <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                          <SelectItem value="MOBILE_PAYMENT">Mobile Payment</SelectItem>
+                          <SelectItem value="CHEQUE">Cheque</SelectItem>
+                          <SelectItem value="EASYPAISA">Easypaisa</SelectItem>
+                          <SelectItem value="JAZZCASH">JazzCash</SelectItem>
+                          <SelectItem value="ONLINE_TRANSFER">Online Transfer</SelectItem>
+                          <SelectItem value="OTHER">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      label={`Default ${form.country === "SA" ? "VAT" : "Tax"} Rate (%)`}
+                      type="number"
+                      step="0.01"
+                      value={settingsForm.defaultTaxRate}
+                      onChange={(e) =>
+                        setSettingsForm({
+                          ...settingsForm,
+                          defaultTaxRate: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                    />
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Language</label>
+                      <Select
+                        value={settingsForm.language}
+                        onValueChange={(v) => setSettingsForm({ ...settingsForm, language: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="ur">Urdu</SelectItem>
+                          <SelectItem value="ar">Arabic</SelectItem>
+                          <SelectItem value="dual">English + Arabic documents</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <Input
-                    label={`Default ${form.country === "SA" ? "VAT" : "Tax"} Rate (%)`}
-                    type="number"
-                    step="0.01"
-                    value={settingsForm.defaultTaxRate}
-                    onChange={(e) =>
-                      setSettingsForm({
-                        ...settingsForm,
-                        defaultTaxRate: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Language</label>
-                    <Select
-                      value={settingsForm.language}
-                      onValueChange={(v) => setSettingsForm({ ...settingsForm, language: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="en">English</SelectItem>
-                        <SelectItem value="ur">Urdu</SelectItem>
-                        <SelectItem value="ar">Arabic</SelectItem>
-                        <SelectItem value="dual">English + Arabic documents</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <Separator />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Auto-generate SKU</p>
+                        <p className="text-xs text-muted-foreground">
+                          Generate SKUs automatically for new products
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settingsForm.autoGenerateSKU}
+                        onCheckedChange={(v) =>
+                          setSettingsForm({ ...settingsForm, autoGenerateSKU: v })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Barcode Scanning</p>
+                        <p className="text-xs text-muted-foreground">
+                          Enable barcode scanning in POS
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settingsForm.enableBarcodeScanning}
+                        onCheckedChange={(v) =>
+                          setSettingsForm({ ...settingsForm, enableBarcodeScanning: v })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Negative Stock</p>
+                        <p className="text-xs text-muted-foreground">
+                          Allow selling below zero stock
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settingsForm.enableNegativeStock}
+                        onCheckedChange={(v) =>
+                          setSettingsForm({ ...settingsForm, enableNegativeStock: v })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Expiry Tracking</p>
+                        <p className="text-xs text-muted-foreground">Track product expiry dates</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm.enableExpiryTracking}
+                        onCheckedChange={(v) =>
+                          setSettingsForm({ ...settingsForm, enableExpiryTracking: v })
+                        }
+                      />
+                    </div>
                   </div>
-                </div>
-                <Separator />
-                <div className="grid gap-4 sm:grid-cols-2">
+                  <Button type="submit" disabled={saving}>
+                    {saving && <LoadingSpinner size={4} className="mr-2" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Preferences
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pos-printer" className="mt-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Printer className="h-5 w-5 text-muted-foreground" />
+                  POS Thermal Printer Bridge
+                </CardTitle>
+                <CardDescription>
+                  Configure the local bridge that receives POS receipts and forwards them to a
+                  thermal printer.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSaveSettings} className="space-y-4">
                   <div className="flex items-center justify-between rounded-lg border p-3">
                     <div>
-                      <p className="text-sm font-medium">Auto-generate SKU</p>
+                      <p className="text-sm font-medium">Enable printer bridge</p>
                       <p className="text-xs text-muted-foreground">
-                        Generate SKUs automatically for new products
+                        Send POS thermal receipts through the configured local bridge.
                       </p>
                     </div>
                     <Switch
-                      checked={settingsForm.autoGenerateSKU}
-                      onCheckedChange={(v) =>
-                        setSettingsForm({ ...settingsForm, autoGenerateSKU: v })
+                      checked={settingsForm.printerBridgeSettings.enabled}
+                      onCheckedChange={(v) => updatePrinterBridgeField("enabled", v)}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Bridge URL"
+                      value={settingsForm.printerBridgeSettings.bridgeUrl}
+                      onChange={(e) => updatePrinterBridgeField("bridgeUrl", e.target.value)}
+                      placeholder="http://localhost:9123/print"
+                    />
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Bridge Mode</label>
+                      <Select
+                        value={settingsForm.printerBridgeSettings.mode}
+                        onValueChange={(v) =>
+                          updatePrinterBridgeField("mode", v as PrinterBridgeSettings["mode"])
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="HTTP">HTTP endpoint</SelectItem>
+                          <SelectItem value="RAW_TCP">Raw TCP / ESC-POS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      label="Printer Name"
+                      value={settingsForm.printerBridgeSettings.printerName}
+                      onChange={(e) => updatePrinterBridgeField("printerName", e.target.value)}
+                      placeholder="Counter 1"
+                    />
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Paper Width</label>
+                      <Select
+                        value={settingsForm.printerBridgeSettings.paperWidth}
+                        onValueChange={(v) =>
+                          updatePrinterBridgeField(
+                            "paperWidth",
+                            v as PrinterBridgeSettings["paperWidth"],
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="80">80mm</SelectItem>
+                          <SelectItem value="58">58mm</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      label="Code Page"
+                      value={settingsForm.printerBridgeSettings.codePage}
+                      onChange={(e) => updatePrinterBridgeField("codePage", e.target.value)}
+                      placeholder="CP437"
+                    />
+                    <Input
+                      label="Copies"
+                      type="number"
+                      min="1"
+                      max="5"
+                      value={settingsForm.printerBridgeSettings.copies}
+                      onChange={(e) =>
+                        updatePrinterBridgeField("copies", parseInt(e.target.value) || 1)
                       }
                     />
+                    <Input
+                      label="Timeout (ms)"
+                      type="number"
+                      min="1000"
+                      max="60000"
+                      step="500"
+                      value={settingsForm.printerBridgeSettings.timeoutMs}
+                      onChange={(e) =>
+                        updatePrinterBridgeField("timeoutMs", parseInt(e.target.value) || 10000)
+                      }
+                    />
+                    <Input
+                      label="Auth Token"
+                      type="password"
+                      value={settingsForm.printerBridgeSettings.authToken}
+                      onChange={(e) => updatePrinterBridgeField("authToken", e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Auto print receipts</p>
+                        <p className="text-xs text-muted-foreground">Print after POS checkout.</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm.printerBridgeSettings.autoPrintReceipts}
+                        onCheckedChange={(v) => updatePrinterBridgeField("autoPrintReceipts", v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Open cash drawer</p>
+                        <p className="text-xs text-muted-foreground">Send drawer pulse command.</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm.printerBridgeSettings.openCashDrawer}
+                        onCheckedChange={(v) => updatePrinterBridgeField("openCashDrawer", v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Cut paper</p>
+                        <p className="text-xs text-muted-foreground">
+                          Send cut command at the end.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settingsForm.printerBridgeSettings.cutPaper}
+                        onCheckedChange={(v) => updatePrinterBridgeField("cutPaper", v)}
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit" disabled={saving}>
+                    {saving && <LoadingSpinner size={4} className="mr-2" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Printer Settings
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="stores" className="mt-4 space-y-4">
+            <StoresClient
+              stores={stores}
+              branches={branches}
+              employees={employees}
+              canManage={capabilities.canManageStores}
+            />
+          </TabsContent>
+
+          <TabsContent value="templates" className="mt-4 space-y-4">
+            <TemplatesClient
+              templates={templates}
+              canManage={capabilities.canManageTemplates}
+              companySettings={{
+                defaultInvoiceTemplate: companyData.settings?.defaultInvoiceTemplate,
+                defaultThermalInvoiceTemplate: (companyData.settings as any)
+                  ?.defaultThermalInvoiceTemplate,
+                defaultQuotationTemplate: companyData.settings?.defaultQuotationTemplate,
+                defaultPurchaseOrderTemplate: (companyData.settings as any)
+                  ?.defaultPurchaseOrderTemplate,
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="theme" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Theme Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSaveTheme} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Primary Color</label>
+                      <Select
+                        value={themeForm.primaryColor}
+                        onValueChange={(v) => updateThemeField("primaryColor", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="blue">Blue</SelectItem>
+                          <SelectItem value="indigo">Indigo</SelectItem>
+                          <SelectItem value="violet">Violet</SelectItem>
+                          <SelectItem value="green">Green</SelectItem>
+                          <SelectItem value="emerald">Emerald</SelectItem>
+                          <SelectItem value="teal">Teal</SelectItem>
+                          <SelectItem value="cyan">Cyan</SelectItem>
+                          <SelectItem value="red">Red</SelectItem>
+                          <SelectItem value="orange">Orange</SelectItem>
+                          <SelectItem value="amber">Amber</SelectItem>
+                          <SelectItem value="rose">Rose</SelectItem>
+                          <SelectItem value="slate">Slate</SelectItem>
+                          <SelectItem value="plum">Plum</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Accent Color</label>
+                      <Select
+                        value={themeForm.accentColor || "none"}
+                        onValueChange={(v) =>
+                          updateThemeField("accentColor", v === "none" ? "" : v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="blue">Blue</SelectItem>
+                          <SelectItem value="indigo">Indigo</SelectItem>
+                          <SelectItem value="violet">Violet</SelectItem>
+                          <SelectItem value="green">Green</SelectItem>
+                          <SelectItem value="emerald">Emerald</SelectItem>
+                          <SelectItem value="teal">Teal</SelectItem>
+                          <SelectItem value="cyan">Cyan</SelectItem>
+                          <SelectItem value="red">Red</SelectItem>
+                          <SelectItem value="orange">Orange</SelectItem>
+                          <SelectItem value="amber">Amber</SelectItem>
+                          <SelectItem value="rose">Rose</SelectItem>
+                          <SelectItem value="plum">Plum</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Sidebar Color</label>
+                      <Select
+                        value={themeForm.sidebarColor}
+                        onValueChange={(v) => updateThemeField("sidebarColor", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="white">White</SelectItem>
+                          <SelectItem value="light">Light Gray</SelectItem>
+                          <SelectItem value="slate">Slate</SelectItem>
+                          <SelectItem value="zinc">Zinc</SelectItem>
+                          <SelectItem value="neutral">Neutral</SelectItem>
+                          <SelectItem value="dark">Dark</SelectItem>
+                          <SelectItem value="blue">Blue</SelectItem>
+                          <SelectItem value="indigo">Indigo</SelectItem>
+                          <SelectItem value="violet">Violet</SelectItem>
+                          <SelectItem value="green">Green</SelectItem>
+                          <SelectItem value="emerald">Emerald</SelectItem>
+                          <SelectItem value="teal">Teal</SelectItem>
+                          <SelectItem value="cyan">Cyan</SelectItem>
+                          <SelectItem value="red">Red</SelectItem>
+                          <SelectItem value="orange">Orange</SelectItem>
+                          <SelectItem value="amber">Amber</SelectItem>
+                          <SelectItem value="rose">Rose</SelectItem>
+                          <SelectItem value="plum">Plum</SelectItem>
+                          <SelectItem value="brand">CloudDaftar Purple</SelectItem>
+                          <SelectItem value="midnight">Midnight Blue</SelectItem>
+                          <SelectItem value="charcoal">Charcoal</SelectItem>
+                          <SelectItem value="beige">Beige</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Theme Style</label>
+                      <Select
+                        value={themeForm.sidebarStyle}
+                        onValueChange={(v) => updateThemeField("sidebarStyle", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gradient">Gradient</SelectItem>
+                          <SelectItem value="solid">Solid</SelectItem>
+                          <SelectItem value="minimal">Minimal</SelectItem>
+                          <SelectItem value="glass">Glass 3D</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Font Family</label>
+                      <Select
+                        value={themeForm.fontFamily}
+                        onValueChange={(v) => updateThemeField("fontFamily", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="inter">Inter</SelectItem>
+                          <SelectItem value="system">System UI</SelectItem>
+                          <SelectItem value="mono">Monospace</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Border Radius</label>
+                      <Select
+                        value={themeForm.borderRadius}
+                        onValueChange={(v) => updateThemeField("borderRadius", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="small">Small</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="large">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium">Layout Density</label>
+                      <Select
+                        value={themeForm.layoutDensity}
+                        onValueChange={(v) => updateThemeField("layoutDensity", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="compact">Compact</SelectItem>
+                          <SelectItem value="comfortable">Comfortable</SelectItem>
+                          <SelectItem value="spacious">Spacious</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between rounded-lg border p-3">
                     <div>
-                      <p className="text-sm font-medium">Barcode Scanning</p>
+                      <p className="text-sm font-medium">Dark Mode Default</p>
                       <p className="text-xs text-muted-foreground">
-                        Enable barcode scanning in POS
+                        Set dark mode as default theme
                       </p>
                     </div>
                     <Switch
-                      checked={settingsForm.enableBarcodeScanning}
-                      onCheckedChange={(v) =>
-                        setSettingsForm({ ...settingsForm, enableBarcodeScanning: v })
-                      }
+                      checked={themeForm.isDarkMode}
+                      onCheckedChange={(v) => updateThemeField("isDarkMode", v)}
                     />
                   </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">Negative Stock</p>
-                      <p className="text-xs text-muted-foreground">
-                        Allow selling below zero stock
-                      </p>
-                    </div>
-                    <Switch
-                      checked={settingsForm.enableNegativeStock}
-                      onCheckedChange={(v) =>
-                        setSettingsForm({ ...settingsForm, enableNegativeStock: v })
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">Expiry Tracking</p>
-                      <p className="text-xs text-muted-foreground">Track product expiry dates</p>
-                    </div>
-                    <Switch
-                      checked={settingsForm.enableExpiryTracking}
-                      onCheckedChange={(v) =>
-                        setSettingsForm({ ...settingsForm, enableExpiryTracking: v })
-                      }
-                    />
-                  </div>
-                </div>
-                <Button type="submit" disabled={saving}>
-                  {saving && <LoadingSpinner size={4} className="mr-2" />}
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Preferences
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="pos-printer" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Printer className="h-5 w-5 text-muted-foreground" />
-                POS Thermal Printer Bridge
-              </CardTitle>
-              <CardDescription>
-                Configure the local bridge that receives POS receipts and forwards them to a thermal
-                printer.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="text-sm font-medium">Enable printer bridge</p>
-                    <p className="text-xs text-muted-foreground">
-                      Send POS thermal receipts through the configured local bridge.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settingsForm.printerBridgeSettings.enabled}
-                    onCheckedChange={(v) => updatePrinterBridgeField("enabled", v)}
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label="Bridge URL"
-                    value={settingsForm.printerBridgeSettings.bridgeUrl}
-                    onChange={(e) => updatePrinterBridgeField("bridgeUrl", e.target.value)}
-                    placeholder="http://localhost:9123/print"
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Bridge Mode</label>
-                    <Select
-                      value={settingsForm.printerBridgeSettings.mode}
-                      onValueChange={(v) =>
-                        updatePrinterBridgeField("mode", v as PrinterBridgeSettings["mode"])
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="HTTP">HTTP endpoint</SelectItem>
-                        <SelectItem value="RAW_TCP">Raw TCP / ESC-POS</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Input
-                    label="Printer Name"
-                    value={settingsForm.printerBridgeSettings.printerName}
-                    onChange={(e) => updatePrinterBridgeField("printerName", e.target.value)}
-                    placeholder="Counter 1"
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Paper Width</label>
-                    <Select
-                      value={settingsForm.printerBridgeSettings.paperWidth}
-                      onValueChange={(v) =>
-                        updatePrinterBridgeField(
-                          "paperWidth",
-                          v as PrinterBridgeSettings["paperWidth"],
-                        )
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="80">80mm</SelectItem>
-                        <SelectItem value="58">58mm</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Input
-                    label="Code Page"
-                    value={settingsForm.printerBridgeSettings.codePage}
-                    onChange={(e) => updatePrinterBridgeField("codePage", e.target.value)}
-                    placeholder="CP437"
-                  />
-                  <Input
-                    label="Copies"
-                    type="number"
-                    min="1"
-                    max="5"
-                    value={settingsForm.printerBridgeSettings.copies}
-                    onChange={(e) =>
-                      updatePrinterBridgeField("copies", parseInt(e.target.value) || 1)
-                    }
-                  />
-                  <Input
-                    label="Timeout (ms)"
-                    type="number"
-                    min="1000"
-                    max="60000"
-                    step="500"
-                    value={settingsForm.printerBridgeSettings.timeoutMs}
-                    onChange={(e) =>
-                      updatePrinterBridgeField("timeoutMs", parseInt(e.target.value) || 10000)
-                    }
-                  />
-                  <Input
-                    label="Auth Token"
-                    type="password"
-                    value={settingsForm.printerBridgeSettings.authToken}
-                    onChange={(e) => updatePrinterBridgeField("authToken", e.target.value)}
-                    placeholder="Optional"
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">Auto print receipts</p>
-                      <p className="text-xs text-muted-foreground">Print after POS checkout.</p>
-                    </div>
-                    <Switch
-                      checked={settingsForm.printerBridgeSettings.autoPrintReceipts}
-                      onCheckedChange={(v) => updatePrinterBridgeField("autoPrintReceipts", v)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">Open cash drawer</p>
-                      <p className="text-xs text-muted-foreground">Send drawer pulse command.</p>
-                    </div>
-                    <Switch
-                      checked={settingsForm.printerBridgeSettings.openCashDrawer}
-                      onCheckedChange={(v) => updatePrinterBridgeField("openCashDrawer", v)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">Cut paper</p>
-                      <p className="text-xs text-muted-foreground">Send cut command at the end.</p>
-                    </div>
-                    <Switch
-                      checked={settingsForm.printerBridgeSettings.cutPaper}
-                      onCheckedChange={(v) => updatePrinterBridgeField("cutPaper", v)}
-                    />
-                  </div>
-                </div>
-
-                <Button type="submit" disabled={saving}>
-                  {saving && <LoadingSpinner size={4} className="mr-2" />}
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Printer Settings
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="stores" className="mt-4 space-y-4">
-          <StoresClient stores={stores} branches={branches} employees={employees} />
-        </TabsContent>
-
-        <TabsContent value="templates" className="mt-4 space-y-4">
-          <TemplatesClient
-            templates={templates}
-            companySettings={{
-              defaultInvoiceTemplate: companyData.settings?.defaultInvoiceTemplate,
-              defaultThermalInvoiceTemplate: (companyData.settings as any)
-                ?.defaultThermalInvoiceTemplate,
-              defaultQuotationTemplate: companyData.settings?.defaultQuotationTemplate,
-              defaultPurchaseOrderTemplate: (companyData.settings as any)
-                ?.defaultPurchaseOrderTemplate,
-            }}
-          />
-        </TabsContent>
-        <TabsContent value="theme" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Theme Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveTheme} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Primary Color</label>
-                    <Select
-                      value={themeForm.primaryColor}
-                      onValueChange={(v) => updateThemeField("primaryColor", v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="blue">Blue</SelectItem>
-                        <SelectItem value="indigo">Indigo</SelectItem>
-                        <SelectItem value="violet">Violet</SelectItem>
-                        <SelectItem value="green">Green</SelectItem>
-                        <SelectItem value="emerald">Emerald</SelectItem>
-                        <SelectItem value="teal">Teal</SelectItem>
-                        <SelectItem value="cyan">Cyan</SelectItem>
-                        <SelectItem value="red">Red</SelectItem>
-                        <SelectItem value="orange">Orange</SelectItem>
-                        <SelectItem value="amber">Amber</SelectItem>
-                        <SelectItem value="rose">Rose</SelectItem>
-                        <SelectItem value="slate">Slate</SelectItem>
-                        <SelectItem value="plum">Plum</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Accent Color</label>
-                    <Select
-                      value={themeForm.accentColor || "none"}
-                      onValueChange={(v) => updateThemeField("accentColor", v === "none" ? "" : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="blue">Blue</SelectItem>
-                        <SelectItem value="indigo">Indigo</SelectItem>
-                        <SelectItem value="violet">Violet</SelectItem>
-                        <SelectItem value="green">Green</SelectItem>
-                        <SelectItem value="emerald">Emerald</SelectItem>
-                        <SelectItem value="teal">Teal</SelectItem>
-                        <SelectItem value="cyan">Cyan</SelectItem>
-                        <SelectItem value="red">Red</SelectItem>
-                        <SelectItem value="orange">Orange</SelectItem>
-                        <SelectItem value="amber">Amber</SelectItem>
-                        <SelectItem value="rose">Rose</SelectItem>
-                        <SelectItem value="plum">Plum</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Sidebar Color</label>
-                    <Select
-                      value={themeForm.sidebarColor}
-                      onValueChange={(v) => updateThemeField("sidebarColor", v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="white">White</SelectItem>
-                        <SelectItem value="light">Light Gray</SelectItem>
-                        <SelectItem value="slate">Slate</SelectItem>
-                        <SelectItem value="zinc">Zinc</SelectItem>
-                        <SelectItem value="neutral">Neutral</SelectItem>
-                        <SelectItem value="dark">Dark</SelectItem>
-                        <SelectItem value="blue">Blue</SelectItem>
-                        <SelectItem value="indigo">Indigo</SelectItem>
-                        <SelectItem value="violet">Violet</SelectItem>
-                        <SelectItem value="green">Green</SelectItem>
-                        <SelectItem value="emerald">Emerald</SelectItem>
-                        <SelectItem value="teal">Teal</SelectItem>
-                        <SelectItem value="cyan">Cyan</SelectItem>
-                        <SelectItem value="red">Red</SelectItem>
-                        <SelectItem value="orange">Orange</SelectItem>
-                        <SelectItem value="amber">Amber</SelectItem>
-                        <SelectItem value="rose">Rose</SelectItem>
-                        <SelectItem value="plum">Plum</SelectItem>
-                        <SelectItem value="brand">CloudDaftar Purple</SelectItem>
-                        <SelectItem value="midnight">Midnight Blue</SelectItem>
-                        <SelectItem value="charcoal">Charcoal</SelectItem>
-                        <SelectItem value="beige">Beige</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Theme Style</label>
-                    <Select
-                      value={themeForm.sidebarStyle}
-                      onValueChange={(v) => updateThemeField("sidebarStyle", v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gradient">Gradient</SelectItem>
-                        <SelectItem value="solid">Solid</SelectItem>
-                        <SelectItem value="minimal">Minimal</SelectItem>
-                        <SelectItem value="glass">Glass 3D</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Font Family</label>
-                    <Select
-                      value={themeForm.fontFamily}
-                      onValueChange={(v) => updateThemeField("fontFamily", v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="inter">Inter</SelectItem>
-                        <SelectItem value="system">System UI</SelectItem>
-                        <SelectItem value="mono">Monospace</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Border Radius</label>
-                    <Select
-                      value={themeForm.borderRadius}
-                      onValueChange={(v) => updateThemeField("borderRadius", v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="small">Small</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="large">Large</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium">Layout Density</label>
-                    <Select
-                      value={themeForm.layoutDensity}
-                      onValueChange={(v) => updateThemeField("layoutDensity", v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="compact">Compact</SelectItem>
-                        <SelectItem value="comfortable">Comfortable</SelectItem>
-                        <SelectItem value="spacious">Spacious</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="text-sm font-medium">Dark Mode Default</p>
-                    <p className="text-xs text-muted-foreground">Set dark mode as default theme</p>
-                  </div>
-                  <Switch
-                    checked={themeForm.isDarkMode}
-                    onCheckedChange={(v) => updateThemeField("isDarkMode", v)}
-                  />
-                </div>
-                <Button type="submit" disabled={saving}>
-                  {saving && <LoadingSpinner size={4} className="mr-2" />}
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Theme
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="tax-compliance" className="mt-4">
-          <TaxComplianceTab
-            settings={companyData.settings}
-            egsUnits={companyData.zatcaEgsUnits}
-            zatcaSetting={companyData.zatcaSetting}
-          />
-        </TabsContent>
-      </Tabs>
+                  <Button type="submit" disabled={saving}>
+                    {saving && <LoadingSpinner size={4} className="mr-2" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Theme
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="tax-compliance" className="mt-4">
+            <TaxComplianceTab
+              settings={companyData.settings}
+              egsUnits={companyData.zatcaEgsUnits}
+              zatcaSetting={companyData.zatcaSetting}
+            />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

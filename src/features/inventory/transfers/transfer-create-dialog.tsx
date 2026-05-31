@@ -23,7 +23,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useToast } from "@/providers/toast-provider";
-import { createStockTransferAction } from "@/actions/inventory-new";
+import { createStockTransferAction } from "@/actions/inventory";
 
 interface Location {
   id: string;

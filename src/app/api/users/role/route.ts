@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
-import { isCustomRoleKey, normalizeRolePermissionOverrides } from "@/lib/constants";
+import { isCustomRoleKey, normalizeRolePermissionOverrides, PERMISSIONS } from "@/lib/constants";
+import { checkPermission } from "@/lib/auth-helper";
 
 export async function PUT(req: Request) {
   try {
@@ -17,7 +18,7 @@ export async function PUT(req: Request) {
     const companyId = (session.user as any).companyId;
 
     const currentUserRole = (session.user as any).role;
-    if (currentUserRole !== "OWNER" && currentUserRole !== "ADMIN") {
+    if (!(await checkPermission(PERMISSIONS.ROLES_MANAGE))) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 
@@ -37,14 +38,20 @@ export async function PUT(req: Request) {
 
     if (role === "OWNER") {
       if (currentUserRole !== "OWNER") {
-        return NextResponse.json({ error: "Only the current owner can assign the owner role" }, { status: 403 });
+        return NextResponse.json(
+          { error: "Only the current owner can assign the owner role" },
+          { status: 403 },
+        );
       }
       const existingOwner = await prisma.companyMembership.findFirst({
         where: { companyId, role: "OWNER", isActive: true, id: { not: membershipId } },
         select: { id: true },
       });
       if (existingOwner) {
-        return NextResponse.json({ error: "An owner already exists. Demote the current owner first." }, { status: 400 });
+        return NextResponse.json(
+          { error: "An owner already exists. Demote the current owner first." },
+          { status: 400 },
+        );
       }
     }
 
@@ -61,7 +68,10 @@ export async function PUT(req: Request) {
         : {};
       const perms = rolePermissions[role];
       if (!perms) {
-        return NextResponse.json({ error: `Custom role "${role}" not found in company settings` }, { status: 400 });
+        return NextResponse.json(
+          { error: `Custom role "${role}" not found in company settings` },
+          { status: 400 },
+        );
       }
       resolvedRole = "STAFF";
       permissionOverrides = { mode: "custom", permissions: perms };
@@ -69,9 +79,10 @@ export async function PUT(req: Request) {
 
     await prisma.companyMembership.update({
       where: { id: membershipId },
-      data: permissionOverrides !== undefined
-        ? { role: resolvedRole, permissionOverrides: permissionOverrides as any }
-        : { role: resolvedRole },
+      data:
+        permissionOverrides !== undefined
+          ? { role: resolvedRole, permissionOverrides: permissionOverrides as any }
+          : { role: resolvedRole },
     });
 
     await createAuditLog({

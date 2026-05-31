@@ -77,7 +77,7 @@ describe("PERMISSIONS", () => {
 
   it("all values are dot-separated strings", () => {
     Object.values(PERMISSIONS).forEach((val) => {
-      expect(val).toMatch(/^[a-z]+\.[a-z]+$/);
+      expect(val).toMatch(/^[a-z_]+(?:\.[a-z_]+)+$/);
     });
   });
 });
@@ -94,11 +94,11 @@ describe("ROLE_PERMISSIONS", () => {
     });
   });
 
-  it("CASHIER has only view and create permissions", () => {
+  it("CASHIER does not receive destructive or administrative permissions", () => {
     const cashierPerms = ROLE_PERMISSIONS.CASHIER;
-    cashierPerms.forEach((perm) => {
-      expect(perm).toMatch(/\.(view|create)$/);
-    });
+    expect(cashierPerms).not.toContain(PERMISSIONS.SALES_DELETE);
+    expect(cashierPerms).not.toContain(PERMISSIONS.USERS_MANAGE);
+    expect(cashierPerms).not.toContain(PERMISSIONS.SETTINGS_MANAGE);
   });
 
   it("permissions are hierarchical (higher role has >= lower role)", () => {

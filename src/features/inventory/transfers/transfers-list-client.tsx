@@ -33,7 +33,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/providers/toast-provider";
-import { getStockTransfers, getLocationsForSelect } from "@/actions/inventory-new";
+import { getStockTransfers, getLocationsForSelect } from "@/actions/inventory";
 import { TransferCreateDialog } from "./transfer-create-dialog";
 
 interface Location {

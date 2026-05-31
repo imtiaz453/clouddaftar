@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/layout/sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { RouteLoadingOverlay } from "@/components/layout/route-loading-overlay";
+import { PermissionsProvider } from "@/providers/permissions-provider";
 
 const AiInsightsWidget = dynamic(
   () => import("@/components/ai/ai-insights-widget").then((mod) => mod.AiInsightsWidget),
@@ -24,6 +25,7 @@ interface AppShellProps {
   userName?: string;
   userEmail?: string;
   userImage?: string;
+  permissions?: string[];
 }
 
 export function AppShell({
@@ -38,11 +40,13 @@ export function AppShell({
   userName,
   userEmail,
   userImage,
+  permissions = [],
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
   return (
+    <PermissionsProvider permissions={permissions}>
     <div className="app-responsive-root app-workspace min-h-screen">
       <Sidebar
         companyName={companyName}
@@ -52,6 +56,7 @@ export function AppShell({
         userPermissionOverrides={userPermissionOverrides}
         planCode={planCode}
         userRole={userRole}
+        permissions={permissions}
         mobileOpen={mobileOpen}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((v) => !v)}
@@ -73,6 +78,7 @@ export function AppShell({
           userName={userName}
           userEmail={userEmail}
           userImage={userImage}
+          permissions={permissions}
           onMenuClick={() => setMobileOpen(true)}
         />
 
@@ -84,5 +90,6 @@ export function AppShell({
       <AiInsightsWidget />
       <RouteLoadingOverlay />
     </div>
+    </PermissionsProvider>
   );
 }

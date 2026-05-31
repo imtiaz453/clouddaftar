@@ -118,6 +118,7 @@ interface SidebarProps {
   userPermissionOverrides?: Record<string, unknown> | null;
   planCode?: string | null;
   userRole?: string;
+  permissions?: string[];
 }
 
 function isActiveRoute(
@@ -380,10 +381,17 @@ export function Sidebar({
   userPermissionOverrides,
   planCode,
   userRole,
+  permissions: resolvedPermissions,
 }: SidebarProps) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams() ?? new URLSearchParams();
-  const permissions = useUserPermissions(rolePermissions, userPermissionOverrides, planCode, userRole);
+  const calculatedPermissions = useUserPermissions(
+    rolePermissions,
+    userPermissionOverrides,
+    planCode,
+    userRole,
+  );
+  const permissions = resolvedPermissions ?? calculatedPermissions;
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [logo, setLogo] = useState(companyLogo);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -604,5 +612,3 @@ export function Sidebar({
     </>
   );
 }
-
-

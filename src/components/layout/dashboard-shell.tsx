@@ -12,6 +12,7 @@ interface DashboardShellProps {
   userName?: string;
   userEmail?: string;
   userImage?: string;
+  permissions?: string[];
 }
 
 export function DashboardShell(props: DashboardShellProps) {

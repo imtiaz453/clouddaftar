@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth } from "@/lib/auth-helper";
+import { requireCompanyAuth, requirePermission } from "@/lib/auth-helper";
+import { PERMISSIONS } from "@/lib/constants";
 import { createAuditLog } from "@/lib/audit";
 
 type TemplateUse = "invoice" | "quotation" | "thermal" | "purchase_order";
@@ -17,6 +18,7 @@ function normalizeTemplateType(value: unknown): TemplateUse {
 }
 
 export async function getTemplates() {
+  await requirePermission(PERMISSIONS.TEMPLATES_VIEW);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -27,6 +29,7 @@ export async function getTemplates() {
 }
 
 export async function getTemplate(id: string) {
+  await requirePermission(PERMISSIONS.TEMPLATES_VIEW);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -54,6 +57,7 @@ export async function createTemplate(data: {
   margin?: string;
   advancedDesign?: Record<string, any>;
 }) {
+  await requirePermission(PERMISSIONS.TEMPLATES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const templateType = normalizeTemplateType(data.type);
@@ -139,6 +143,7 @@ export async function updateTemplate(
     advancedDesign?: Record<string, any>;
   },
 ) {
+  await requirePermission(PERMISSIONS.TEMPLATES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const templateType = normalizeTemplateType(data.type);
@@ -208,6 +213,7 @@ export async function updateTemplate(
 }
 
 export async function duplicateTemplate(id: string) {
+  await requirePermission(PERMISSIONS.TEMPLATES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -253,6 +259,7 @@ export async function duplicateTemplate(id: string) {
 }
 
 export async function deleteTemplate(id: string) {
+  await requirePermission(PERMISSIONS.TEMPLATES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -279,6 +286,7 @@ export async function setDefaultTemplate(
   id: string,
   type: TemplateUse = "invoice",
 ) {
+  await requirePermission(PERMISSIONS.TEMPLATES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -324,6 +332,7 @@ export async function setDefaultTemplate(
 }
 
 export async function getCompanySettings() {
+  await requirePermission(PERMISSIONS.TEMPLATES_VIEW);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 

@@ -1,9 +1,8 @@
-import { getStockLedgerData } from "@/actions/inventory-new";
-import { StockLedgerClient } from "@/features/inventory/ledger/stock-ledger-client";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
-  const initialData = await getStockLedgerData({});
-  return <StockLedgerClient initialData={initialData as any} />;
+export default async function Page({ params }: { params: Promise<{ tenant: string }> }) {
+  const { tenant } = await params;
+  redirect(`/${tenant}/inventory/ledger`);
 }

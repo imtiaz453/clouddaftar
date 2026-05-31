@@ -26,7 +26,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/utils";
 import { useToast } from "@/providers/toast-provider";
-import { getStockLedgerData, getLocationsForSelect } from "@/actions/inventory-new";
+import { getStockLedgerData, getLocationsForSelect } from "@/actions/inventory";
 
 interface LedgerEntry {
   id: string;

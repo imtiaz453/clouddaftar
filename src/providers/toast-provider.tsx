@@ -59,7 +59,7 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
   },
   success: {
     label: "Success",
-    bg: "bg-emerald-50/50 dark:bg-emerald-950/50",
+    bg: "bg-emerald-500/20 dark:bg-emerald-500/25",
     title: "text-emerald-950 dark:text-emerald-50",
     description: "text-emerald-800/75 dark:text-emerald-100/75",
     iconBg: "bg-emerald-500/15 dark:bg-emerald-300/15",
@@ -73,7 +73,7 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
   },
   error: {
     label: "Error",
-    bg: "bg-rose-50/50 dark:bg-rose-950/50",
+    bg: "bg-rose-500/20 dark:bg-rose-500/25",
     title: "text-rose-950 dark:text-rose-50",
     description: "text-rose-800/75 dark:text-rose-100/75",
     iconBg: "bg-rose-500/15 dark:bg-rose-300/15",
@@ -87,7 +87,7 @@ const variants: Record<ToastVariant, ToastVariantConfig> = {
   },
   warning: {
     label: "Warning",
-    bg: "bg-amber-50/50 dark:bg-amber-950/50",
+    bg: "bg-amber-400/25 dark:bg-amber-500/25",
     title: "text-amber-950 dark:text-amber-50",
     description: "text-amber-800/75 dark:text-amber-100/75",
     iconBg: "bg-amber-500/15 dark:bg-amber-300/15",
@@ -232,6 +232,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             description: "!line-clamp-2 !text-[11px] !font-medium !leading-4 !text-slate-600 dark:!text-slate-300",
             closeButton:
               "!h-6 !w-6 !border-0 !bg-transparent !text-slate-500 hover:!bg-slate-900/10 dark:!text-slate-300 dark:hover:!bg-white/10",
+            success: "!bg-emerald-500/20 dark:!bg-emerald-500/25",
+            warning: "!bg-amber-400/25 dark:!bg-amber-500/25",
+            error: "!bg-rose-500/20 dark:!bg-rose-500/25",
           },
         }}
       />

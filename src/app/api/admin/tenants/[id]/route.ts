@@ -1,5 +1,13 @@
 import { NextRequest } from "next/server";
-import { getCompanyDetail, suspendTenant, reactivateTenant, extendSubscription, adminChangePlan } from "@/actions/admin";
+import {
+  adminChangePlan,
+  extendSubscription,
+  getCompanyDetail,
+  reactivateTenant,
+  resetTenantUserPassword,
+  suspendTenant,
+  updateTenantInfo,
+} from "@/actions/admin";
 import { successResponse, errorResponse } from "@/lib/api";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -27,6 +35,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return successResponse(await extendSubscription(id, data.days));
       case "change-plan":
         return successResponse(await adminChangePlan(id, data.planId));
+      case "update-info":
+        return successResponse(await updateTenantInfo(id, data));
+      case "reset-user-password":
+        return successResponse(await resetTenantUserPassword(id, data.userId, data.newPassword));
       default:
         return errorResponse("Invalid action");
     }

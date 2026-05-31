@@ -50,10 +50,12 @@ import {
   getEffectiveRolePermissions,
   isCustomRoleKey,
   normalizeUserPermissionOverride,
+  PERMISSIONS,
 } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import type { Invitation } from "@prisma/client";
 import { PermissionTreeEditor } from "./permission-tree-editor";
+import { usePermissions } from "@/providers/permissions-provider";
 
 interface UserWithRole {
   id: string;
@@ -63,6 +65,9 @@ interface UserWithRole {
   image: string | null;
   role: string;
   permissionOverrides?: unknown;
+  branch?: { id: string; name: string } | null;
+  assignedStores?: { id: string; name: string; type: string }[];
+  assignedStockLocations?: { id: string; name: string; type: string }[];
   isActive: boolean;
   joinedAt: Date;
 }
@@ -78,8 +83,14 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
   const router = useRouter();
   const { addToast } = useToast();
   const { data: session } = useSession();
+  const permissions = usePermissions();
   const currentUserRole = (session?.user as any)?.role || "";
-  const isAdmin = currentUserRole === "OWNER" || currentUserRole === "ADMIN";
+  const canManageUsers = permissions.includes(PERMISSIONS.USERS_MANAGE);
+  const canManageRoles = permissions.includes(PERMISSIONS.ROLES_MANAGE);
+  const canDisableUsers = permissions.includes(PERMISSIONS.USERS_DISABLE);
+  const canResetPasswords = permissions.includes(PERMISSIONS.USERS_RESET_PASSWORD);
+  const canOpenUserActions =
+    canManageUsers || canManageRoles || canDisableUsers || canResetPasswords;
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -141,7 +152,14 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
         variant: "success",
       });
       setDialogOpen(false);
-      setForm({ name: "", email: "", password: "", role: "STAFF", branchId: "", createStore: false });
+      setForm({
+        name: "",
+        email: "",
+        password: "",
+        role: "STAFF",
+        branchId: "",
+        createStore: false,
+      });
       router.refresh();
     } catch (err) {
       addToast({
@@ -286,7 +304,7 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
   return (
     <div>
       <PageHeader title="Team" description="Manage your team members and roles">
-        {isAdmin && (
+        {canManageUsers && (
           <Button onClick={() => setDialogOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" />
             Create User
@@ -326,10 +344,40 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">{member.email}</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                          {member.branch?.name || "All / no branch"}
+                        </Badge>
+                        {(member.assignedStores || []).map((store) => (
+                          <Badge
+                            key={store.id}
+                            variant="secondary"
+                            className="px-1.5 py-0 text-[10px]"
+                          >
+                            Store: {store.name}
+                          </Badge>
+                        ))}
+                        {(member.assignedStockLocations || [])
+                          .filter(
+                            (location) =>
+                              !(member.assignedStores || []).some(
+                                (store) => store.name === location.name,
+                              ),
+                          )
+                          .map((location) => (
+                            <Badge
+                              key={location.id}
+                              variant="secondary"
+                              className="px-1.5 py-0 text-[10px]"
+                            >
+                              Stock: {location.name}
+                            </Badge>
+                          ))}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {isAdmin ? (
+                    {canManageRoles ? (
                       <Select
                         value={member.role}
                         onValueChange={(v) => handleRoleChange(member.membershipId, v)}
@@ -367,7 +415,7 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
                           : ROLE_LABELS[member.role] || member.role}
                       </Badge>
                     )}
-                    {isAdmin && (
+                    {canOpenUserActions && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -380,43 +428,51 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => handleToggleActive(member.id, member.isActive)}
-                          >
-                            <Power className="mr-2 h-4 w-4" />
-                            {member.isActive ? "Deactivate" : "Activate"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setResetDialog({
-                                open: true,
-                                userId: member.id,
-                                userName: member.name || member.email,
-                              });
-                              setResetPassword("");
-                            }}
-                          >
-                            <Key className="mr-2 h-4 w-4" />
-                            Reset Password
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openPermissions(member)}>
-                            <ShieldCheck className="mr-2 h-4 w-4" />
-                            Permissions
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() =>
-                              setRemoveDialog({
-                                open: true,
-                                membershipId: member.membershipId,
-                                userName: member.name || member.email,
-                              })
-                            }
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remove
-                          </DropdownMenuItem>
+                          {canDisableUsers && (
+                            <DropdownMenuItem
+                              onClick={() => handleToggleActive(member.id, member.isActive)}
+                            >
+                              <Power className="mr-2 h-4 w-4" />
+                              {member.isActive ? "Deactivate" : "Activate"}
+                            </DropdownMenuItem>
+                          )}
+                          {canResetPasswords && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setResetDialog({
+                                  open: true,
+                                  userId: member.id,
+                                  userName: member.name || member.email,
+                                });
+                                setResetPassword("");
+                              }}
+                            >
+                              <Key className="mr-2 h-4 w-4" />
+                              Reset Password
+                            </DropdownMenuItem>
+                          )}
+                          {canManageRoles && (
+                            <DropdownMenuItem onClick={() => openPermissions(member)}>
+                              <ShieldCheck className="mr-2 h-4 w-4" />
+                              Permissions
+                            </DropdownMenuItem>
+                          )}
+                          {canManageUsers && <DropdownMenuSeparator />}
+                          {canManageUsers && (
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() =>
+                                setRemoveDialog({
+                                  open: true,
+                                  membershipId: member.membershipId,
+                                  userName: member.name || member.email,
+                                })
+                              }
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Remove
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
@@ -508,9 +564,7 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
                   <SelectItem value="MANAGER">Manager</SelectItem>
                   <SelectItem value="STAFF">Staff</SelectItem>
                   <SelectItem value="CASHIER">Cashier</SelectItem>
-                  {currentUserRole === "OWNER" && (
-                    <SelectItem value="OWNER">Owner</SelectItem>
-                  )}
+                  {currentUserRole === "OWNER" && <SelectItem value="OWNER">Owner</SelectItem>}
                   {customPermissionGroups.length > 0 && (
                     <>
                       <div className="mt-1 border-t px-2 py-1 pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -548,7 +602,7 @@ export function UsersClient({ users, invitations, rolePermissions, branches }: U
               </div>
             )}
             {form.role === "STAFF" && (
-              <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-accent">
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent">
                 <input
                   type="checkbox"
                   checked={form.createStore}

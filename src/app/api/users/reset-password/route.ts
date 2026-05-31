@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
+import { checkPermission } from "@/lib/auth-helper";
+import { PERMISSIONS } from "@/lib/constants";
 
 export async function PUT(req: Request) {
   try {
@@ -17,11 +19,13 @@ export async function PUT(req: Request) {
     const companyId = (session.user as any).companyId;
 
     if (!newPassword || newPassword.length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters" },
+        { status: 400 },
+      );
     }
 
-    const currentUserRole = (session.user as any).role;
-    if (currentUserRole !== "OWNER" && currentUserRole !== "ADMIN") {
+    if (!(await checkPermission(PERMISSIONS.USERS_RESET_PASSWORD))) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 

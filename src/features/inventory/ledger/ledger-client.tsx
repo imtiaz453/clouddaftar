@@ -3,23 +3,56 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, MoreHorizontal, Eye, ArrowUpDown, Truck, CheckCircle, XCircle, Loader2, AlertCircle, Package, ClipboardList, FileText, TrendingUp, AlertTriangle, Calendar, Clock, List } from "lucide-react";
+import {
+  Search,
+  Plus,
+  MoreHorizontal,
+  Eye,
+  ArrowUpDown,
+  Truck,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  AlertCircle,
+  Package,
+  ClipboardList,
+  FileText,
+  TrendingUp,
+  AlertTriangle,
+  Calendar,
+  Clock,
+  List,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { formatDateTime, cn } from "@/lib/utils";
-import { getStockLedgerData, getStockMovementTypes, getProductsForSelector, getLocationsForSelect } from "@/actions/inventory";
+import {
+  getStockLedgerData,
+  getStockMovementTypes,
+  getProductsForSelector,
+  getLocationsForSelect,
+} from "@/actions/inventory";
 import { toast } from "sonner";
 
 interface LedgerEntry {
@@ -61,7 +94,10 @@ interface LocationOption {
   name: string;
 }
 
-const movementTypeVariants: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
+const movementTypeVariants: Record<
+  string,
+  "default" | "secondary" | "success" | "warning" | "destructive" | "outline"
+> = {
   OPENING_BALANCE: "default",
   PURCHASE_RECEIVE: "success",
   PURCHASE_RETURN: "warning",
@@ -102,6 +138,18 @@ const movementLabels: Record<string, string> = {
   FOUND: "Found",
   INTERNAL_USE: "Internal Use",
 };
+
+const outboundMovementTypes = new Set([
+  "PURCHASE_RETURN",
+  "SALE",
+  "TRANSFER_OUT",
+  "ADJUSTMENT_OUT",
+  "WRITE_OFF",
+  "DAMAGE",
+  "EXPIRY",
+  "LOST",
+  "INTERNAL_USE",
+]);
 
 interface LedgerClientProps {
   initialData: PaginatedData | null | undefined;
@@ -147,8 +195,12 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
   }, [initialData]);
 
   useEffect(() => {
-    getLocationsForSelect().then((locs) => setLocations(locs as LocationOption[])).catch(() => {});
-    getStockMovementTypes().then((types) => setMovementTypes(types as string[])).catch(() => {});
+    getLocationsForSelect()
+      .then((locs) => setLocations(locs as LocationOption[]))
+      .catch(() => {});
+    getStockMovementTypes()
+      .then((types) => setMovementTypes(types as string[]))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -167,27 +219,30 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
     return () => clearTimeout(timer);
   }, [productSearch]);
 
-  const fetchData = useCallback(async (p: number) => {
-    setLoading(true);
-    try {
-      const result = await getStockLedgerData({
-        productId: productId || undefined,
-        locationId: locationId && locationId !== "all" ? locationId : undefined,
-        movementType: movementType && movementType !== "all" ? movementType : undefined,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        reference: reference || undefined,
-        page: p,
-        pageSize: 50,
-      });
-      setData(normalizeLedgerData(result as unknown as PaginatedData));
-      setPage(p);
-    } catch {
-      toast.error("Failed to load ledger entries");
-    } finally {
-      setLoading(false);
-    }
-  }, [productId, locationId, movementType, dateFrom, dateTo, reference]);
+  const fetchData = useCallback(
+    async (p: number) => {
+      setLoading(true);
+      try {
+        const result = await getStockLedgerData({
+          productId: productId || undefined,
+          locationId: locationId && locationId !== "all" ? locationId : undefined,
+          movementType: movementType && movementType !== "all" ? movementType : undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          reference: reference || undefined,
+          page: p,
+          pageSize: 50,
+        });
+        setData(normalizeLedgerData(result as unknown as PaginatedData));
+        setPage(p);
+      } catch {
+        toast.error("Failed to load ledger entries");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [productId, locationId, movementType, dateFrom, dateTo, reference],
+  );
 
   function applyFilters() {
     fetchData(1);
@@ -226,14 +281,45 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
   }
 
   const hasFilters = productId || locationId || movementType || dateFrom || dateTo || reference;
+  const signedQuantity = (entry: LedgerEntry) =>
+    outboundMovementTypes.has(entry.movementType)
+      ? -Math.abs(Number(entry.quantity))
+      : Math.abs(Number(entry.quantity));
+  const visibleInflow = data.data.reduce(
+    (total, entry) => total + Math.max(signedQuantity(entry), 0),
+    0,
+  );
+  const visibleOutflow = data.data.reduce(
+    (total, entry) => total + Math.abs(Math.min(signedQuantity(entry), 0)),
+    0,
+  );
 
   return (
     <div className="space-y-5">
       <PageHeader title="Stock Ledger" description="Complete audit trail of all stock movements" />
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-xs text-muted-foreground">Matching movements</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{data.total}</p>
+        </Card>
+        <Card className="border-emerald-500/20 bg-emerald-500/5 p-4">
+          <p className="text-xs text-muted-foreground">Visible page inflow</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+            +{visibleInflow}
+          </p>
+        </Card>
+        <Card className="border-rose-500/20 bg-rose-500/5 p-4">
+          <p className="text-xs text-muted-foreground">Visible page outflow</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-rose-700 dark:text-rose-300">
+            -{visibleOutflow}
+          </p>
+        </Card>
+      </div>
+
       <Card className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-          <div className="relative flex-1 min-w-[180px]">
+          <div className="relative min-w-[180px] flex-1">
             <p className="mb-1 text-xs text-muted-foreground">Product</p>
             <Input
               placeholder="Search product..."
@@ -266,31 +352,43 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
           </div>
           <div>
             <p className="mb-1 text-xs text-muted-foreground">Location</p>
-            <Select value={locationId || "all"} onValueChange={(value) => setLocationId(value === "all" ? "" : value)}>
+            <Select
+              value={locationId || "all"}
+              onValueChange={(value) => setLocationId(value === "all" ? "" : value)}
+            >
               <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="All locations" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                {locations.filter((l) => typeof l.id === "string" && l.id.trim() !== "").map((l) => (
-                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                ))}
+                {locations
+                  .filter((l) => typeof l.id === "string" && l.id.trim() !== "")
+                  .map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
           <div>
             <p className="mb-1 text-xs text-muted-foreground">Movement Type</p>
-            <Select value={movementType || "all"} onValueChange={(value) => setMovementType(value === "all" ? "" : value)}>
+            <Select
+              value={movementType || "all"}
+              onValueChange={(value) => setMovementType(value === "all" ? "" : value)}
+            >
               <SelectTrigger className="h-9 w-[180px]">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {movementTypes.filter((t) => typeof t === "string" && t.trim() !== "").map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {movementLabels[t] || t.replace(/_/g, " ")}
-                  </SelectItem>
-                ))}
+                {movementTypes
+                  .filter((t) => typeof t === "string" && t.trim() !== "")
+                  .map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {movementLabels[t] || t.replace(/_/g, " ")}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -336,7 +434,7 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
 
       <Card className="p-0">
         {loading ? (
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-4">
             <Skeleton className="h-10 w-full" />
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
@@ -370,15 +468,16 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
                     <TableHead className="text-right">After</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Created By</TableHead>
+                    <TableHead>Notes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.data.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                         {formatDateTime(entry.createdAt)}
                       </TableCell>
-                      <TableCell className="text-sm font-medium max-w-[200px] truncate">
+                      <TableCell className="max-w-[200px] truncate text-sm font-medium">
                         {getProductName(entry)}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
@@ -388,30 +487,35 @@ export function LedgerClient({ initialData }: LedgerClientProps) {
                       <TableCell>
                         <Badge
                           variant={movementTypeVariants[entry.movementType] || "secondary"}
-                          className="text-[10px] whitespace-nowrap"
+                          className="whitespace-nowrap text-[10px]"
                         >
-                          {movementLabels[entry.movementType] || entry.movementType.replace(/_/g, " ")}
+                          {movementLabels[entry.movementType] ||
+                            entry.movementType.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
                       <TableCell
                         className={cn(
                           "text-right font-medium tabular-nums",
-                          Number(entry.quantity) > 0 ? "text-green-600" : "text-red-600",
+                          signedQuantity(entry) >= 0 ? "text-emerald-600" : "text-rose-600",
                         )}
                       >
-                        {Number(entry.quantity) > 0 ? "+" : ""}{Number(entry.quantity)}
+                        {signedQuantity(entry) > 0 ? "+" : ""}
+                        {signedQuantity(entry)}
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                      <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
                         {Number(entry.qtyOnHandBefore)}
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                      <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
                         {Number(entry.qtyOnHandAfter)}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate font-mono">
+                      <TableCell className="max-w-[120px] truncate font-mono text-xs text-muted-foreground">
                         {entry.reference || "-"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {getCreatedBy(entry)}
+                      </TableCell>
+                      <TableCell className="max-w-[220px] truncate text-xs text-muted-foreground">
+                        {entry.notes || "-"}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -100,7 +100,7 @@ export function AddEmployeeDialog({ branches }: AddEmployeeDialogProps) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-4xl p-0">
           <DialogHeader>
-            <div className="rounded-t-xl bg-zinc-950 px-6 py-5 text-white">
+            <div className="rounded-t-xl bg-gradient-to-r from-primary to-cyan-700 px-6 py-5 text-white">
               <DialogTitle className="text-white">Add Employee</DialogTitle>
               <p className="mt-2 text-sm leading-6 text-zinc-300">
                 Create an HR-only employee record, or add a system user with login access.
@@ -115,7 +115,7 @@ export function AddEmployeeDialog({ branches }: AddEmployeeDialogProps) {
                   onClick={() => setForm({ ...form, hasSystemAccess: false })}
                   className={`rounded-xl border p-4 text-left transition ${
                     !form.hasSystemAccess
-                      ? "border-zinc-950 bg-zinc-950 text-white shadow-sm"
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
                       : "bg-white hover:border-cyan-500"
                   }`}
                 >

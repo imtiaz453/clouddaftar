@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Building, Mail, Phone, MapPin, Calendar, Users, Package, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Building, Mail, Phone, MapPin, Calendar, Users, Package, ShoppingCart, Pencil, KeyRound } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useToast } from "@/providers/toast-provider";
 import { formatCurrency } from "@/lib/utils";
@@ -23,6 +23,11 @@ export default function AdminTenantDetailPage() {
   const [plans, setPlans] = useState<any[]>([]);
   const [extendDialog, setExtendDialog] = useState(false);
   const [planDialog, setPlanDialog] = useState(false);
+  const [editDialog, setEditDialog] = useState(false);
+  const [passwordDialog, setPasswordDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [companyForm, setCompanyForm] = useState({ name: "", email: "", phone: "", city: "", state: "" });
   const [days, setDays] = useState("30");
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -60,6 +65,9 @@ export default function AdminTenantDetailPage() {
         setConfirmAction({ open: false, action: null });
         setExtendDialog(false);
         setPlanDialog(false);
+        setEditDialog(false);
+        setPasswordDialog(false);
+        setNewPassword("");
         fetchCompany();
       } else throw new Error(d.error);
     } catch (err) {
@@ -76,6 +84,22 @@ export default function AdminTenantDetailPage() {
   }
 
   const sub = company.subscription;
+  function openEditCompany() {
+    setCompanyForm({
+      name: company.name || "",
+      email: company.email || "",
+      phone: company.phone || "",
+      city: company.city || "",
+      state: company.state || "",
+    });
+    setEditDialog(true);
+  }
+
+  function openPasswordReset(member: any) {
+    setSelectedUser(member.user);
+    setNewPassword("");
+    setPasswordDialog(true);
+  }
   const invoiceMoney = (inv: any) =>
     formatCurrency(
       Number(inv.amount || 0),
@@ -149,6 +173,7 @@ export default function AdminTenantDetailPage() {
         )}
         <Button variant="outline" onClick={() => setExtendDialog(true)}>Extend Subscription</Button>
         <Button variant="outline" onClick={() => { setSelectedPlanId(sub?.planId || ""); setPlanDialog(true); }}>Change Plan</Button>
+        <Button variant="outline" onClick={openEditCompany}><Pencil className="mr-2 h-4 w-4" />Edit Tenant Info</Button>
       </div>
 
       <Card>
@@ -197,6 +222,7 @@ export default function AdminTenantDetailPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -205,6 +231,11 @@ export default function AdminTenantDetailPage() {
                     <TableCell className="font-medium">{m.user?.name || "N/A"}</TableCell>
                     <TableCell>{m.user?.email}</TableCell>
                     <TableCell>{m.role}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" onClick={() => openPasswordReset(m)}>
+                        <KeyRound className="mr-2 h-3.5 w-3.5" />Reset Password
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -249,6 +280,46 @@ export default function AdminTenantDetailPage() {
           <Button onClick={() => handleAction("extend", { days: Number(days) })} disabled={processing} className="w-full">
             {processing && <LoadingSpinner size={4} className="mr-2" />}
             Extend by {days} days
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialog} onOpenChange={setEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Tenant Information</DialogTitle>
+            <DialogDescription>Update the company profile shown across the tenant workspace.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input label="Company name" value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} />
+            <Input label="Email" type="email" value={companyForm.email} onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} />
+            <Input label="Phone" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} />
+            <Input label="City" value={companyForm.city} onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })} />
+            <Input label="State" value={companyForm.state} onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })} />
+          </div>
+          <Button onClick={() => handleAction("update-info", companyForm)} disabled={processing || !companyForm.name.trim()} className="w-full">
+            {processing && <LoadingSpinner size={4} className="mr-2" />}
+            Save Tenant Information
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={passwordDialog} onOpenChange={setPasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Tenant User Password</DialogTitle>
+            <DialogDescription>
+              Set a temporary password for {selectedUser?.email}. This action is recorded in the system audit log.
+            </DialogDescription>
+          </DialogHeader>
+          <Input label="Temporary password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={8} />
+          <Button
+            onClick={() => handleAction("reset-user-password", { userId: selectedUser?.id, newPassword })}
+            disabled={processing || !selectedUser?.id || newPassword.length < 8}
+            className="w-full"
+          >
+            {processing && <LoadingSpinner size={4} className="mr-2" />}
+            Reset Password
           </Button>
         </DialogContent>
       </Dialog>

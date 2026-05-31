@@ -154,7 +154,7 @@ const apps = [
     description: "Company control",
     href: "/settings",
     icon: Settings,
-    accent: "from-zinc-700 to-slate-950",
+    accent: "from-primary to-cyan-700",
     tint: "bg-zinc-100 text-zinc-800 ring-zinc-200 dark:bg-zinc-500/10 dark:text-zinc-200 dark:ring-zinc-500/20",
     permissions: ["SETTINGS_VIEW"],
   },
@@ -169,6 +169,7 @@ interface AppsPageProps {
   rolePermissions?: Record<string, string[]> | null;
   userPermissionOverrides?: Record<string, unknown> | null;
   planCode?: string | null;
+  userRole?: string;
 }
 
 function hasAnyPermission(required: string[], permissions: Set<string>) {
@@ -183,6 +184,7 @@ export function AppsPage({
   rolePermissions,
   userPermissionOverrides,
   planCode,
+  userRole = "",
 }: AppsPageProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -194,10 +196,11 @@ export function AppsPage({
       }
     | undefined;
 
-  const role = sessionUser?.role || "STAFF";
+  const role = userRole || sessionUser?.role || "";
   const tenantSlug = companySlug || sessionUser?.companySlug;
 
-  const launcherPathname = tenantSlug && pathname === "/apps" ? `/${tenantSlug}${pathname}` : pathname;
+  const launcherPathname =
+    tenantSlug && pathname === "/apps" ? `/${tenantSlug}${pathname}` : pathname;
 
   const permissions = new Set(
     applyPlanPermissionLimitsForRole(
@@ -236,7 +239,7 @@ export function AppsPage({
 
   return (
     <div className="w-full space-y-7">
-      <section className="relative overflow-hidden rounded-[1.75rem] border border-border/70 bg-slate-950 text-white shadow-2xl shadow-slate-950/10 dark:border-white/10">
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-border/70 bg-gradient-to-br from-primary via-primary/90 to-cyan-700 text-white shadow-2xl shadow-primary/15 dark:border-white/10">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(56,189,248,0.32),transparent_28rem),radial-gradient(circle_at_82%_18%,rgba(168,85,247,0.22),transparent_26rem)]" />
         <div className="relative grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.75fr)] lg:p-8">
           <div className="flex min-w-0 flex-col justify-between gap-6">
@@ -251,7 +254,8 @@ export function AppsPage({
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
-                Clean access to the modules allowed for your role. Search, filter, and launch without hunting through menus.
+                Clean access to the modules allowed for your role. Search, filter, and launch
+                without hunting through menus.
               </p>
             </div>
 
@@ -286,12 +290,21 @@ export function AppsPage({
                     href={dashboardHref(launcherPathname, app.href)}
                     className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.08] p-3 transition hover:-translate-y-0.5 hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                   >
-                    <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg", app.accent)}>
+                    <span
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg",
+                        app.accent,
+                      )}
+                    >
                       <Icon className="h-5 w-5" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-white">{app.title}</span>
-                      <span className="block truncate text-xs text-white/55">{app.description}</span>
+                      <span className="block truncate text-sm font-semibold text-white">
+                        {app.title}
+                      </span>
+                      <span className="block truncate text-xs text-white/55">
+                        {app.description}
+                      </span>
                     </span>
                     <ArrowRight className="h-4 w-4 text-white/40 transition group-hover:translate-x-0.5 group-hover:text-white" />
                   </Link>
@@ -341,7 +354,11 @@ export function AppsPage({
           description="Ask an administrator to review your role and permissions."
         />
       ) : filteredApps.length === 0 ? (
-        <EmptyState icon={Search} title="No matches found" description="Try another workflow or search term." />
+        <EmptyState
+          icon={Search}
+          title="No matches found"
+          description="Try another workflow or search term."
+        />
       ) : (
         <ModuleGrid modules={filteredApps} launcherPathname={launcherPathname} />
       )}
@@ -370,11 +387,18 @@ function ModuleGrid({
             <div className={cn("absolute inset-x-0 top-0 h-1 bg-gradient-to-r", app.accent)} />
             <div className="flex h-full flex-col justify-between gap-5">
               <div className="flex items-start justify-between gap-4">
-                <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg", app.accent)}>
+                <span
+                  className={cn(
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg",
+                    app.accent,
+                  )}
+                >
                   <Icon className="h-6 w-6" />
                 </span>
 
-                <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-bold ring-1", app.tint)}>
+                <span
+                  className={cn("rounded-full px-2.5 py-1 text-[11px] font-bold ring-1", app.tint)}
+                >
                   {app.category}
                 </span>
               </div>
@@ -382,7 +406,9 @@ function ModuleGrid({
               <div className="min-w-0">
                 <div className="flex items-end justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="truncate text-xl font-semibold tracking-tight text-foreground">{app.title}</h3>
+                    <h3 className="truncate text-xl font-semibold tracking-tight text-foreground">
+                      {app.title}
+                    </h3>
                     <p className="mt-1 truncate text-sm text-muted-foreground">{app.description}</p>
                   </div>
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition group-hover:border-primary/30 group-hover:text-primary">

@@ -154,7 +154,7 @@ export function QuotationsClient({
   const [confirmVariant, setConfirmVariant] = useState<"destructive" | "default" | "warning">(
     "destructive",
   );
-  const pendingConfirm = useRef<(() => void) | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<(() => void) | null>(null);
   const { addToast } = useToast();
   const pathname = usePathname();
   const router = useRouter();
@@ -255,10 +255,10 @@ export function QuotationsClient({
     setConfirmTitle("Convert to Sales Order");
     setConfirmDescription(`Convert ${quotation.quoteNumber} to a sales order?`);
     setConfirmVariant("warning");
-    pendingConfirm.current = () => {
+    setPendingConfirm(() => () => {
       setConfirmOpen(false);
       handleAction(quotation.id, "convert");
-    };
+    });
     setConfirmOpen(true);
   };
 
@@ -268,14 +268,30 @@ export function QuotationsClient({
     items.push({ label: "Print quotation", icon: Printer, onSelect: () => printQuotation(q.id) });
     items.push({ label: "Download PDF", icon: Download, onSelect: () => downloadQuotation(q.id) });
     if (q.status === "DRAFT") {
-      items.push({ label: "Send quotation", icon: Send, onSelect: () => handleAction(q.id, "send") });
+      items.push({
+        label: "Send quotation",
+        icon: Send,
+        onSelect: () => handleAction(q.id, "send"),
+      });
     }
     if (q.status === "SENT") {
-      items.push({ label: "Accept quotation", icon: Check, onSelect: () => handleAction(q.id, "accept") });
-      items.push({ label: "Reject quotation", icon: X, onSelect: () => handleAction(q.id, "reject") });
+      items.push({
+        label: "Accept quotation",
+        icon: Check,
+        onSelect: () => handleAction(q.id, "accept"),
+      });
+      items.push({
+        label: "Reject quotation",
+        icon: X,
+        onSelect: () => handleAction(q.id, "reject"),
+      });
     }
     if (isConvertibleQuotation(q)) {
-      items.push({ label: "Convert to sales order", icon: ArrowRightFromLine, onSelect: () => confirmConvertQuotation(q) });
+      items.push({
+        label: "Convert to sales order",
+        icon: ArrowRightFromLine,
+        onSelect: () => confirmConvertQuotation(q),
+      });
     }
     if (q.status === "DRAFT" || q.status === "SENT") {
       items.push({
@@ -285,7 +301,10 @@ export function QuotationsClient({
           setConfirmTitle("Delete Quotation");
           setConfirmDescription(`Delete ${q.quoteNumber}? This cannot be undone.`);
           setConfirmVariant("destructive");
-          pendingConfirm.current = () => { setConfirmOpen(false); handleAction(q.id, "delete"); };
+          setPendingConfirm(() => () => {
+            setConfirmOpen(false);
+            handleAction(q.id, "delete");
+          });
           setConfirmOpen(true);
         },
         destructive: true,
@@ -430,16 +449,23 @@ export function QuotationsClient({
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-medium">{q.quoteNumber}</p>
-                          <p className="text-xs text-muted-foreground">{q.customer?.name || "Walk-in"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {q.customer?.name || "Walk-in"}
+                          </p>
                         </div>
-                        <Badge variant={statusVariants[q.status] || "secondary"} className="shrink-0 text-xs">
+                        <Badge
+                          variant={statusVariants[q.status] || "secondary"}
+                          className="shrink-0 text-xs"
+                        >
                           {statusLabels[q.status] || q.status}
                         </Badge>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>{formatDate(q.createdAt)}</span>
                         <span>Valid: {q.validUntil ? formatDate(q.validUntil) : "-"}</span>
-                        <span className="font-medium text-foreground">{formatCurrency(q.total)}</span>
+                        <span className="font-medium text-foreground">
+                          {formatCurrency(q.total)}
+                        </span>
                       </div>
                       <ActionsMenu compact items={quotationActions(q)} />
                     </div>
@@ -671,7 +697,7 @@ export function QuotationsClient({
         title={confirmTitle}
         description={confirmDescription}
         confirmVariant={confirmVariant}
-        onConfirm={() => pendingConfirm.current?.()}
+        onConfirm={() => pendingConfirm?.()}
       />
     </div>
   );

@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth } from "@/lib/auth-helper";
+import { requireCompanyAuth, requirePermission } from "@/lib/auth-helper";
 import { slugify } from "@/lib/utils";
-import { normalizeRolePermissionOverrides } from "@/lib/constants";
+import { normalizeRolePermissionOverrides, PERMISSIONS } from "@/lib/constants";
 
 export async function getCompanySettings() {
+  await requirePermission(PERMISSIONS.SETTINGS_VIEW);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -19,6 +20,7 @@ export async function getCompanySettings() {
 }
 
 export async function updateCompanySettings(data: Record<string, unknown>) {
+  await requirePermission(PERMISSIONS.COMPANY_SETTINGS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -60,6 +62,7 @@ export async function updateCompanySettings(data: Record<string, unknown>) {
 }
 
 export async function updateCompanySettingsData(data: Record<string, unknown>) {
+  await requirePermission(PERMISSIONS.SETTINGS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -106,6 +109,7 @@ export async function updateCompanySettingsData(data: Record<string, unknown>) {
 }
 
 export async function updatePermissionSettings(data: { rolePermissions?: unknown }) {
+  await requirePermission(PERMISSIONS.ROLES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
   const rolePermissions = normalizeRolePermissionOverrides(data.rolePermissions);
@@ -130,6 +134,7 @@ export async function updateThemeSettings(data: {
   layoutDensity?: string;
   isDarkMode?: boolean;
 }) {
+  await requirePermission(PERMISSIONS.BRANDING_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -164,6 +169,7 @@ export async function updateTaxComplianceSettings(data: {
   fbrPosId?: string;
   zatcaSettings?: Record<string, unknown>;
 }) {
+  await requirePermission(PERMISSIONS.TAX_SETTINGS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -214,6 +220,7 @@ export async function updateTaxComplianceSettings(data: {
 }
 
 export async function updateCompanyLogo(formData: FormData) {
+  await requirePermission(PERMISSIONS.COMPANY_SETTINGS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 

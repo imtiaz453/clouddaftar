@@ -164,9 +164,15 @@ export function NewSaleClient({
 	const receiptFrameRef = useRef<HTMLIFrameElement>(null);
 	const autoPaid = useRef(true);
 	const keypadModeRef = useRef(keypadMode);
-	keypadModeRef.current = keypadMode;
 	const activeLineIdRef = useRef(activeLineId);
-	activeLineIdRef.current = activeLineId;
+
+	useEffect(() => {
+		keypadModeRef.current = keypadMode;
+	}, [keypadMode]);
+
+	useEffect(() => {
+		activeLineIdRef.current = activeLineId;
+	}, [activeLineId]);
 
    useEffect(() => {
      barcodeRef.current?.focus();

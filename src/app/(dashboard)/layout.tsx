@@ -127,6 +127,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   let planCode: string | null = "starter";
   let subscriptionRedirectPath: string | null = null;
   let permissionRedirectPath: string | null = null;
+  let permissions: string[] = [];
 
   if (companyId) {
     const pathSegments = pathname.split("/").filter(Boolean);
@@ -185,16 +186,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
       }
 
       const unscopedPath = routeForPath(pathname, companySlug);
-      const alwaysAllowed = ["/", "/profile", "/help", "/notifications"].some(
+      const alwaysAllowed = ["/apps", "/profile", "/help", "/notifications"].some(
         (path) => unscopedPath === path || unscopedPath.startsWith(`${path}/`),
       );
+      const userRole = (session?.user as { role?: string })?.role || "";
+      permissions = applyPlanPermissionLimitsForRole(
+        getEffectiveUserPermissions(userRole, rolePermissions, userPermissionOverrides),
+        planCode,
+        userRole,
+      );
       if (!alwaysAllowed) {
-        const userRole = (session?.user as { role?: string })?.role || "";
-        const permissions = applyPlanPermissionLimitsForRole(
-          getEffectiveUserPermissions(userRole, rolePermissions, userPermissionOverrides),
-          planCode,
-          userRole,
-        );
         if (!canAccessPath(unscopedPath, permissions)) {
           permissionRedirectPath = companySlug ? `/${companySlug}/apps` : "/apps";
         }
@@ -217,6 +218,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       userName={session.user.name || "User"}
       userEmail={session.user.email || ""}
       userImage={session.user.image || ""}
+      permissions={permissions}
     >
       {children}
     </DashboardShell>
