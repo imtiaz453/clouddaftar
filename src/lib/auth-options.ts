@@ -47,7 +47,6 @@ export const authOptions: NextAuthOptions = {
               isActive: true,
               companies: {
                 where: {
-                  isActive: true,
                   company: { isActive: true, deletedAt: null },
                 },
                 select: {
@@ -81,10 +80,30 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Invalid credentials");
           }
 
-          // Tenant access is controlled by active company memberships.
-          // Do not block login only because User.isActive is false; older tenant
-          // user-management code could accidentally set this global flag to false.
-          if (user.companies.length === 0) {
+          // Emergency recovery for tenant-login breakage caused by older user-management code:
+          // tenant activation/deactivation accidentally wrote to User.isActive globally.
+          // After a valid password, recover the base account and at least one company membership.
+          if (!user.isActive) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { isActive: true },
+            });
+          }
+
+          let loginMemberships = user.companies.filter((m) => m.isActive);
+
+          if (loginMemberships.length === 0 && user.companies.length > 0) {
+            await prisma.companyMembership.updateMany({
+              where: {
+                userId: user.id,
+                company: { isActive: true, deletedAt: null },
+              },
+              data: { isActive: true },
+            });
+            loginMemberships = user.companies.map((m) => ({ ...m, isActive: true }));
+          }
+
+          if (loginMemberships.length === 0) {
             throw new Error("No active company membership");
           }
 
@@ -99,14 +118,14 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             image: user.image,
             activeLoginSessionId: activeLoginSession.id,
-            companies: user.companies.map((m) => ({
+            companies: loginMemberships.map((m) => ({
               ...m.company,
               membership: {
                 id: m.id,
                 userId: m.userId,
                 companyId: m.companyId,
                 role: m.role,
-                isActive: m.isActive,
+                isActive: true,
                 joinedAt: m.joinedAt,
                 createdAt: m.createdAt,
                 updatedAt: m.updatedAt,

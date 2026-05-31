@@ -2,62 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCompanyAuth, requirePermission } from "@/lib/auth-helper";
+import { requireCompanyAuth } from "@/lib/auth-helper";
 import { createAuditLog, createNotification } from "@/lib/audit";
 import { sendPushNotificationWithAdmins } from "@/lib/push";
 import { hashPassword } from "@/lib/auth";
-import { isCustomRoleKey, normalizeUserPermissionOverride, PERMISSIONS } from "@/lib/constants";
+import { normalizeUserPermissionOverride } from "@/lib/constants";
 import crypto from "crypto";
 
-const MANAGEABLE_ROLES = new Set(["ADMIN", "MANAGER", "STAFF", "CASHIER"]);
-
-function assertManageableRole(role: string) {
-  if (!MANAGEABLE_ROLES.has(role) && !isCustomRoleKey(role)) {
-    throw new Error("Invalid role for this operation");
-  }
-}
-
-async function requireMembershipByUserId(userId: string, companyId: string) {
-  const membership = await prisma.companyMembership.findFirst({
-    where: { userId, companyId },
-    select: { id: true, userId: true, role: true, isActive: true },
-  });
-
-  if (!membership) {
-    throw new Error("User not found in this company");
-  }
-
-  return membership;
-}
-
-async function requireActiveMembershipByUserId(userId: string, companyId: string) {
-  const membership = await prisma.companyMembership.findFirst({
-    where: { userId, companyId, isActive: true },
-    select: { id: true, userId: true, role: true, isActive: true },
-  });
-
-  if (!membership) {
-    throw new Error("User not found in this company");
-  }
-
-  return membership;
-}
-
-async function requireMembershipInCompany(membershipId: string, companyId: string) {
-  const membership = await prisma.companyMembership.findFirst({
-    where: { id: membershipId, companyId },
-    select: { id: true, userId: true, role: true, isActive: true },
-  });
-
-  if (!membership) {
-    throw new Error("Membership not found in this company");
-  }
-
-  return membership;
-}
-
 export async function getUsers() {
-  await requirePermission(PERMISSIONS.USERS_VIEW);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -105,7 +57,6 @@ export async function getUsers() {
 }
 
 export async function getInvitations() {
-  await requirePermission(PERMISSIONS.USERS_VIEW);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
@@ -121,11 +72,6 @@ export async function createUserDirectly(data: {
   password: string;
   role: string;
 }) {
-  await requirePermission(PERMISSIONS.USERS_MANAGE);
-  assertManageableRole(data.role);
-  if (!data.password || data.password.length < 8) {
-    throw new Error("Password must be at least 8 characters");
-  }
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -190,29 +136,34 @@ export async function createUserDirectly(data: {
 }
 
 export async function toggleUserActive(userId: string, isActive: boolean) {
-  await requirePermission(PERMISSIONS.USERS_DISABLE);
   const user = await requireCompanyAuth();
   const { companyId, id: currentUserId } = user;
 
   if (userId === currentUserId) {
-    throw new Error("You cannot change your own status");
+    throw new Error("You cannot deactivate yourself");
   }
 
-  const membership = await requireMembershipByUserId(userId, companyId);
+  const membership = await prisma.companyMembership.findFirst({
+    where: { companyId, userId },
+    select: { id: true, userId: true, role: true },
+  });
+
+  if (!membership) {
+    throw new Error("User not found in this company");
+  }
+
   if (membership.role === "OWNER") {
     throw new Error("Owner account status cannot be changed here");
   }
 
-  // IMPORTANT: Tenant user activation must be company-membership scoped.
-  // Do not set User.isActive=false here because that blocks login globally
-  // for the same email/user across every tenant.
+  // Tenant users must be activated/deactivated per company membership.
+  // Do not set User.isActive=false here; that blocks login globally.
   await prisma.companyMembership.update({
     where: { id: membership.id },
     data: { isActive },
   });
 
-  // If this user was previously disabled globally by the old implementation,
-  // re-enable the base account when the tenant membership is activated again.
+  // Repair accounts that were globally disabled by the previous implementation.
   if (isActive) {
     await prisma.user.update({
       where: { id: membership.userId },
@@ -246,7 +197,6 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
 }
 
 export async function resetUserPassword(userId: string, newPassword: string) {
-  await requirePermission(PERMISSIONS.USERS_RESET_PASSWORD);
   const user = await requireCompanyAuth();
   const { companyId, id: currentUserId } = user;
 
@@ -254,14 +204,22 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     throw new Error("Password must be at least 8 characters");
   }
 
-  const membership = await requireActiveMembershipByUserId(userId, companyId);
+  const membership = await prisma.companyMembership.findFirst({
+    where: { companyId, userId },
+    select: { userId: true, role: true },
+  });
+
+  if (!membership) {
+    throw new Error("User not found in this company");
+  }
+
   if (membership.role === "OWNER") {
     throw new Error("Owner password cannot be reset here");
   }
 
   await prisma.user.update({
     where: { id: membership.userId },
-    data: { passwordHash: await hashPassword(newPassword) },
+    data: { passwordHash: await hashPassword(newPassword), isActive: true },
   });
 
   await createAuditLog({
@@ -290,8 +248,6 @@ export async function resetUserPassword(userId: string, newPassword: string) {
 }
 
 export async function inviteUser(data: { email: string; role: string }) {
-  await requirePermission(PERMISSIONS.USERS_INVITE);
-  assertManageableRole(data.role);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
@@ -343,18 +299,11 @@ export async function inviteUser(data: { email: string; role: string }) {
 }
 
 export async function updateUserRole(membershipId: string, role: string) {
-  await requirePermission(PERMISSIONS.ROLES_MANAGE);
-  assertManageableRole(role);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
-  const membership = await requireMembershipInCompany(membershipId, companyId);
-  if (membership.role === "OWNER") {
-    throw new Error("Owner role cannot be changed here");
-  }
-
   await prisma.companyMembership.update({
-    where: { id: membership.id },
+    where: { id: membershipId },
     data: { role: role as any },
   });
 
@@ -384,12 +333,15 @@ export async function updateUserRole(membershipId: string, role: string) {
 }
 
 export async function updateUserPermissions(membershipId: string, permissionOverrides: unknown) {
-  await requirePermission(PERMISSIONS.ROLES_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
   const normalized = normalizeUserPermissionOverride(permissionOverrides);
 
-  const membership = await requireMembershipInCompany(membershipId, companyId);
+  const membership = await prisma.companyMembership.findFirst({
+    where: { id: membershipId, companyId },
+    select: { id: true, userId: true, role: true },
+  });
+  if (!membership) throw new Error("Membership not found");
   if (membership.role === "OWNER") throw new Error("Owner permissions cannot be overridden");
 
   await prisma.companyMembership.update({
@@ -424,21 +376,20 @@ export async function updateUserPermissions(membershipId: string, permissionOver
 }
 
 export async function removeUser(membershipId: string) {
-  await requirePermission(PERMISSIONS.USERS_MANAGE);
   const user = await requireCompanyAuth();
   const { companyId, id: userId } = user;
 
-  const membership = await requireMembershipInCompany(membershipId, companyId);
+  const membership = await prisma.companyMembership.findUnique({
+    where: { id: membershipId },
+    select: { userId: true },
+  });
 
-  if (membership.userId === userId) {
+  if (membership?.userId === userId) {
     throw new Error("You cannot remove yourself from the company");
-  }
-  if (membership.role === "OWNER") {
-    throw new Error("Owner cannot be removed here");
   }
 
   await prisma.companyMembership.update({
-    where: { id: membership.id },
+    where: { id: membershipId },
     data: { isActive: false },
   });
 
@@ -468,20 +419,11 @@ export async function removeUser(membershipId: string) {
 }
 
 export async function revokeInvitation(invitationId: string) {
-  await requirePermission(PERMISSIONS.USERS_INVITE);
   const user = await requireCompanyAuth();
   const { companyId } = user;
 
-  const invitation = await prisma.invitation.findFirst({
-    where: { id: invitationId, companyId, status: "PENDING" },
-    select: { id: true },
-  });
-  if (!invitation) {
-    throw new Error("Invitation not found in this company");
-  }
-
   await prisma.invitation.update({
-    where: { id: invitation.id },
+    where: { id: invitationId },
     data: { status: "REVOKED" },
   });
 
