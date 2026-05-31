@@ -30,8 +30,8 @@ export async function PUT(req: Request) {
     }
 
     const targetMembership = await prisma.companyMembership.findFirst({
-      where: { userId: targetUserId, companyId, isActive: true },
-      select: { userId: true, role: true },
+      where: { userId: targetUserId, companyId },
+      select: { id: true, userId: true, role: true },
     });
     if (!targetMembership) {
       return NextResponse.json({ error: "User not found in your company" }, { status: 404 });
@@ -40,10 +40,20 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Owner account status cannot be changed here" }, { status: 403 });
     }
 
-    await prisma.user.update({
-      where: { id: targetMembership.userId },
+    // Keep activation/deactivation tenant-scoped.
+    // Updating User.isActive=false blocks the person from logging in globally.
+    await prisma.companyMembership.update({
+      where: { id: targetMembership.id },
       data: { isActive },
     });
+
+    // Repair users who were accidentally globally disabled by the old flow.
+    if (isActive) {
+      await prisma.user.update({
+        where: { id: targetMembership.userId },
+        data: { isActive: true },
+      });
+    }
 
     await createAuditLog({
       userId: currentUserId,

@@ -81,8 +81,11 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Invalid credentials");
           }
 
-          if (!user.isActive) {
-            throw new Error("Account is deactivated");
+          // Tenant access is controlled by active company memberships.
+          // Do not block login only because User.isActive is false; older tenant
+          // user-management code could accidentally set this global flag to false.
+          if (user.companies.length === 0) {
+            throw new Error("No active company membership");
           }
 
           const activeLoginSession = await createActiveLoginSession(
@@ -114,7 +117,8 @@ export const authOptions: NextAuthOptions = {
           if (error instanceof Error) {
             if (
               error.message === "Invalid credentials" ||
-              error.message === "Account is deactivated"
+              error.message === "Account is deactivated" ||
+              error.message === "No active company membership"
             ) {
               throw error;
             }

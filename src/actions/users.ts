@@ -17,10 +17,23 @@ function assertManageableRole(role: string) {
   }
 }
 
+async function requireMembershipByUserId(userId: string, companyId: string) {
+  const membership = await prisma.companyMembership.findFirst({
+    where: { userId, companyId },
+    select: { id: true, userId: true, role: true, isActive: true },
+  });
+
+  if (!membership) {
+    throw new Error("User not found in this company");
+  }
+
+  return membership;
+}
+
 async function requireActiveMembershipByUserId(userId: string, companyId: string) {
   const membership = await prisma.companyMembership.findFirst({
     where: { userId, companyId, isActive: true },
-    select: { id: true, userId: true, role: true },
+    select: { id: true, userId: true, role: true, isActive: true },
   });
 
   if (!membership) {
@@ -49,7 +62,7 @@ export async function getUsers() {
   const { companyId } = user;
 
   const members = await prisma.companyMembership.findMany({
-    where: { companyId, isActive: true },
+    where: { companyId },
     include: {
       branch: { select: { id: true, name: true } },
       user: {
@@ -86,7 +99,7 @@ export async function getUsers() {
     branch: m.branch,
     assignedStores: m.user.assignedStores,
     assignedStockLocations: m.user.assignedStockLocations,
-    isActive: m.user.isActive,
+    isActive: Boolean(m.isActive && m.user.isActive),
     joinedAt: m.joinedAt,
   }));
 }
@@ -185,15 +198,27 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
     throw new Error("You cannot change your own status");
   }
 
-  const membership = await requireActiveMembershipByUserId(userId, companyId);
+  const membership = await requireMembershipByUserId(userId, companyId);
   if (membership.role === "OWNER") {
     throw new Error("Owner account status cannot be changed here");
   }
 
-  await prisma.user.update({
-    where: { id: membership.userId },
+  // IMPORTANT: Tenant user activation must be company-membership scoped.
+  // Do not set User.isActive=false here because that blocks login globally
+  // for the same email/user across every tenant.
+  await prisma.companyMembership.update({
+    where: { id: membership.id },
     data: { isActive },
   });
+
+  // If this user was previously disabled globally by the old implementation,
+  // re-enable the base account when the tenant membership is activated again.
+  if (isActive) {
+    await prisma.user.update({
+      where: { id: membership.userId },
+      data: { isActive: true },
+    });
+  }
 
   await createAuditLog({
     userId: currentUserId,
