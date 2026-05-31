@@ -362,6 +362,130 @@ export async function adminChangePlan(companyId: string, planId: string) {
   return { success: true };
 }
 
+
+
+type TenantInfoInput = {
+  name?: string;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+  country?: string | null;
+  taxId?: string | null;
+  taxName?: string | null;
+  taxRate?: number | string | null;
+  currency?: string | null;
+  currencySymbol?: string | null;
+  timezone?: string | null;
+  dateFormat?: string | null;
+  isActive?: boolean;
+};
+
+const cleanOptionalText = (value: unknown) => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+};
+
+export async function updateTenantInfo(companyId: string, data: TenantInfoInput) {
+  const session = await requireAdmin();
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+  if (!company) throw new Error("Company not found");
+
+  const updateData: Record<string, unknown> = {};
+
+  if (typeof data.name === "string" && data.name.trim()) updateData.name = data.name.trim();
+  if ("email" in data) updateData.email = cleanOptionalText(data.email);
+  if ("phone" in data) updateData.phone = cleanOptionalText(data.phone);
+  if ("website" in data) updateData.website = cleanOptionalText(data.website);
+  if ("address" in data) updateData.address = cleanOptionalText(data.address);
+  if ("city" in data) updateData.city = cleanOptionalText(data.city);
+  if ("state" in data) updateData.state = cleanOptionalText(data.state);
+  if ("zipCode" in data) updateData.zipCode = cleanOptionalText(data.zipCode);
+  if ("country" in data && typeof data.country === "string" && data.country.trim()) {
+    updateData.country = data.country.trim();
+  }
+  if ("taxId" in data) updateData.taxId = cleanOptionalText(data.taxId);
+  if ("taxName" in data) updateData.taxName = cleanOptionalText(data.taxName);
+  if ("taxRate" in data) {
+    const taxRate = Number(data.taxRate ?? 0);
+    updateData.taxRate = Number.isFinite(taxRate) ? taxRate : 0;
+  }
+  if ("currency" in data && typeof data.currency === "string" && data.currency.trim()) {
+    updateData.currency = data.currency.trim().toUpperCase();
+  }
+  if ("currencySymbol" in data && typeof data.currencySymbol === "string" && data.currencySymbol.trim()) {
+    updateData.currencySymbol = data.currencySymbol.trim();
+  }
+  if ("timezone" in data && typeof data.timezone === "string" && data.timezone.trim()) {
+    updateData.timezone = data.timezone.trim();
+  }
+  if ("dateFormat" in data && typeof data.dateFormat === "string" && data.dateFormat.trim()) {
+    updateData.dateFormat = data.dateFormat.trim();
+  }
+  if (typeof data.isActive === "boolean") updateData.isActive = data.isActive;
+
+  if (Object.keys(updateData).length === 0) return { success: true };
+
+  await prisma.company.update({ where: { id: companyId }, data: updateData });
+  await logAdminAction(session.admin.id, "TENANT_UPDATED", "Company", companyId, updateData);
+  revalidatePath("/cloud-daftar-admin", "layout");
+  return { success: true };
+}
+
+function createTemporaryPassword() {
+  return `Cd-${Math.random().toString(36).slice(2, 8)}-${Math.random()
+    .toString(36)
+    .slice(2, 6)}`;
+}
+
+export async function resetTenantUserPassword(
+  companyId: string,
+  userRefOrData: string | { userId?: string; memberId?: string; email?: string; password?: string; newPassword?: string },
+  password?: string,
+) {
+  const session = await requireAdmin();
+
+  const data = typeof userRefOrData === "object" && userRefOrData !== null ? userRefOrData : null;
+  const userId = data?.userId || (typeof userRefOrData === "string" ? userRefOrData : undefined);
+  const memberId = data?.memberId;
+  const email = data?.email?.trim().toLowerCase();
+  const newPassword = (data?.newPassword || data?.password || password || createTemporaryPassword()).trim();
+
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error("Password must be at least 6 characters");
+  }
+
+  const membership = await prisma.companyMembership.findFirst({
+    where: {
+      companyId,
+      ...(memberId
+        ? { id: memberId }
+        : userId
+          ? { userId }
+          : email
+            ? { user: { email } }
+            : {}),
+    },
+    include: { user: { select: { id: true, email: true, name: true } } },
+  });
+
+  if (!membership?.user) throw new Error("Tenant user not found");
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id: membership.user.id }, data: { passwordHash } });
+
+  await logAdminAction(session.admin.id, "TENANT_USER_PASSWORD_RESET", "User", membership.user.id, {
+    companyId,
+    email: membership.user.email,
+  });
+
+  return { success: true, password: newPassword };
+}
+
 export async function getCompanyDetail(companyId: string) {
   await requireAdmin();
 
