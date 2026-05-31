@@ -263,6 +263,211 @@ async function resolveStockLocation(tx: Tx, companyId: string, warehouseId: stri
   return getOrCreateDefaultStockLocation(tx, companyId);
 }
 
+
+
+async function findWarehouseByStockLocationCode(
+  tx: Tx,
+  params: { companyId: string; code?: string | null },
+) {
+  if (!params.code) return null;
+  return tx.warehouse.findFirst({
+    where: {
+      companyId: params.companyId,
+      code: params.code,
+      deletedAt: null,
+      isActive: true,
+    },
+    select: { id: true, branchId: true },
+  });
+}
+
+async function resolveUserBranchId(
+  tx: Tx,
+  params: { companyId: string; userId?: string | null; branchId?: string | null },
+): Promise<string | null> {
+  if (params.branchId) return params.branchId;
+  if (!params.userId) return null;
+
+  const membership = await tx.companyMembership.findFirst({
+    where: { companyId: params.companyId, userId: params.userId, isActive: true },
+    select: { branchId: true },
+  });
+
+  return membership?.branchId || null;
+}
+
+async function findBranchSellableLocation(
+  tx: Tx,
+  params: { companyId: string; branchId: string; userId?: string | null },
+) {
+  if (params.userId) {
+    const assignedLocation = await tx.stockLocation.findFirst({
+      where: {
+        companyId: params.companyId,
+        branchId: params.branchId,
+        assignedEmployeeId: params.userId,
+        deletedAt: null,
+        isActive: true,
+        isSellable: true,
+      },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    });
+    if (assignedLocation) return assignedLocation;
+
+    const assignedWarehouse = await tx.warehouse.findFirst({
+      where: {
+        companyId: params.companyId,
+        branchId: params.branchId,
+        assignedEmployeeId: params.userId,
+        deletedAt: null,
+        isActive: true,
+      },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+      select: { id: true },
+    });
+    if (assignedWarehouse) {
+      return resolveStockLocation(tx, params.companyId, assignedWarehouse.id);
+    }
+  }
+
+  const branchLocation = await tx.stockLocation.findFirst({
+    where: {
+      companyId: params.companyId,
+      branchId: params.branchId,
+      deletedAt: null,
+      isActive: true,
+      isSellable: true,
+    },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+  });
+  if (branchLocation) return branchLocation;
+
+  const branchWarehouse = await tx.warehouse.findFirst({
+    where: {
+      companyId: params.companyId,
+      branchId: params.branchId,
+      deletedAt: null,
+      isActive: true,
+    },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  if (branchWarehouse) return resolveStockLocation(tx, params.companyId, branchWarehouse.id);
+
+  return null;
+}
+
+export async function resolveSaleFulfillmentLocation(
+  tx: Tx,
+  params: {
+    companyId: string;
+    userId?: string | null;
+    role?: string | null;
+    branchId?: string | null;
+    warehouseId?: string | null;
+    stockLocationId?: string | null;
+  },
+): Promise<{ branchId: string; warehouseId: string | null; stockLocationId: string; stockLocationName: string }> {
+  const fallback = await ensureDefaultBranchAndWarehouse(tx, params.companyId);
+  const preferredBranchId = await resolveUserBranchId(tx, {
+    companyId: params.companyId,
+    userId: params.userId,
+    branchId: params.branchId,
+  });
+
+  if (params.stockLocationId) {
+    const selectedLocation = await tx.stockLocation.findFirst({
+      where: {
+        id: params.stockLocationId,
+        companyId: params.companyId,
+        deletedAt: null,
+        isActive: true,
+        isSellable: true,
+      },
+      select: { id: true, name: true, code: true, branchId: true },
+    });
+
+    if (!selectedLocation) {
+      throw new Error("Selected stock store/location was not found, inactive, or not sellable");
+    }
+
+    const warehouse = await findWarehouseByStockLocationCode(tx, {
+      companyId: params.companyId,
+      code: selectedLocation.code,
+    });
+
+    return {
+      branchId: selectedLocation.branchId || preferredBranchId || warehouse?.branchId || fallback.branch.id,
+      warehouseId: warehouse?.id || params.warehouseId || null,
+      stockLocationId: selectedLocation.id,
+      stockLocationName: selectedLocation.name,
+    };
+  }
+
+  if (params.warehouseId) {
+    const selectedWarehouse = await tx.warehouse.findFirst({
+      where: {
+        id: params.warehouseId,
+        companyId: params.companyId,
+        deletedAt: null,
+        isActive: true,
+      },
+      select: { id: true, branchId: true },
+    });
+
+    if (!selectedWarehouse) {
+      throw new Error("Selected sales store/warehouse was not found or is inactive");
+    }
+
+    const stockLocation = await resolveStockLocation(tx, params.companyId, selectedWarehouse.id);
+    if (!stockLocation) throw new Error("Could not resolve stock location for selected store/warehouse");
+
+    return {
+      branchId: params.branchId || selectedWarehouse.branchId || fallback.branch.id,
+      warehouseId: selectedWarehouse.id,
+      stockLocationId: stockLocation.id,
+      stockLocationName: stockLocation.name,
+    };
+  }
+
+  if (preferredBranchId) {
+    const branchLocation = await findBranchSellableLocation(tx, {
+      companyId: params.companyId,
+      branchId: preferredBranchId,
+      userId: params.userId,
+    });
+
+    if (branchLocation) {
+      const warehouse = await findWarehouseByStockLocationCode(tx, {
+        companyId: params.companyId,
+        code: branchLocation.code,
+      });
+
+      return {
+        branchId: branchLocation.branchId || preferredBranchId,
+        warehouseId: warehouse?.id || null,
+        stockLocationId: branchLocation.id,
+        stockLocationName: branchLocation.name,
+      };
+    }
+  }
+
+  const defaultLocation = await getOrCreateDefaultStockLocation(tx, params.companyId);
+  if (!defaultLocation) throw new Error("Could not resolve a sales stock location");
+
+  const warehouse = await findWarehouseByStockLocationCode(tx, {
+    companyId: params.companyId,
+    code: defaultLocation.code,
+  });
+
+  return {
+    branchId: defaultLocation.branchId || warehouse?.branchId || fallback.branch.id,
+    warehouseId: warehouse?.id || null,
+    stockLocationId: defaultLocation.id,
+    stockLocationName: defaultLocation.name,
+  };
+}
+
 export async function getProductStockAtWarehouse(
   tx: Tx,
   product: { id: string; stock: number | null },

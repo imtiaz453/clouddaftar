@@ -28,8 +28,7 @@ import { writeZatcaInvoiceXml } from "@/lib/tax/zatca-phase2";
 import { processZatcaInvoice } from "@/lib/zatca/zatca-service";
 import {
   adjustWarehouseStock,
-  getProductStockAtWarehouse,
-  resolveOperationalLocation,
+  resolveSaleFulfillmentLocation,
   getUserAccessibleLocationIds,
 } from "@/lib/locations";
 import { consumeStockForSaleTx, getProductStockByLocation } from "@/lib/inventory";
@@ -721,12 +720,18 @@ export async function createSale(data: {
     );
 
     const productsById = await getProductsForSale(tx, companyId, data.items);
-    const location = await resolveOperationalLocation(tx, {
+    const saleStockLocation = await resolveSaleFulfillmentLocation(tx, {
       companyId,
       userId,
+      role: user.role,
       branchId: data.branchId,
       warehouseId: data.warehouseId,
+      stockLocationId: effectiveStockLocationId,
     });
+    const location = {
+      branchId: saleStockLocation.branchId,
+      warehouseId: saleStockLocation.warehouseId,
+    };
     if (postsToAccounting) {
       if (!(settings?.enableNegativeStock ?? false)) {
         const required = new Map<string, number>();
@@ -737,26 +742,16 @@ export async function createSale(data: {
         for (const [productId, quantity] of required) {
           const product = productsById.get(productId);
           if (!product?.isService) {
-            if (effectiveStockLocationId) {
-              const stockInfo = await getProductStockByLocation(productId, effectiveStockLocationId, companyId);
-              const available = stockInfo?.qtyAvailable ?? 0;
-              if (available < quantity) {
-                throw new Error(
-                  `Insufficient stock for ${product.name} at selected location. Available: ${available}, requested: ${quantity}`,
-                );
-              }
-            } else {
-              const available = await getProductStockAtWarehouse(
-                tx,
-                product,
-                companyId,
-                location.warehouseId,
+            const stockInfo = await getProductStockByLocation(
+              productId,
+              saleStockLocation.stockLocationId,
+              companyId,
+            );
+            const available = stockInfo?.qtyAvailable ?? 0;
+            if (available < quantity) {
+              throw new Error(
+                `Insufficient stock for ${product.name} at ${saleStockLocation.stockLocationName}. Available: ${available}, requested: ${quantity}`,
               );
-              if (available < quantity) {
-                throw new Error(
-                  `Insufficient stock for ${product.name} at selected warehouse. Available: ${available}, requested: ${quantity}`,
-                );
-              }
             }
           }
         }
@@ -802,51 +797,56 @@ export async function createSale(data: {
       for (const item of data.items) {
         const product = productsById.get(item.productId);
         if (product && !product.isService) {
-          if (effectiveStockLocationId) {
-            await consumeStockForSaleTx(tx, {
-              locationId: effectiveStockLocationId,
-              productId: item.productId,
-              companyId,
-              quantity: item.quantity,
-              reference: invoiceNumber,
-              referenceId: sale.id,
-              createdById: userId,
-            });
-          } else {
-            const { beforeStock, afterStock, locationId } = await adjustWarehouseStock(tx, {
-              companyId,
-              productId: item.productId,
-              warehouseId: location.warehouseId,
-              quantityDelta: -item.quantity,
-            });
-            await tx.inventoryLog.create({
-              data: {
+          const beforeBalance = await tx.stockBalance.findUnique({
+            where: {
+              productId_locationId_companyId: {
                 productId: item.productId,
+                locationId: saleStockLocation.stockLocationId,
                 companyId,
-                branchId: location.branchId,
-                warehouseId: location.warehouseId,
-                type: "SALE",
-                quantity: -item.quantity,
-                beforeStock,
-                afterStock,
-                reference: invoiceNumber,
-                createdById: userId,
               },
-            });
-            await createSaleStockLedgerFromAdjustmentTx(tx, {
-              companyId,
+            },
+            select: { qtyOnHand: true },
+          });
+          const beforeStock = Number(beforeBalance?.qtyOnHand || 0);
+
+          await consumeStockForSaleTx(tx, {
+            locationId: saleStockLocation.stockLocationId,
+            productId: item.productId,
+            companyId,
+            quantity: item.quantity,
+            reference: invoiceNumber,
+            referenceId: sale.id,
+            createdById: userId,
+          });
+          await syncProductStockFromBalancesTx(tx, companyId, item.productId);
+
+          const afterBalance = await tx.stockBalance.findUnique({
+            where: {
+              productId_locationId_companyId: {
+                productId: item.productId,
+                locationId: saleStockLocation.stockLocationId,
+                companyId,
+              },
+            },
+            select: { qtyOnHand: true },
+          });
+          const afterStock = Number(afterBalance?.qtyOnHand || 0);
+
+          await tx.inventoryLog.create({
+            data: {
               productId: item.productId,
-              locationId,
-              movementType: "SALE",
-              quantity: item.quantity,
+              companyId,
+              branchId: location.branchId,
+              warehouseId: location.warehouseId,
+              type: "SALE",
+              quantity: -item.quantity,
               beforeStock,
               afterStock,
               reference: invoiceNumber,
-              referenceId: sale.id,
-              notes: "Invoice completed",
+              notes: `Sale issued from ${saleStockLocation.stockLocationName}`,
               createdById: userId,
-            });
-          }
+            },
+          });
         }
       }
     }
@@ -1213,6 +1213,17 @@ export async function updateSale(
           )
         : new Map<string, any>();
 
+    const fallbackSaleStockLocation =
+      stockNeedsFullIssue || stockNeedsDelta
+        ? await resolveSaleFulfillmentLocation(tx, {
+            companyId,
+            userId,
+            role: user.role,
+            branchId: existing.branchId,
+            warehouseId: existing.warehouseId,
+          })
+        : null;
+
     const applySaleStockChange = async (params: {
       productId: string;
       quantity: number;
@@ -1230,6 +1241,7 @@ export async function updateSale(
         productId: params.productId,
       });
 
+      const fallbackLocationId = fallbackSaleStockLocation?.stockLocationId;
       const stockResult = originalLocationId
         ? await adjustSaleStockLocationTx(tx, {
             companyId,
@@ -1242,12 +1254,24 @@ export async function updateSale(
             notes: params.notes,
             createdById: userId,
           })
-        : await adjustWarehouseStock(tx, {
-            companyId,
-            productId: params.productId,
-            warehouseId: existing.warehouseId,
-            quantityDelta: signedDelta,
-          });
+        : fallbackLocationId
+          ? await adjustSaleStockLocationTx(tx, {
+              companyId,
+              productId: params.productId,
+              locationId: fallbackLocationId,
+              quantity: params.quantity,
+              direction: params.direction,
+              reference: invoiceNumber,
+              referenceId: existing.id,
+              notes: params.notes,
+              createdById: userId,
+            })
+          : await adjustWarehouseStock(tx, {
+              companyId,
+              productId: params.productId,
+              warehouseId: existing.warehouseId,
+              quantityDelta: signedDelta,
+            });
 
       if (!stockResult) return;
 
@@ -1255,8 +1279,8 @@ export async function updateSale(
         data: {
           productId: params.productId,
           companyId,
-          branchId: existing.branchId,
-          warehouseId: existing.warehouseId,
+          branchId: originalLocationId ? existing.branchId : fallbackSaleStockLocation?.branchId || existing.branchId,
+          warehouseId: originalLocationId ? existing.warehouseId : fallbackSaleStockLocation?.warehouseId || existing.warehouseId,
           type: params.direction === "ISSUE" ? "SALE" : "RETURN",
           quantity: signedDelta,
           beforeStock: stockResult.beforeStock,
@@ -1267,7 +1291,7 @@ export async function updateSale(
         },
       });
 
-      if (!originalLocationId) {
+      if (!originalLocationId && !fallbackLocationId) {
         await createSaleStockLedgerFromAdjustmentTx(tx, {
           companyId,
           productId: params.productId,
@@ -1369,6 +1393,12 @@ export async function updateSale(
         status: newStatus as any,
         customerId: effectiveCustomerId,
         updatedById: userId,
+        ...(stockNeedsFullIssue && fallbackSaleStockLocation
+          ? {
+              branchId: fallbackSaleStockLocation.branchId,
+              warehouseId: fallbackSaleStockLocation.warehouseId,
+            }
+          : {}),
         ...(!updatedAffectsStock
           ? {
               taxComplianceMode: "NONE",
@@ -1608,7 +1638,7 @@ export async function refundSale(
         },
       });
 
-      if (!originalLocationId) {
+      if (!originalLocationId && !fallbackLocationId) {
         await createSaleStockLedgerFromAdjustmentTx(tx, {
           companyId,
           productId: item.productId,
