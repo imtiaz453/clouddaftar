@@ -18,6 +18,10 @@ export async function PUT(req: Request) {
     const currentUserId = (session.user as any).id;
     const companyId = (session.user as any).companyId;
 
+    if (!companyId) {
+      return NextResponse.json({ error: "Company context required" }, { status: 403 });
+    }
+
     if (!newPassword || newPassword.length < 8) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters" },
@@ -31,13 +35,17 @@ export async function PUT(req: Request) {
 
     const targetMembership = await prisma.companyMembership.findFirst({
       where: { userId: targetUserId, companyId, isActive: true },
+      select: { userId: true, role: true },
     });
     if (!targetMembership) {
       return NextResponse.json({ error: "User not found in your company" }, { status: 404 });
     }
+    if (targetMembership.role === "OWNER") {
+      return NextResponse.json({ error: "Owner password cannot be reset here" }, { status: 403 });
+    }
 
     await prisma.user.update({
-      where: { id: targetUserId },
+      where: { id: targetMembership.userId },
       data: { passwordHash: await hashPassword(newPassword) },
     });
 
@@ -52,6 +60,10 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to reset password" }, { status: 500 });
+    console.error("/api/users/reset-password error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to reset password" },
+      { status: 500 },
+    );
   }
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
-import { createAuditLog, createNotification } from "@/lib/audit";
+import { createAuditLog } from "@/lib/audit";
 import { checkPermission } from "@/lib/auth-helper";
 import { PERMISSIONS } from "@/lib/constants";
 
@@ -17,6 +17,10 @@ export async function PUT(req: Request) {
     const currentUserId = (session.user as any).id;
     const companyId = (session.user as any).companyId;
 
+    if (!companyId) {
+      return NextResponse.json({ error: "Company context required" }, { status: 403 });
+    }
+
     if (targetUserId === currentUserId) {
       return NextResponse.json({ error: "You cannot change your own status" }, { status: 400 });
     }
@@ -27,13 +31,17 @@ export async function PUT(req: Request) {
 
     const targetMembership = await prisma.companyMembership.findFirst({
       where: { userId: targetUserId, companyId, isActive: true },
+      select: { userId: true, role: true },
     });
     if (!targetMembership) {
       return NextResponse.json({ error: "User not found in your company" }, { status: 404 });
     }
+    if (targetMembership.role === "OWNER") {
+      return NextResponse.json({ error: "Owner account status cannot be changed here" }, { status: 403 });
+    }
 
     await prisma.user.update({
-      where: { id: targetUserId },
+      where: { id: targetMembership.userId },
       data: { isActive },
     });
 
@@ -48,6 +56,10 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
+    console.error("/api/users/toggle-active error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to update user" },
+      { status: 500 },
+    );
   }
 }
